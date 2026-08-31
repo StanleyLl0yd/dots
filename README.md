@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -22,67 +22,87 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 </div>
 
-**Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. When a valid neighboring-dot boundary is actually closed around opponent dots, the captured area is outlined and lightly hatched.
+**Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.5.0** · advanced capture rules + reversible sessions + practically unbounded board + hardened PWA/accessibility · GitHub Pages live
+Current source version: **0.6.0** · advanced classic capture rules + local two-player mode + deterministic computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
 
 ## 🎯 Rules
 
 1. Red moves first by default.
 2. Players alternate placing one dot on a legal empty grid intersection.
-3. Every two consecutive dots of a boundary must be on neighboring grid intersections: exactly one grid step horizontally, vertically, or diagonally. Gaps and long segments are not allowed.
-4. The last boundary dot must also be adjacent to the first, forming a closed chain.
+3. Consecutive boundary dots must be neighboring intersections: exactly one grid step horizontally, vertically, or diagonally.
+4. The closing edge from the last boundary dot to the first follows the same one-step rule.
 5. A closed chain captures when it encloses at least one opponent dot.
 6. Captured opponent dots count toward the surrounding player's score.
 7. A closed empty area is a **house** and does not score while empty. If the opponent enters it without completing a direct capture on that move, the house activates as a capture.
-8. Active opponent captures can themselves be surrounded. A fully surrounded opponent capture is deactivated, its previously captured dots are released, and score is recalculated from the active capture state.
+8. Active opponent captures can themselves be surrounded. Fully surrounded opponent captures deactivate, their held dots are released, and score is derived again from the active capture state.
 9. The player with more currently captured opponent dots has the higher score.
 
 The authoritative rules and implementation status are tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
+## 🤖 Computer opponent
+
+Choose **Vs computer** from the mode selector to play Red against the Blue computer opponent. The original **Two players** mode remains available.
+
+The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState` and validates every candidate by applying it through the existing game core.
+
+Its first release uses a deterministic bounded tactical search:
+
+- candidates are generated from empty intersections neighboring active stones;
+- likely captures, blocking points, own connectivity, and recent local pressure rank the frontier;
+- shortlisted moves are simulated through `placeStone()`, so houses, capture-of-capture, releases, blocked territory, and scoring are handled by the real rules engine;
+- the computer examines a bounded set of opponent replies and prefers the move with the best worst-case result;
+- search budgets shrink as a position grows so browser work remains bounded.
+
+The human always plays **Red** and the computer plays **Blue** in this version. Switching game mode does not reset the current board. If Blue is already to move when computer mode is enabled, the computer takes over that turn. In computer mode, **Undo** rolls back the computer move and the preceding human move when both exist, returning to the previous human decision point.
+
+See [`docs/AI.md`](docs/AI.md) for the AI contract and limitations.
+
 ## 🖱 Board navigation
 
 - **Click / tap** an intersection to place a dot.
-- **Drag** with one pointer to pan the board; the movement threshold keeps an ordinary click/tap from becoming a pan.
+- **Drag** with one pointer to pan the board; a movement threshold separates placement from pan.
 - **Mouse wheel / trackpad scroll** zooms around the pointer position.
 - **Two-finger pinch** zooms and pans around the moving gesture midpoint.
-- **Keyboard:** focus the board, use the arrow keys to move the intersection cursor, **Enter / Space** to place a dot, and **+ / -** to zoom.
-- The viewport is restored after reload independently from the saved game. Starting a new game resets the viewport to the origin at 100% zoom.
+- **Keyboard:** focus the board, use arrow keys to move the intersection cursor, **Enter / Space** to place a dot, and **+ / -** to zoom.
+- Viewport state is restored separately from the saved game. New game resets the viewport to origin at 100% zoom.
 
 Viewport movement never changes game coordinates. Pointer and keyboard placement both resolve to integer grid intersections before the authoritative game core sees a move.
 
 ## ♿ Accessibility & mobile
 
-- the board is keyboard-operable and has screen-reader instructions/live announcements for cursor movement and placement results;
-- a skip link moves keyboard focus directly to the board;
-- primary buttons use mobile-sized touch targets and visible keyboard focus;
-- mobile layouts respect display cutouts and safe areas, dynamic viewport height, and installed-PWA browser chrome;
-- dark mode, forced-colors mode, and reduced-motion preferences receive explicit handling;
-- Canvas DPR is bounded to avoid excessive backing-buffer memory on extreme-density screens.
+- keyboard-operable board with screen-reader instructions and live announcements;
+- skip link directly to the board;
+- mobile-sized touch targets and visible keyboard focus;
+- safe-area and dynamic viewport handling for mobile/installed PWA use;
+- explicit dark-mode, forced-colors, and reduced-motion handling;
+- bounded Canvas DPR to avoid excessive backing-buffer memory on extreme-density screens;
+- localized computer-thinking and computer-move announcements reuse the same accessible status path.
 
 ## 📦 PWA & offline lifecycle
 
-The game is installable and its application shell is precached for offline use. A local saved game remains available without a network connection because game/session persistence is independent from the service worker.
+The application shell is precached for offline use. Saved games, viewport state, and game-mode preference are local browser data and do not depend on the network or service worker.
 
-When a newer application version is waiting, Dots **prompts before applying it** instead of silently replacing the running page. The app checks for updates after reconnecting, when returning to the foreground, and periodically while open. The production build also verifies that the manifest, service worker, required install assets, and mobile icon linkage were actually generated.
+When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage.
 
 ## ✨ Current build
 
-- complete local two-player game core separated from Canvas rendering;
-- strict 8-direction neighboring-dot enclosure topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
-- capture outline, translucent fill, light hatching, and placement blocking inside active captured areas;
-- exact one-move Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
-- practically unbounded pan/zoom viewport with mouse, trackpad, touch, pinch, and keyboard interaction;
+- complete classic local rule engine separated from Canvas and browser UI;
+- strict 8-direction neighboring-dot topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
+- local two-player mode plus deterministic offline Blue computer opponent;
+- bounded AI candidate/reply search using real game-core simulation with immediate-capture and obvious-threat handling;
+- separately versioned persisted game-mode preference;
+- exact Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
+- practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
-- screen-reader/live-status support, focus-visible states, safe-area mobile UI, reduced-motion and forced-colors handling;
+- accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
 - explicit offline/update PWA lifecycle with user-confirmed refresh;
-- corrected scalable/PWA icon geometry that follows the same adjacency/intersection rules as the game;
 - build-time verification of generated PWA/offline artifacts;
-- regression/stress coverage for topology, persistence, long histories, large viewport transforms, and bounded 8K rendering ranges;
+- regression/stress coverage for rules, persistence, AI tactics, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.5.0** completes the planned browser/PWA/accessibility hardening phase. The principal local-game rules, reversible state, navigation, persistence, offline shell, and accessibility path are now in place; remaining work is continued real-device/topology validation and optional higher-level features such as AI.
+Version **0.6.0** completes the first computer-opponent phase. The AI is tactical rather than a solved-game engine; future work can improve strength or add difficulty levels while preserving the same pure core-facing API and browser responsiveness.
 
 ## 🧱 Technology
 
@@ -93,7 +113,8 @@ Version **0.5.0** completes the planned browser/PWA/accessibility hardening phas
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest + build artifact verification |
-| Persistence | versioned localStorage move log + separate viewport state |
+| Persistence | versioned localStorage move log + viewport + game-mode preference |
+| AI | deterministic bounded tactical search over the game core |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -102,6 +123,8 @@ Version **0.5.0** completes the planned browser/PWA/accessibility hardening phas
 ```text
 src/
 ├── game/
+│   ├── ai.ts              pure computer-opponent search
+│   ├── ai.test.ts         tactical/determinism/large-position AI tests
 │   ├── board.ts           game state and legal placement
 │   ├── capture.ts         topology, houses, release, and scoring
 │   ├── session.ts         history, undo, and reset
@@ -112,17 +135,18 @@ src/
 │   ├── viewport.ts        pan/zoom, visible bounds, screen↔game transforms
 │   └── viewport.test.ts   viewport/performance regression tests
 ├── persistence.ts         authoritative move-log save/restore adapter
+├── preferences.ts         versioned local/computer mode preference
 ├── viewport-persistence.ts  separate viewport save/restore adapter
 ├── pwa.ts                 service-worker update/offline lifecycle
 ├── i18n.ts                Russian / English interface and a11y copy
-├── main.ts                application composition and browser status UI
+├── main.ts                application composition, computer-turn scheduling, status UI
 └── styles.css             notebook/mobile/accessibility visual layer
 
 scripts/
 └── verify-build.mjs       production PWA artifact verification
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current architecture and [`CHANGELOG.md`](CHANGELOG.md) for release changes.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 🛠 Development
 
@@ -142,13 +166,13 @@ npm test
 npm run build
 ```
 
-`npm run build` includes TypeScript validation, the Vite/PWA production build, and a post-build check of the generated manifest/service worker/install assets.
+`npm run build` includes TypeScript validation, the Vite/PWA production build, and post-build verification of generated PWA artifacts.
 
 ## 🗺 Roadmap
 
-1. Continue real-device/browser validation and topology/performance stress testing as difficult positions are found.
-2. Add optional import/export only if it remains simple and genuinely useful.
-3. Consider a computer opponent now that the rule engine, reversible local flow, viewport, persistence, PWA lifecycle, and accessibility path are stable.
+1. Continue real-device/browser and adversarial topology validation.
+2. Improve AI selectively: stronger threat extraction, deeper bounded search, transposition reuse, or difficulty levels only if responsiveness remains predictable.
+3. Add optional import/export only if it stays simple and useful.
 4. Optionally package the same codebase for Android through Capacitor later.
 
 ## 📄 License
