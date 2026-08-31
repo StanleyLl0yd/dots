@@ -33,40 +33,56 @@ Every pair of consecutive vertices in a capture boundary must satisfy this adjac
 
 ### Capture
 
-1. A capture occurs when a move completes a closed, non-self-intersecting chain of the current player's dots in which every consecutive pair is adjacent under the rule above.
-2. At least one opponent dot must be inside the closed chain at the moment it closes.
-3. The captured area is outlined through the surrounding player's boundary dots and visually filled or lightly hatched with that player's color.
-4. Opponent dots inside the captured area are captured and added to the surrounding player's score.
-5. Captured intersections are removed from normal play and no new dots may be placed inside the captured area.
-6. A move that creates several independent captures may resolve all captures created by that move.
-7. If several valid boundaries could capture the same dots, the engine must resolve the minimum valid captured area consistently and deterministically.
+1. A direct capture occurs when a move completes a closed, non-self-intersecting chain of the current player's active dots in which every consecutive pair is adjacent under the rule above.
+2. At least one uncaptured opponent dot must be strictly inside the closed chain when it resolves.
+3. If one move completes several independent captures, all valid minimum faces created by that move resolve.
+4. If several valid boundaries could capture the same dot, the engine resolves the minimum valid captured face deterministically.
+5. The captured area is outlined through the surrounding player's boundary dots and visually filled or lightly hatched with that player's color.
+6. Captured opponent dots are inactive while the capture holding them remains active and count toward the surrounding player's score.
+7. No new dot may be placed strictly inside an active captured area.
 
 ### Houses
 
-A closed chain containing no opponent dots is a **house** and is not a capture. It is not scored, not filled, and the intersections inside remain playable. If the opponent later enters such a house without immediately creating a valid counter-capture, the house may become a capture according to the standard house rule.
+A closed chain containing no opponent dots is a **house** and is not a capture while empty. It is not scored or rendered as captured territory.
+
+If the opponent later places a dot strictly inside the house and that move does not complete a direct capture for the entering player, the smallest valid containing house activates immediately as a capture by the house owner. The entering opponent dot and any other eligible opponent dots inside that face become captured.
+
+Direct capture by the mover has priority over house activation on the same move.
 
 ### Capturing an opponent capture
 
-Captured areas may themselves be surrounded. When an opponent capture is validly surrounded, previously captured dots belonging to the surrounding player are released and the score is recalculated from the resulting active captures. The implementation must derive score from game state rather than accumulating an irreversible counter.
+Active captured areas may themselves be surrounded. When a new capture fully surrounds one or more active captures owned by the opponent:
+
+1. the surrounded opponent captures are deactivated;
+2. dots previously captured by those deactivated captures are released and become active again;
+3. eligible opponent dots inside the new outer capture, including surrounded opponent boundary dots, are captured by the new owner;
+4. score is recalculated from the resulting active capture state.
+
+This resolution can remove several opponent captures at once. Score must never depend on an irreversible accumulated counter.
 
 ### End of game
 
-The primary score is the number of currently captured opponent dots. A complete release may support agreed ending conditions such as mutual finish/pass or a configured finite board. The initial web implementation should not invent a new victory condition that changes classic scoring.
+The primary score is the number of currently captured opponent dots. A later complete release may support agreed ending conditions such as mutual finish/pass or a configured finite board. The web implementation should not invent a victory condition that changes classic capture scoring.
 
 ## Current implementation status
 
-The web build currently supports the ordinary capture loop:
+Version **0.2.0** supports the main advanced local capture flow:
 
 - alternating local two-player placement on grid intersections;
 - strict 8-direction neighboring-dot topology;
 - detection of newly closed simple capture boundaries;
-- rejection of open contours and empty houses as scored captures;
-- minimum-face selection for ordinary newly captured dots;
+- rejection of open contours and long-gap pseudo-boundaries;
+- empty houses that do not score until entered;
+- house activation on opponent entry when the mover completes no direct capture;
+- multiple independent captures completed by one move;
+- deterministic minimum-face selection;
+- capture-of-capture and release of dots held by fully surrounded opponent captures;
+- removal of several nested opponent captures by one outer capture;
 - score derived from active captures;
 - blocking placement inside active captured areas;
 - Canvas outline, translucent fill, and light diagonal hatching for completed captures.
 
-Advanced classic-rule cases are not yet complete: entering a house, capture-of-capture, release of previously captured dots, nested capture resolution, and the full set of difficult competing-boundary cases.
+Remaining rule-engine work is hardening for adversarial self-touching/crossing graph configurations and broader stress coverage. The principal house and release semantics are implemented.
 
 ## Delivery phases
 
@@ -79,29 +95,30 @@ Advanced classic-rule cases are not yet complete: entering a house, capture-of-c
 - visual notebook-grid shell;
 - proprietary license and project documentation.
 
-### Phase 1 — complete local game — in progress
-
-Completed core pieces:
+### Phase 1 — advanced local capture rules — complete in 0.2.0
 
 - legal basic placement;
 - ordinary capture detection;
 - strict neighboring-point boundary construction;
-- ordinary minimum-area capture resolution;
-- score recalculation;
-- local two-player mode;
-- initial topology regression tests;
+- minimum-area capture resolution;
+- house activation;
+- multiple captures in one move;
+- capture-of-capture and release;
+- nested opponent-capture removal;
+- score recalculation from active state;
+- topology regression tests;
 - captured-area rendering and placement blocking.
 
-Remaining:
+Ongoing hardening remains for rare adversarial graph embeddings, but it does not block the 0.2.0 rule release.
 
-- full house behavior;
-- capture-of-capture and release;
-- nested and competing capture hardening;
-- undo;
-- persistence of an unfinished game;
-- broader unit tests for difficult capture topologies.
+### Phase 2 — game-state ergonomics
 
-### Phase 2 — ergonomics
+- new-game/reset flow;
+- undo backed by rule-state history;
+- versioned local persistence of unfinished games;
+- optional JSON import/export only if it remains simple and useful.
+
+### Phase 3 — board ergonomics
 
 - panning and zooming;
 - large-board / practically infinite-board viewport;
@@ -110,11 +127,11 @@ Remaining:
 - accessibility and reduced-motion handling;
 - improved PWA/offline behavior.
 
-### Phase 3 — computer opponent
+### Phase 4 — computer opponent
 
-AI may be added only after the rules engine is stable. AI logic must use the game core without depending on Canvas or browser UI.
+AI may be added only after the rules engine and history model are stable. AI logic must use the game core without depending on Canvas or browser UI.
 
-### Phase 4 — optional Android packaging
+### Phase 5 — optional Android packaging
 
 Package the same web codebase with Capacitor only after the PWA version is stable.
 
@@ -134,6 +151,9 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - Rendering cannot be the source of truth for rules.
 - Capture boundaries are stored as ordered game-coordinate paths.
 - Every consecutive pair of boundary coordinates, including the last-to-first pair, must have Chebyshev distance exactly `1`; longer boundary edges are invalid.
-- Capture visuals may be rendered only from confirmed capture state.
-- Score must be reproducible from the current rule state.
+- Captured stones do not participate in boundary construction until the capture holding them is deactivated.
+- Direct captures for the mover resolve before opponent-house activation is considered.
+- Fully surrounded active opponent captures are removed before score is derived from the resulting active state.
+- Capture visuals may be rendered only from confirmed active capture state.
+- Score must be reproducible from the current active capture state.
 - Serialization must be versioned before persisted game data becomes part of a public release.

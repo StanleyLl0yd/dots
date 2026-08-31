@@ -1,4 +1,4 @@
-import { findNewCaptures, pointInsideAnyCapture, scoreCaptures } from "./capture";
+import { pointInsideAnyCapture, resolveCapturesAfterMove, scoreCaptures } from "./capture";
 import type { GameState, Player, Point, Stone } from "./types";
 
 export const pointKey = ({ x, y }: Point): string => `${x}:${y}`;
@@ -20,7 +20,7 @@ export const placeStone = (state: GameState, point: Point): GameState => {
   const stones = new Map(state.stones);
   stones.set(key, { ...point, player });
 
-  const captures = [...state.captures, ...findNewCaptures(stones, state.captures, player, point)];
+  const captures = resolveCapturesAfterMove(stones, state.captures, player, point);
 
   return {
     ...state,

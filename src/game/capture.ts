@@ -48,6 +48,15 @@ const onSegment = (a: Point, b: Point, point: Point): boolean =>
   Math.min(a.y, b.y) <= point.y &&
   point.y <= Math.max(a.y, b.y);
 
+const pointOnPolygonBoundary = (point: Point, polygon: Point[]): boolean => {
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index];
+    const next = polygon[(index + 1) % polygon.length];
+    if (cross(current, next, point) === 0 && onSegment(current, next, point)) return true;
+  }
+  return false;
+};
+
 const segmentsIntersect = (a: Point, b: Point, c: Point, d: Point): boolean => {
   const abC = cross(a, b, c);
   const abD = cross(a, b, d);
@@ -93,9 +102,13 @@ const canonicalBoundaryKey = (boundary: Point[]): string => {
   return variants[0];
 };
 
-export const pointInPolygon = (point: Point, polygon: Point[]): boolean => {
-  let inside = false;
+const capturedKeys = (captures: Capture[]): Set<string> =>
+  new Set(captures.flatMap((capture) => capture.captured.map(pointKey)));
 
+export const pointInPolygon = (point: Point, polygon: Point[]): boolean => {
+  if (pointOnPolygonBoundary(point, polygon)) return false;
+
+  let inside = false;
   for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current, current += 1) {
     const a = polygon[current];
     const b = polygon[previous];
@@ -104,9 +117,11 @@ export const pointInPolygon = (point: Point, polygon: Point[]): boolean => {
       point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
     if (crosses) inside = !inside;
   }
-
   return inside;
 };
+
+const pointInOrOnPolygon = (point: Point, polygon: Point[]): boolean =>
+  pointOnPolygonBoundary(point, polygon) || pointInPolygon(point, polygon);
 
 export const pointInsideCapture = (point: Point, capture: Capture): boolean =>
   pointInPolygon(point, capture.boundary);
@@ -193,7 +208,19 @@ const extractFaces = (stones: Map<string, Stone>, owner: Player, excluded: Set<s
     }
   }
 
-  return [...faces.values()].sort((a, b) => a.area - b.area);
+  return [...faces.values()].sort((a, b) => a.area - b.area || a.key.localeCompare(b.key));
+};
+
+const captureForFace = (
+  face: Face,
+  stones: Map<string, Stone>,
+  owner: Player,
+  excluded: Set<string>
+): Capture | undefined => {
+  const captured = [...stones.values()].filter(
+    (stone) => stone.player !== owner && !excluded.has(pointKey(stone)) && pointInPolygon(stone, face.boundary)
+  );
+  return captured.length > 0 ? { owner, boundary: face.boundary, captured } : undefined;
 };
 
 export const findNewCaptures = (
@@ -202,14 +229,14 @@ export const findNewCaptures = (
   owner: Player,
   closingPoint: Point
 ): Capture[] => {
-  const alreadyCaptured = new Set(existingCaptures.flatMap((capture) => capture.captured.map(pointKey)));
-  const faces = extractFaces(stones, owner, alreadyCaptured).filter((face) =>
+  const excluded = capturedKeys(existingCaptures);
+  const faces = extractFaces(stones, owner, excluded).filter((face) =>
     face.boundary.some((point) => samePoint(point, closingPoint))
   );
   const groups = new Map<string, Capture>();
 
   for (const stone of stones.values()) {
-    if (stone.player === owner || alreadyCaptured.has(pointKey(stone))) continue;
+    if (stone.player === owner || excluded.has(pointKey(stone))) continue;
 
     const face = faces.find((candidate) => pointInPolygon(stone, candidate.boundary));
     if (!face) continue;
@@ -220,6 +247,59 @@ export const findNewCaptures = (
   }
 
   return [...groups.values()];
+};
+
+export const findHouseCapture = (
+  stones: Map<string, Stone>,
+  existingCaptures: Capture[],
+  owner: Player,
+  intruder: Stone
+): Capture | undefined => {
+  if (intruder.player === owner) return undefined;
+
+  const excluded = capturedKeys(existingCaptures);
+  if (excluded.has(pointKey(intruder))) return undefined;
+
+  const face = extractFaces(stones, owner, excluded).find((candidate) => pointInPolygon(intruder, candidate.boundary));
+  return face ? captureForFace(face, stones, owner, excluded) : undefined;
+};
+
+const captureContainsCapture = (outer: Capture, inner: Capture): boolean =>
+  inner.boundary.every((point) => pointInOrOnPolygon(point, outer.boundary));
+
+const sameCaptureBoundary = (a: Capture, b: Capture): boolean =>
+  a.owner === b.owner && canonicalBoundaryKey(a.boundary) === canonicalBoundaryKey(b.boundary);
+
+export const applyCaptures = (existingCaptures: Capture[], newCaptures: Capture[]): Capture[] => {
+  let active = [...existingCaptures];
+
+  for (const capture of newCaptures) {
+    active = active.filter(
+      (existing) =>
+        !sameCaptureBoundary(existing, capture) &&
+        (existing.owner === capture.owner || !captureContainsCapture(capture, existing))
+    );
+    active.push(capture);
+  }
+
+  return active;
+};
+
+export const resolveCapturesAfterMove = (
+  stones: Map<string, Stone>,
+  existingCaptures: Capture[],
+  player: Player,
+  closingPoint: Point
+): Capture[] => {
+  const direct = findNewCaptures(stones, existingCaptures, player, closingPoint);
+  if (direct.length > 0) return applyCaptures(existingCaptures, direct);
+
+  const opponent: Player = player === "red" ? "blue" : "red";
+  const intruder = stones.get(pointKey(closingPoint));
+  if (!intruder) return existingCaptures;
+
+  const house = findHouseCapture(stones, existingCaptures, opponent, intruder);
+  return house ? applyCaptures(existingCaptures, [house]) : existingCaptures;
 };
 
 export const scoreCaptures = (captures: Capture[]): Record<Player, number> => {

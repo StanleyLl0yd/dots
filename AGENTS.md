@@ -8,7 +8,9 @@
 - Keep game rules, capture detection, scoring, and future AI independent from rendering and browser UI where practical.
 - Treat the rules in `docs/PRODUCT.md` as authoritative for this repository.
 - Preserve the boundary-adjacency invariant: every consecutive pair of dots in an enclosure path, including last-to-first, must be neighboring grid intersections exactly one step apart horizontally, vertically, or diagonally. Never connect across a gap or multiple grid steps.
-- Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed game-state captures. Never infer or create captures in the UI layer.
+- Resolve each move in rule order: direct captures completed by the mover first; only when none resolve may the new dot activate an opponent house.
+- When a new capture fully surrounds active opponent captures, deactivate those inner captures and release the dots they held before deriving the new score.
+- Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed active game-state captures. Never infer or create captures in the UI layer.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
