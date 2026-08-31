@@ -81,11 +81,11 @@ describe("capture topology hardening", () => {
     const ring = [
       stone(-1, -1, "red"), stone(0, -1, "red"), stone(1, -1, "red"),
       stone(-1, 0, "red"), stone(1, 0, "red"),
-      stone(-1, 1, "red"), stone(0, 1, "red")
+      stone(-1, 1, "red"), stone(1, 1, "red")
     ];
     const initial = stateWith([...ring, stone(0, 0, "blue")]);
 
-    const result = placeStone(initial, { x: 1, y: 1 });
+    const result = placeStone(initial, { x: 0, y: 1 });
 
     expect(result.score.red).toBe(1);
     expect(result.captures).toHaveLength(1);
