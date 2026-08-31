@@ -1,0 +1,90 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #2b2925;
+  background: #e9e1d5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; min-width: 320px; height: 100%; margin: 0; }
+body { overflow: hidden; }
+button { font: inherit; }
+
+.shell {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  background: #f4efe5;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 24px 12px;
+  border-bottom: 1px solid #d9cfbf;
+}
+
+.topbar h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1; letter-spacing: -.04em; }
+.topbar p { margin: 7px 0 0; color: #71695f; font-size: 14px; }
+
+.new-game {
+  border: 1px solid #b9ae9e;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #fffaf2;
+  color: #2b2925;
+  cursor: pointer;
+}
+
+.scorebar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 24px;
+  border-bottom: 1px solid #d9cfbf;
+  font-size: 14px;
+}
+
+.player:last-child { text-align: right; }
+.red { color: #b91c1c; }
+.blue { color: #1d4ed8; }
+
+.board-wrap { position: relative; min-height: 0; }
+.board { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: #f8f3e9; }
+
+.notice {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(680px, calc(100% - 32px));
+  padding: 10px 14px;
+  border: 1px solid #d9cfbf;
+  border-radius: 12px;
+  background: rgb(255 250 242 / .92);
+  color: #71695f;
+  text-align: center;
+  font-size: 12px;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: 14px 16px 10px; }
+  .topbar p { display: none; }
+  .scorebar { padding: 9px 16px; gap: 8px; font-size: 12px; }
+  .new-game { padding: 8px 12px; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { color: #eee8de; background: #171614; }
+  .shell { background: #1d1b18; }
+  .topbar, .scorebar { border-color: #3b3731; }
+  .topbar p, .notice { color: #b5aca0; }
+  .new-game, .notice { background: rgb(42 39 34 / .94); color: #eee8de; border-color: #514b42; }
+  .board { background: #25221e; }
+}
