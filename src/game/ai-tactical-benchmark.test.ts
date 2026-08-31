@@ -79,7 +79,7 @@ const maxImmediateGain = (state: GameState, player: Player): number => {
 };
 
 describe("Expert tactical benchmark suite", () => {
-  it.skip("TB01 known gap: converts a two-target capture opportunity", () => {
+  it("TB01 converts a two-target capture opportunity", () => {
     const state = stateWith(
       [
         stone(-1, -1, "blue"),
@@ -140,7 +140,7 @@ describe("Expert tactical benchmark suite", () => {
     expect(maxImmediateGain(result, "red")).toBe(0);
   });
 
-  it.skip("TB04 known gap: avoids entering a hostile empty house when safe frontier moves exist", () => {
+  it("TB04 avoids entering a hostile empty house when safe frontier moves exist", () => {
     const state = stateWith([...diamond(0, 0, 2, "red"), stone(5, 0, "blue")], "blue");
 
     const move = expertMove(state, { x: 0, y: 0 });
@@ -150,7 +150,7 @@ describe("Expert tactical benchmark suite", () => {
     expect(result.score.red).toBe(0);
   });
 
-  it.skip("TB05 known gap: counter-captures when two separate opponent threats cannot both be blocked", () => {
+  it("TB05 counter-captures when two separate opponent threats cannot both be blocked", () => {
     const state = stateWith(
       [
         stone(0, -1, "blue"),

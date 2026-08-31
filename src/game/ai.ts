@@ -446,10 +446,30 @@ const rankedMoves = (
   if (state.currentPlayer !== player || limit <= 0) return [];
   const before = evaluateState(state, player, context);
   const ranked: RankedMove[] = [];
+  const pool = new Map<string, { seed: CandidateSeed; state: GameState }>();
+  const scanLimit =
+    forecast && state.stones.size < 80
+      ? Math.max(limit, 32)
+      : forecast && state.stones.size < 250
+        ? Math.max(limit, 16)
+        : limit;
+  const opponent = otherPlayer(player);
+  let considered = 0;
 
   for (const seed of generateSeeds(state, player, focus, context)) {
     const next = placeStone(state, seed.point);
     if (next === state) continue;
+    considered += 1;
+    const immediateSwing =
+      next.score[player] - state.score[player] +
+      state.score[opponent] - next.score[opponent];
+    if (pool.size < limit || immediateSwing > 0) {
+      pool.set(pointKey(seed.point), { seed, state: next });
+    }
+    if (considered >= scanLimit) break;
+  }
+
+  for (const { seed, state: next } of pool.values()) {
     const strategic = forecast ? forecastBonus(next, player, context) : 0;
     const tacticalScore =
       evaluateState(next, player, context) -
@@ -459,16 +479,17 @@ const rankedMoves = (
       seed.ownCyclePairs * 30 +
       seed.blockedCyclePairs * 34;
     ranked.push({ ...seed, state: next, tacticalScore });
-    if (ranked.length >= limit) break;
   }
 
-  return ranked.sort(
-    (a, b) =>
-      b.tacticalScore - a.tacticalScore ||
-      b.score - a.score ||
-      a.point.y - b.point.y ||
-      a.point.x - b.point.x
-  );
+  return ranked
+    .sort(
+      (a, b) =>
+        b.tacticalScore - a.tacticalScore ||
+        b.score - a.score ||
+        a.point.y - b.point.y ||
+        a.point.x - b.point.x
+    )
+    .slice(0, limit);
 };
 
 const tier = (stoneCount: number): 0 | 1 | 2 =>
@@ -647,9 +668,14 @@ export const chooseAiMove = (state: GameState, options: AiMoveOptions = {}): Poi
         : difficulty === "hard"
           ? 1
           : 0;
+  const opponent = otherPlayer(player);
+  const safeCandidates = candidates.filter(
+    (candidate) => candidate.state.score[opponent] <= state.score[opponent]
+  );
+  const searchCandidates = safeCandidates.length > 0 ? safeCandidates : candidates;
   let best: { point: Point; value: number; tacticalScore: number } | undefined;
 
-  for (const candidate of candidates) {
+  for (const candidate of searchCandidates) {
     const searchedValue = minimaxValue(
       candidate.state,
       player,
