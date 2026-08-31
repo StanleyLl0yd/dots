@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.7.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.8.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.7.0** · advanced classic capture rules + local two-player mode + four-level deterministic computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
+Current source version: **0.8.0** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
 
 ## 🎯 Rules
 
@@ -42,24 +42,28 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 
 ## 🤖 Computer opponent
 
-Choose **Vs computer** from the mode selector to play Red against the Blue computer opponent. The original **Two players** mode remains available. Computer mode now exposes four difficulty levels:
+Choose **Vs computer** from the mode selector to play Red against the Blue computer opponent. The original **Two players** mode remains available.
 
 | Difficulty | Behavior |
 | --- | --- |
 | **Easy** | Fast immediate-move evaluation with no opponent-reply search. |
 | **Normal** | Searches a bounded opponent reply and chooses the best worst-case result. This is the default. |
-| **Hard** | Adds a selective computer continuation after each searched opponent reply. |
-| **Expert** | Adds one more bounded opponent reply and the widest candidate budget. |
+| **Hard** | Adds a selective computer continuation, strategic enclosure/threat analysis, and a forcing-capture horizon extension. |
+| **Expert** | Adds another bounded opponent reply, the widest strategic analysis, alpha-beta pruning, and deeper forcing-capture extensions. |
 
-The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState` and validates every candidate through the existing game core.
+The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState`, and every candidate is validated through the existing game core.
 
-All levels share the same legal-move generation and evaluation. Difficulty changes only bounded search breadth/depth. Search budgets shrink as a position grows, and per-move transposition/evaluation caches reuse repeated rule-equivalent positions without becoming persisted game state.
+Version 0.8.0 improves **quality rather than blindly increasing depth**. Hard and Expert now recognize frontier points that can close an already connected same-color path, use those signals to build capture/house pressure or occupy an opponent closing point, estimate local danger around active stones, and run bounded authoritative probes for immediate captures and short setup plans. Actual capture legality and scoring still come only from `placeStone()`.
 
-Immediate captures remain important on every level. Normal and above explicitly account for opponent replies; Hard and Expert can see short multi-ply attack/defense exchanges. Identical state, difficulty, and options always produce the same move.
+Search uses stronger tactical ordering and alpha-beta pruning. Near the normal search horizon, Hard/Expert may selectively continue only score-changing capture/release moves, reducing obvious horizon mistakes without making the whole tree deeper. Expensive setup analysis and extensions are automatically reduced on large positions.
 
 The human always plays **Red** and the computer plays **Blue**. Switching game mode or difficulty does not reset the current board. If Blue is already to move when computer mode is enabled, the computer takes over that turn. In computer mode, **Undo** rolls back the computer move and the preceding human move when both exist, returning to the previous human decision point.
 
-Existing 0.6.0 computer-mode preferences migrate automatically to **Normal** difficulty. See [`docs/AI.md`](docs/AI.md) for the AI contract, search profiles, and limitations.
+Existing 0.6.0 computer-mode preferences migrate automatically to **Normal** difficulty. See [`docs/AI.md`](docs/AI.md) for the AI contract, strategic analysis, search model, and limitations.
+
+### AI strength regression
+
+The repository includes a deterministic `src/game/ai-match.ts` harness. CI runs short paired **Expert vs Normal** and **Expert vs Hard** games with color assignment swapped. Expert must not lose either paired comparison and must keep a positive aggregate captured-score margin. These are tactical regression guards, not an Elo rating or a hardware benchmark.
 
 ## 🖱 Board navigation
 
@@ -93,8 +97,11 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - complete classic local rule engine separated from Canvas and browser UI;
 - strict 8-direction neighboring-dot topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
 - local two-player mode plus deterministic offline Blue computer opponent;
-- four AI levels with bounded 1/2/3/4-ply search behavior, adaptive budgets, real game-core simulation, and ephemeral transposition reuse;
-- immediate-capture handling at every level and explicit opponent-threat response from Normal upward;
+- four AI levels with bounded multi-ply search, adaptive budgets, real game-core simulation, and ephemeral transposition reuse;
+- strategic same-color cycle-closing/house pressure and defensive blocking of likely opponent closing points;
+- local active-stone danger evaluation plus bounded immediate-capture and short setup threat probes on Hard/Expert;
+- tactical move ordering, alpha-beta pruning, and selective forcing capture/release horizon extensions;
+- deterministic AI-vs-AI paired strength regression tests;
 - versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
 - exact Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
@@ -106,7 +113,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.7.0** completes the four-level AI-strength phase. Further AI work should focus on measured tactical quality, pruning, and real-device responsiveness rather than unbounded depth.
+Version **0.8.0** completes the strategic AI-quality phase. Further AI changes should start from concrete failing positions or measured match regressions rather than unbounded depth increases.
 
 ## 🧱 Technology
 
@@ -118,7 +125,7 @@ Version **0.7.0** completes the four-level AI-strength phase. Further AI work sh
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
-| AI | deterministic bounded multi-ply search over the game core |
+| AI | deterministic bounded strategic minimax over the game core |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -127,8 +134,10 @@ Version **0.7.0** completes the four-level AI-strength phase. Further AI work sh
 ```text
 src/
 ├── game/
-│   ├── ai.ts              pure multi-level computer-opponent search
+│   ├── ai.ts              pure multi-level strategic computer search
+│   ├── ai-match.ts        deterministic AI-vs-AI regression harness
 │   ├── ai.test.ts         difficulty/tactics/determinism/large-position tests
+│   ├── ai-match.test.ts   paired strength regression tests
 │   ├── board.ts           game state and legal placement
 │   ├── capture.ts         topology, houses, release, and scoring
 │   ├── session.ts         history, undo, and reset
@@ -175,7 +184,7 @@ npm run build
 ## 🗺 Roadmap
 
 1. Continue real-device/browser and adversarial topology validation, including Expert-mode responsiveness on mobile hardware.
-2. Improve AI only from measured weaknesses: better pruning/threat extraction or move ordering without removing search bounds.
+2. Improve AI only from concrete failing positions or strength-regression evidence while preserving deterministic bounded search.
 3. Add optional import/export only if it stays simple and useful.
 4. Optionally package the same codebase for Android through Capacitor later.
 
