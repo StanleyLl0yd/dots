@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.8.1-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.8.2-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.8.1** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
+Current source version: **0.8.2** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility + reproducible audited toolchain
 
 ## 🎯 Rules
 
@@ -53,7 +53,7 @@ Choose **Vs computer** from the mode selector to play Red against the Blue compu
 
 The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState`, and every candidate is validated through the existing game core.
 
-Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert now performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`.
+Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`. Version 0.8.2 does not change gameplay or AI behavior.
 
 Search uses stronger tactical ordering and alpha-beta pruning. Near the normal search horizon, Hard/Expert may selectively continue only score-changing capture/release moves, reducing obvious horizon mistakes without making the whole tree deeper. Expensive setup analysis and extensions are automatically reduced on large positions.
 
@@ -109,11 +109,14 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
 - explicit offline/update PWA lifecycle with user-confirmed refresh;
 - build-time verification of generated PWA/offline artifacts;
+- committed npm lockfile with reproducible `npm ci` installs in CI and Pages;
+- CI security gate rejecting high/critical npm advisories, currently reporting zero vulnerabilities;
+- Node-24-compatible GitHub Actions runtime for checkout/setup plus Dependabot coverage for npm and GitHub Actions;
 - regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.8.1** closes the first tactical gaps found by the fixed Expert benchmark suite. Further AI changes should continue to start from concrete failing positions or measured match regressions rather than unbounded depth increases.
+Version **0.8.2** is a technical hardening release. It patches vulnerable development tooling and makes dependency resolution/security checks reproducible without changing game rules, saves, UI behavior, or AI decisions.
 
 ## 🧱 Technology
 
@@ -121,11 +124,12 @@ Version **0.8.1** closes the first tactical gaps found by the fixed Expert bench
 | --- | --- |
 | Language | TypeScript 5.9 |
 | Rendering | HTML5 Canvas |
-| Build | Vite 7 |
+| Build | Vite 7.3.6 |
 | PWA | vite-plugin-pwa / Workbox |
-| Tests | Vitest + build artifact verification |
+| Tests | Vitest 3.2.7 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
 | AI | deterministic bounded strategic minimax over the game core |
+| Dependencies | committed npm lockfile + `npm ci` + high/critical audit gate |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -169,13 +173,14 @@ Requirements: Node.js 22+ and npm.
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git
 cd dots
-npm install
+npm ci
 npm run dev
 ```
 
 Verification:
 
 ```bash
+npm audit --audit-level=high
 npm test
 npm run build
 ```
