@@ -15,9 +15,15 @@
 - Keep `src/game/ai.ts` free of DOM, Canvas, viewport, storage, service-worker, and network dependencies. AI behavior must remain usable offline and independently testable from the browser shell.
 - Keep computer search deterministic unless a future product requirement explicitly introduces selectable randomness. Identical state/difficulty/options should produce identical moves so regressions remain reproducible.
 - Preserve the four difficulty contracts: Easy has no opponent-reply search, Normal searches one opponent reply, Hard adds a selective computer continuation, and Expert adds a final bounded opponent reply. Changes may tune bounded budgets but should not collapse all levels into cosmetic labels.
+- Strategic AI features such as cycle-closing pressure, stone danger, house pressure, threat probes, setup probes, or move-ordering scores are heuristics only. They may influence ranking/evaluation but must never declare legal moves, captures, releases, houses, or score independently from the authoritative core.
+- Same-side immediate/setup threat probes are speculative evaluation only. They must operate on derived states, must not mutate the supplied `GameState`, session history, move log, or persisted state, and must not replace normal alternating-turn minimax.
 - Keep AI search bounded. Per-difficulty simulation budgets must not grow with arbitrary world-coordinate distance or without an explicit cap as the position grows.
-- Reduce expensive AI budgets as positions grow rather than allowing higher difficulty to create unbounded browser work.
-- AI evaluation/transposition caches must be ephemeral to one move calculation and keyed by rule-relevant state. They must never become persisted or authoritative game state; rule-relevant cache identity must include active capture geometry when future legality can depend on it.
+- Reduce expensive AI budgets, setup probes, and forcing extensions as positions grow rather than allowing higher difficulty to create unbounded browser work.
+- AI evaluation/transposition/component/threat caches must be ephemeral to one move calculation and keyed by rule-relevant state. They must never become persisted or authoritative game state; rule-relevant cache identity must include active capture geometry when future legality can depend on it.
+- Alpha-beta cutoff nodes must not be stored as exact transposition values. Cache only values whose searched scope justifies the semantics under which they will be reused.
+- Selective horizon extensions must stay forcing and bounded. The current extension path may continue immediate score-changing capture/release moves; do not turn it into an implicit unbounded full-width search.
+- AI-vs-AI regression harnesses must submit every generated move through the same authoritative game core as ordinary play. Keep match regressions deterministic, short, and hardware-independent; do not use wall-clock thresholds as strength criteria.
+- Strength-regression assertions should measure stable tactical outcomes such as legal deterministic replay, paired non-losing results, or score margins rather than assume every short matchup must produce a win.
 - The current computer mode assigns Red to the human and Blue to the computer. Changing that contract requires synchronized UI, persistence, Undo, accessibility, tests, and documentation changes.
 - Computer-generated moves are ordinary session moves and must use the same persisted move log as human moves. Do not add a trusted AI-specific game-state or capture save format.
 - Game-mode and AI-difficulty preferences must remain separately versioned from the authoritative game move log and viewport state. Invalid preference data must fail closed without changing a valid game; supported older preference versions should be migrated explicitly when practical.
@@ -48,7 +54,7 @@
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
-- Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism/difficulty profiles, preference migration, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
+- Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism/difficulty profiles, strategic threat behavior, AI-vs-AI regressions, preference migration, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
 - Keep deterministic stress tests meaningful but hardware-independent; do not turn CI into a fragile wall-clock benchmark.
 - Run relevant tests and the full production build, including PWA artifact verification, before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
