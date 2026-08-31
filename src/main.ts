@@ -34,13 +34,17 @@ app.innerHTML = `
 
 const canvas = app.querySelector<HTMLCanvasElement>("canvas");
 const turn = app.querySelector<HTMLElement>("[data-turn]");
+const scoreRed = app.querySelector<HTMLElement>("[data-score-red]");
+const scoreBlue = app.querySelector<HTMLElement>("[data-score-blue]");
 const newGame = app.querySelector<HTMLButtonElement>(".new-game");
-if (!canvas || !turn || !newGame) throw new Error("UI initialization failed");
+if (!canvas || !turn || !scoreRed || !scoreBlue || !newGame) throw new Error("UI initialization failed");
 
 let state = createGameState();
 
 const renderStatus = (): void => {
   turn.textContent = `${copy.turn}: ${state.currentPlayer === "red" ? copy.red : copy.blue}`;
+  scoreRed.textContent = String(state.score.red);
+  scoreBlue.textContent = String(state.score.blue);
 };
 
 const board = new CanvasBoard(canvas, state, {

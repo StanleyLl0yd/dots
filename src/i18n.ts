@@ -8,7 +8,7 @@ const messages = {
     blue: "Синие",
     turn: "Ход",
     newGame: "Новая игра",
-    scaffold: "Стартовый каркас проекта. Механика окружений будет реализована отдельным игровым модулем."
+    scaffold: "Замкните соседними точками контур вокруг точки соперника."
   },
   en: {
     title: "Dots",
@@ -17,7 +17,7 @@ const messages = {
     blue: "Blue",
     turn: "Turn",
     newGame: "New game",
-    scaffold: "Initial project scaffold. Capture mechanics will live in a dedicated game module."
+    scaffold: "Close a boundary of neighboring dots around an opponent dot."
   }
 } as const;
 

@@ -1,4 +1,4 @@
-import type { GameState, Point } from "../game/types";
+import type { Capture, GameState, Point } from "../game/types";
 
 interface CanvasBoardOptions {
   onPoint: (point: Point) => void;
@@ -51,6 +51,50 @@ export class CanvasBoard {
     this.options.onPoint({ x, y });
   };
 
+  private screenPoint(point: Point, centerX: number, centerY: number): Point {
+    return { x: centerX + point.x * this.cell, y: centerY + point.y * this.cell };
+  }
+
+  private drawCapture(capture: Capture, centerX: number, centerY: number): void {
+    const points = capture.boundary.map((point) => this.screenPoint(point, centerX, centerY));
+    if (points.length < 3) return;
+
+    const color = capture.owner === "red" ? "220, 38, 38" : "37, 99, 235";
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const height = maxY - minY;
+
+    this.context.save();
+    this.context.beginPath();
+    this.context.moveTo(points[0].x, points[0].y);
+    for (const point of points.slice(1)) this.context.lineTo(point.x, point.y);
+    this.context.closePath();
+    this.context.fillStyle = `rgba(${color}, 0.055)`;
+    this.context.fill();
+    this.context.clip();
+
+    this.context.strokeStyle = `rgba(${color}, 0.16)`;
+    this.context.lineWidth = 1;
+    for (let x = minX - height; x <= maxX; x += 10) {
+      this.context.beginPath();
+      this.context.moveTo(x, minY);
+      this.context.lineTo(x + height, maxY);
+      this.context.stroke();
+    }
+    this.context.restore();
+
+    this.context.beginPath();
+    this.context.moveTo(points[0].x, points[0].y);
+    for (const point of points.slice(1)) this.context.lineTo(point.x, point.y);
+    this.context.closePath();
+    this.context.strokeStyle = `rgb(${color})`;
+    this.context.lineWidth = 2.5;
+    this.context.lineJoin = "round";
+    this.context.stroke();
+  }
+
   private draw(): void {
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
@@ -78,9 +122,10 @@ export class CanvasBoard {
       this.context.stroke();
     }
 
+    for (const capture of this.state.captures) this.drawCapture(capture, centerX, centerY);
+
     for (const stone of this.state.stones.values()) {
-      const x = centerX + stone.x * this.cell;
-      const y = centerY + stone.y * this.cell;
+      const { x, y } = this.screenPoint(stone, centerX, centerY);
       this.context.beginPath();
       this.context.arc(x, y, 6.5, 0, Math.PI * 2);
       this.context.fillStyle = stone.player === "red" ? "#dc2626" : "#2563eb";
