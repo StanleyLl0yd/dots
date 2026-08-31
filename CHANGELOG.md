@@ -2,6 +2,27 @@
 
 All notable project changes are recorded here.
 
+## [0.4.0] - 2026-08-31
+
+### Added
+
+- pure viewport model for screen↔game coordinate conversion, panning, anchored zoom, integer grid snapping, and safe numeric bounds;
+- practically unbounded one-pointer board panning for mouse and touch with a movement threshold that preserves ordinary click/tap placement;
+- mouse-wheel and trackpad zoom anchored at the pointer position;
+- two-pointer pinch zoom/pan anchored at the moving gesture midpoint, with placement suppressed after pinch gestures;
+- independently versioned local viewport persistence and restore, separate from authoritative game-state persistence;
+- viewport regression tests covering coordinate round-trip, snapping after transforms, pan direction, zoom anchoring, zoom bounds, center bounds, persistence round-trip, malformed data, unsupported versions, and unsafe ranges.
+
+### Changed
+
+- Canvas rendering now derives its visible grid range from the viewport instead of assuming the game origin is permanently centered;
+- off-screen stones are culled and capture hatching is generated only across the bounded visible canvas before clipping, avoiding work proportional to distant world extents;
+- visual dot radius, capture outline width, and hatch spacing adapt within bounded ranges as zoom changes;
+- new-game reset now returns the viewport to origin at default zoom while preserving the existing confirmed rule/session reset behavior;
+- user-facing hints, product specification, architecture documentation, and repository rules now describe implemented pan/zoom interaction and viewport-state separation;
+- Phase 3 board navigation is complete and the roadmap moves to browser/PWA polish, accessibility, and broader performance stress testing;
+- source version advanced to 0.4.0.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

@@ -13,17 +13,21 @@ src/
 │   ├── session.ts
 │   ├── session.test.ts
 │   └── topology.test.ts
-├── ui/                    Canvas rendering and pointer/touch input
-│   └── canvas-board.ts
+├── ui/                    Canvas rendering, gestures, and viewport math
+│   ├── canvas-board.ts
+│   ├── viewport.ts
+│   └── viewport.test.ts
 ├── persistence.ts         versioned local move-log persistence
 ├── persistence.test.ts    persistence replay/validation tests
+├── viewport-persistence.ts       independent viewport persistence
+├── viewport-persistence.test.ts  viewport persistence tests
 ├── i18n.ts                locale resolution and user-facing copy
 ├── i18n.test.ts           locale tests
 ├── main.ts                application composition
 └── styles.css             page chrome and visual system
 ```
 
-The capture engine and session history live under `src/game/` and do not import DOM, Canvas, or storage APIs. Rendering consumes confirmed capture state; it does not decide whether an enclosure exists. Browser persistence is a separate adapter that rebuilds authoritative state by replaying moves through the game core.
+The capture engine and session history live under `src/game/` and do not import DOM, Canvas, viewport, or storage APIs. Rendering consumes confirmed capture state; it does not decide whether an enclosure exists. Browser game persistence rebuilds authoritative state by replaying moves through the game core. Viewport state is a separate presentation model.
 
 ## Capture engine
 
@@ -73,7 +77,7 @@ Undo removes the most recently placed stone, restores the previous active captur
 
 This avoids keeping a complete copied stone map for every historical move while preserving exact capture/release reversal.
 
-## Persistence
+## Game persistence
 
 `src/persistence.ts` uses browser-local storage only as a persistence transport, never as a second rule engine.
 
@@ -92,17 +96,87 @@ If any stored move becomes illegal during replay, or the JSON/version/coordinate
 
 Saving occurs after every legal move and undo. Returning to an empty history or starting a new game removes the saved unfinished game.
 
+## Viewport model
+
+`src/ui/viewport.ts` contains pure pan/zoom and coordinate-conversion functions. The viewport is deliberately not part of `GameState`.
+
+The viewport stores:
+
+```text
+{
+  centerX: number,
+  centerY: number,
+  zoom: number
+}
+```
+
+`centerX`/`centerY` identify the game-space coordinate shown at the center of the canvas. They may be fractional because panning is continuous. `zoom` scales a base cell size of 32 CSS pixels and is clamped to `0.4…3.5`.
+
+For a viewport `V`, canvas size `W×H`, and base cell size `C`, game point `(gx, gy)` maps to screen pixels as:
+
+```text
+sx = W/2 + (gx - V.centerX) * C * V.zoom
+sy = H/2 + (gy - V.centerY) * C * V.zoom
+```
+
+The inverse transform is used for pointer input. A placement is rounded to the nearest integer game intersection only after the inverse transform. No pixel coordinate enters the rule engine.
+
+Viewport centers are clamped to a very large safe range (`±1,000,000,000` grid coordinates). The bound is not a gameplay board edge; it prevents pathological numeric values from creating non-terminating visible-grid loops or unusable persisted camera state.
+
+## Pan and zoom interaction
+
+`src/ui/canvas-board.ts` owns pointer gesture state but not game rules.
+
+### One pointer
+
+Pointer down starts a potential tap. Movement under a small screen-space threshold remains a tap. Once movement reaches the threshold, the gesture becomes a pan and placement is suppressed. Pan is calculated from the gesture-start viewport so sub-threshold movement is not lost when dragging begins.
+
+### Wheel / trackpad
+
+Wheel input converts the wheel delta to a scale factor and calls the pure viewport zoom transform. The game-space coordinate below the pointer before zoom is preserved below the same pointer position after zoom.
+
+### Two pointers
+
+When two pointers are active, the gesture midpoint is converted to a game-space anchor at pinch start. Current pointer distance controls zoom while current midpoint controls pan. The same game-space anchor remains beneath the moving midpoint.
+
+Ending a pinch never creates a placement. If one pointer remains after a pinch, it may continue panning but its eventual release is also suppressed as a tap.
+
+## Rendering and viewport performance
+
+Canvas draws in CSS-pixel coordinates after applying the device-pixel-ratio transform.
+
+The renderer computes the visible game-space rectangle by inverse-transforming canvas corners. Grid lines are generated only from the integer range intersecting that rectangle. Stones outside the screen plus their visible radius are skipped.
+
+Capture polygons still come from authoritative game state. A capture whose screen-space bounding box does not intersect the canvas is skipped. Hatching is generated across the bounded visible canvas and clipped to the capture path, rather than iterating across the capture's potentially huge world-space extent.
+
+This keeps navigation work proportional to the visible viewport rather than the distance from the game origin.
+
+## Viewport persistence
+
+`src/viewport-persistence.ts` stores camera state under a key separate from the game save. Viewport save format version 1 contains only center and zoom values.
+
+Load validates:
+
+- exact viewport format version;
+- finite numeric center and zoom values;
+- center values within the numeric safety bound;
+- zoom within the supported range.
+
+Invalid viewport data is removed and the default viewport is used. A valid game save remains untouched. Starting a new game resets the viewport to `(0, 0, 1)` and persists that default through the normal viewport callback.
+
+This separation guarantees that deleting or corrupting viewport state cannot change moves, captures, score, current player, or undo history.
+
 ## Current hardening targets
 
-Version 0.3.0 adds targeted regression cases around difficult rule-order and graph interactions:
+Version 0.4.0 completes the core viewport architecture. Remaining work is concentrated on broader operational polish and stress behavior:
 
-- direct capture versus opponent-house activation priority;
-- minimum containing face with nested houses;
-- opponent captures that overlap but are not fully enclosed;
-- dense legal diagonal adjacency around a captured point;
-- invalid repeated or malformed moves in persisted logs.
+- very long games with many visible and off-screen stones;
+- very large or numerous active capture polygons;
+- mobile-browser pointer edge cases and installed-PWA lifecycle behavior;
+- accessibility and reduced-motion behavior for future UI/animation work;
+- continued unusual dense topology cases discovered during play.
 
-Further rule-engine work remains ongoing stress coverage for unusual large/dense positions. The next architectural feature is a viewport model for pan/zoom that must remain independent from integer game coordinates and persisted rule history.
+These improvements must preserve the same separation between rule state, session history, persistence, and viewport state.
 
 ## Regression coverage
 
@@ -127,4 +201,10 @@ Covered by the current tests:
 - large game coordinates independent of viewport position;
 - legal-move history and invalid-move history rejection;
 - undo of ordinary and capture-producing moves;
-- versioned persistence replay, capture/score reconstruction, malformed save rejection, and undo-history restoration.
+- versioned game persistence replay, capture/score reconstruction, malformed save rejection, and undo-history restoration;
+- game↔screen viewport transform round-trip under pan/zoom;
+- integer intersection snapping after viewport transforms;
+- screen-direction pan behavior;
+- anchor-preserving zoom;
+- zoom and viewport-center safety clamps;
+- independent viewport persistence round-trip, malformed data rejection, unsupported-version rejection, and unsafe-range rejection.

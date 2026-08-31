@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.3.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.4.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. When a valid neighboring-dot boundary is actually closed around opponent dots, the captured area is outlined and lightly hatched.
 
-Current source version: **0.3.0** · advanced capture rules + game-state ergonomics · Web + PWA · GitHub Pages live
+Current source version: **0.4.0** · advanced capture rules + reversible sessions + practically unbounded board navigation · Web + PWA · GitHub Pages live
 
 ## 🎯 Rules
 
@@ -39,6 +39,16 @@ Current source version: **0.3.0** · advanced capture rules + game-state ergonom
 9. The player with more currently captured opponent dots has the higher score.
 
 The authoritative rules and implementation status are tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
+
+## 🖱 Board navigation
+
+- **Click / tap** an intersection to place a dot.
+- **Drag** with one pointer to pan the board. A small movement threshold keeps ordinary clicks/taps from becoming accidental pans.
+- **Mouse wheel / trackpad scroll** zooms around the pointer position.
+- **Two-finger pinch** zooms and pans around the gesture midpoint.
+- The viewport is restored after reload independently from the saved game. Starting a new game resets the viewport to the origin at 100% zoom.
+
+Viewport movement never changes game coordinates. A pointer is transformed through the current viewport and snapped exactly once to an integer grid intersection before the game core sees it.
 
 ## ✨ Current build
 
@@ -57,14 +67,17 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 - new-game reset with confirmation when a game is in progress;
 - versioned automatic local save using a legal move log, with full game and undo-history restoration after reload;
 - invalid, corrupted, or unsupported saves discarded safely instead of becoming game state;
-- additional topology hardening for direct-capture priority, nested houses, partial capture overlap, and dense legal adjacency graphs;
+- practically unbounded pan/zoom viewport with mouse, trackpad, touch, and pinch interaction;
+- anchor-preserving zoom and exact screen↔game coordinate conversion with integer placement snapping;
+- separately versioned local viewport persistence with safe validation and numerical bounds;
+- visible-range grid and stone rendering plus capture hatching bounded to the screen for stable navigation performance;
+- topology and viewport regression tests, CI, automatic GitHub Pages deployment, and automated GitHub releases;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - responsive desktop/mobile layout with light and dark presentation;
 - installable PWA and offline-ready build pipeline;
-- Vitest topology/regression tests, CI, automatic GitHub Pages deployment, and automated GitHub releases;
 - proprietary All Rights Reserved license.
 
-Version **0.3.0** completes the planned game-state ergonomics phase. The next product work is board navigation: pan, zoom, touch gestures, and a practically unbounded viewport.
+Version **0.4.0** completes the core board-navigation phase. The next work is PWA/mobile polish, accessibility/reduced-motion handling, and continued rule/performance stress testing before AI is considered.
 
 ## 🧱 Technology
 
@@ -75,7 +88,7 @@ Version **0.3.0** completes the planned game-state ergonomics phase. The next pr
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest |
-| Persistence | versioned localStorage move log |
+| Persistence | versioned localStorage move log + separate viewport state |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -93,9 +106,13 @@ src/
 │   ├── topology.test.ts   adversarial topology hardening tests
 │   └── types.ts           domain types
 ├── ui/
-│   └── canvas-board.ts    Canvas rendering and pointer input
+│   ├── canvas-board.ts    Canvas rendering and pointer/touch gestures
+│   ├── viewport.ts        pan/zoom and screen↔game transforms
+│   └── viewport.test.ts   viewport mathematics regression tests
 ├── persistence.ts         versioned move-log save and restore
 ├── persistence.test.ts    persistence validation/replay tests
+├── viewport-persistence.ts       independent viewport save/restore
+├── viewport-persistence.test.ts  viewport persistence validation tests
 ├── i18n.ts                Russian / English interface
 ├── i18n.test.ts           locale tests
 ├── main.ts                application composition
@@ -124,12 +141,11 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Add board panning/zooming and polished mouse/touch gestures for a practically unbounded play area.
-2. Add viewport-state persistence only if it remains separate from authoritative game coordinates.
-3. Harden PWA/offline behavior across desktop and mobile browsers and improve accessibility/reduced-motion handling.
-4. Continue topology stress testing as new difficult positions are found.
-5. Consider AI only after board navigation and the local game flow are proven.
-6. Optionally package the same codebase for Android through Capacitor later.
+1. Harden PWA/offline behavior across desktop and mobile browsers and improve accessibility/reduced-motion handling.
+2. Continue topology and viewport/performance stress testing on large and difficult positions.
+3. Add optional import/export only if it remains simple and genuinely useful.
+4. Consider AI only after the complete local game and board interaction remain stable under broader testing.
+5. Optionally package the same codebase for Android through Capacitor later.
 
 ## 📄 License
 

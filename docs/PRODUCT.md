@@ -75,9 +75,24 @@ The primary score is the number of currently captured opponent dots. A later com
 - Malformed, illegal, corrupted, or unsupported save data is discarded instead of being accepted as game state.
 - Starting a new game clears the saved unfinished game.
 
+## Board navigation
+
+The visible board is a viewport over integer game coordinates rather than a finite board object.
+
+- A click or tap is converted from screen pixels through the current viewport into game-space coordinates and rounded exactly once to the nearest integer grid intersection before placement is attempted.
+- A one-pointer drag pans the viewport. A small screen-space threshold separates taps/clicks from deliberate drag gestures.
+- Mouse-wheel and trackpad zoom preserve the game-space point under the pointer as the zoom anchor.
+- Two-pointer pinch preserves the game-space point under the gesture midpoint while allowing the midpoint itself to move, producing combined zoom and pan.
+- Zoom is clamped to a practical readable range and viewport center coordinates are bounded to a very large safe numeric range to prevent pathological floating-point/render loops.
+- Resizing the browser keeps the same game-space viewport center rather than shifting stones in game coordinates.
+- Grid rendering is generated only for the currently visible game-coordinate range.
+- Off-screen stones are culled; capture hatching is clipped and generated only across the visible canvas.
+
+Viewport state is not game state. It is saved independently with its own format version and may be discarded without changing any move, capture, score, current player, or undo history. Starting a new game resets the viewport to origin `(0, 0)` at zoom `1`.
+
 ## Current implementation status
 
-Version **0.3.0** supports the advanced local capture flow plus complete Phase 2 game-state ergonomics:
+Version **0.4.0** supports the advanced local capture flow, reversible game-state ergonomics, and practically unbounded board navigation:
 
 - alternating local two-player placement on grid intersections;
 - strict 8-direction neighboring-dot topology;
@@ -96,9 +111,13 @@ Version **0.3.0** supports the advanced local capture flow plus complete Phase 2
 - confirmed new-game/reset flow;
 - versioned automatic local save and deterministic replay restore;
 - restoration of undo history after page reload;
-- topology hardening for direct-capture priority, nested houses, partial overlap, dense legal adjacency, and invalid persisted move sequences.
+- pan/zoom viewport independent from rule state;
+- one-pointer drag, wheel/trackpad zoom, and two-pointer pinch interaction;
+- anchor-preserving zoom and exact screen↔game transforms;
+- separately versioned viewport persistence and safe restore;
+- viewport coordinate, snapping, zoom-anchor, persistence, and bounds regression tests.
 
-Remaining rule-engine work is ongoing adversarial/stress coverage rather than a missing principal rule. The next product feature phase is viewport ergonomics.
+Remaining rule-engine work is ongoing adversarial/stress coverage rather than a missing principal rule. Remaining product work before AI is mostly browser/mobile polish, accessibility, offline/PWA hardening, and performance testing on very long games.
 
 ## Delivery phases
 
@@ -136,20 +155,31 @@ Remaining rule-engine work is ongoing adversarial/stress coverage rather than a 
 
 JSON import/export remains optional and should be added only if it is clearly useful without complicating the core flow.
 
-### Phase 3 — board ergonomics
+### Phase 3 — board navigation — complete in 0.4.0
 
-- panning and zooming;
-- large-board / practically infinite-board viewport;
-- touch gestures;
-- capture animations kept subtle and fast;
-- accessibility and reduced-motion handling;
-- improved PWA/offline behavior.
+- practically unbounded viewport over integer game coordinates;
+- one-pointer mouse/touch panning;
+- mouse-wheel and trackpad zoom;
+- two-pointer pinch zoom/pan;
+- anchor-preserving zoom mathematics;
+- visible-range grid rendering and off-screen stone culling;
+- viewport persistence kept separate from authoritative move history;
+- reset to origin on new game;
+- viewport regression tests and numeric safety bounds.
 
-### Phase 4 — computer opponent
+### Phase 4 — browser and PWA polish
+
+- accessibility and keyboard-oriented interaction where useful without changing the core game;
+- reduced-motion handling for any later animations;
+- improved mobile-browser and installed-PWA behavior;
+- offline/update lifecycle hardening;
+- performance stress testing for very long games and large captured regions.
+
+### Phase 5 — computer opponent
 
 AI may be added only after the rules engine, history model, and viewport interaction are stable. AI logic must use the game core without depending on Canvas or browser UI.
 
-### Phase 5 — optional Android packaging
+### Phase 6 — optional Android packaging
 
 Package the same web codebase with Capacitor only after the PWA version is stable.
 
@@ -178,3 +208,8 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - Persisted unfinished games must be versioned.
 - Persisted moves must be replayed through the authoritative game core; persisted capture geometry or score must never become a trusted parallel source of truth.
 - Invalid or unsupported persisted move logs must fail closed to a fresh game.
+- Viewport center and zoom are presentation state only and must never be stored inside `GameState` or alter capture/scoring logic.
+- Screen coordinates must be transformed to game space and snapped to an integer intersection before a move reaches the game core.
+- Pan and zoom must preserve game coordinates; viewport transforms may change only the screen representation.
+- Viewport persistence must use a separate key and explicit version and must fail closed without invalidating a valid saved game.
+- Rendering loops must operate on visible coordinate ranges or bounded screen-space work rather than iterating across arbitrary world extents.
