@@ -13,16 +13,16 @@ Dots includes a deterministic offline computer opponent for the blue side. The A
 
 ## Difficulty levels
 
-Version 0.7.0 provides four deterministic levels. They use the same candidate generator, evaluation, and authoritative move simulation; only bounded search depth and breadth change.
+Dots provides four deterministic levels. They use the same authoritative move simulation and game rules; bounded search policy and strategic analysis increase with difficulty.
 
 | Level | Search behavior |
 | --- | --- |
 | **Easy** | Ranks and simulates a small set of immediate computer moves. No opponent-reply search. |
-| **Normal** | Adds a bounded opponent reply and selects the best worst-case result. This is the default and roughly preserves the 0.6.0 strength profile. |
-| **Hard** | Adds a selective computer continuation after each searched opponent reply, allowing short attack/defense sequences. |
-| **Expert** | Adds one more bounded opponent reply after the computer continuation and uses the widest search budget. |
+| **Normal** | Adds a bounded opponent reply and selects the best worst-case result. |
+| **Hard** | Adds a selective computer continuation, strategic enclosure/threat ordering, and one forcing-capture extension beyond the nominal horizon on ordinary-size positions. |
+| **Expert** | Adds one more bounded opponent reply, the widest strategic analysis, alpha-beta pruning, and up to two forcing-capture extensions on ordinary-size positions. |
 
-All profiles shrink their candidate budgets as the number of stones grows. Difficulty changes therefore increase tactical depth without creating an unbounded search tree.
+All profiles shrink their candidate budgets as the number of stones grows. At 250+ stones the most expensive setup probes are disabled and forcing extensions are reduced so long games remain bounded.
 
 ## Search model
 
@@ -31,18 +31,52 @@ All profiles shrink their candidate budgets as the number of stones grows. Diffi
 The search is intentionally bounded for browser responsiveness:
 
 1. Build a frontier from empty intersections neighboring active stones.
-2. Rank frontier points with a cheap local heuristic that values own connectivity, contact with opponent structure, likely closing points, and proximity to the latest move.
-3. Validate shortlisted moves by applying them through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
-4. Evaluate real resulting score/capture state, not guessed Canvas geometry.
-5. Apply deterministic minimax over the number of plies enabled by the selected difficulty.
-6. Reduce per-ply candidate budgets as the position grows.
-7. Reuse equivalent searched positions through a bounded per-move transposition cache.
+2. Build active same-color connectivity components and identify frontier points that would close an existing connected path into a cycle. These points are useful for both capture/house construction and blocking an opponent closing point.
+3. Rank candidates using local connectivity, opponent contact, cycle-closing pressure, blocked opponent closures, and bounded distance from the latest move.
+4. Validate shortlisted moves by applying them through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
+5. Evaluate real score/capture state plus secondary structure, local stone danger, and near-cycle pressure.
+6. On Hard and Expert, probe a bounded set of authoritative immediate capture threats for both sides and short setup sequences that can create a capture opportunity on the attacker's next turn.
+7. Search alternating real turns with deterministic minimax and alpha-beta pruning over the depth enabled by the selected difficulty.
+8. At the nominal horizon, Hard/Expert may selectively continue only forcing score-changing capture/release moves instead of blindly increasing full-tree depth.
+9. Reuse equivalent searched positions through per-move evaluation/transposition caches.
 
-Capture score changes dominate the evaluation. Structural same-color links are a secondary tie-breaker. Immediate captures therefore remain high priority at every level, while Normal and above can explicitly account for opponent tactical replies.
+Capture score changes still dominate evaluation. Strategic features never override actual score at comparable search depth; they improve move ordering and choose among non-scoring or pre-tactical positions.
 
-The transposition signature includes player-to-move, score, all stones, inactive captured stones, and active capture geometry. Cache entries exist only for the current `chooseAiMove()` call and are discarded afterward, so they cannot become persistent or authoritative state.
+## Enclosure and house pressure
+
+A frontier point is marked as a cycle-closing point when at least two adjacent active stones of one color are already connected through that color's active graph. Placing a dot there closes a cycle in the heuristic graph. The real rules engine still decides whether the result is an empty house, a scoring capture, a capture-of-capture, or no valid capture.
+
+This lets Hard and Expert value useful house/capture construction and occupy likely opponent closing points before they are completed. It does not add a parallel house implementation to the AI.
+
+## Short-horizon threat analysis
+
+Hard and Expert use bounded threat probes in addition to ordinary alternating minimax:
+
+- immediate capture probes temporarily give one side the turn and test a small ranked set through `placeStone()` to discover real score-changing closures and the stones they threaten;
+- setup probes test a small non-scoring setup move and then ask whether another move by the same side would create an authoritative capture opportunity;
+- local danger evaluation penalizes own active stones under concentrated opponent contact and rewards comparable pressure against opponent stones.
+
+The same-side setup probe is an evaluation heuristic for recognizing two-own-move plans across an intervening opponent turn. It never enters session history, never changes `GameState`, and never replaces alternating minimax. The opponent's real reply is still handled by the normal search tree.
+
+## Alpha-beta and forcing extensions
+
+Minimax consumes candidates in tactical order and maintains alpha/beta bounds. A branch that cannot improve the already established bound is skipped. Transposition values are cached only when the node was fully searched; cutoff nodes are not stored as exact values.
+
+Hard and Expert also use a small quiescence-style extension at the nominal horizon. Only moves that immediately change the score balance through capture/release are eligible. This reduces obvious horizon effects without turning every position into a deeper full-width search.
+
+## Search caches
+
+Every `chooseAiMove()` call creates fresh in-memory caches for evaluation, search results, connected components, closure pressure, capture-threat probes, setup probes, and canonical state signatures.
+
+The transposition signature includes player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Cache entries exist only for the current AI move and are discarded afterward, so they cannot become persistent or authoritative state.
 
 The implementation is deterministic: identical `GameState`, difficulty, options, and focus produce the same move. There is no randomness, remote service, machine-learning model, analytics, or network dependency.
+
+## Strength regression matches
+
+`src/game/ai-match.ts` provides a pure deterministic AI-vs-AI harness used only for tests and analysis. It applies every generated move back through `placeStone()` and can run paired matches with the stronger level once as Red and once as Blue.
+
+The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions. Expert must not lose either paired comparison and must retain a positive aggregate margin across the suite. The suite is deliberately short and has no wall-clock assertion; it is a tactical regression guard, not an Elo rating or hardware benchmark.
 
 ## Preference migration
 
@@ -54,13 +88,16 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 - The AI cannot invent captures, scores, houses, releases, or legal moves.
 - Captured stones are excluded from the AI's active-structure heuristic while their holding capture remains active.
 - Difficulty changes search policy only; they never modify game rules or persisted moves.
+- Threat/setup probes are speculative evaluation only and never mutate the supplied state or session history.
 - Search and transposition caches are ephemeral implementation details and never become trusted game state.
+- Alpha-beta cutoffs must not be cached as exact transposition values.
+- Search remains bounded as the board grows; expensive setup analysis and extensions are reduced on large positions.
 - If the AI cannot produce a legal move, the UI fails safe by returning to two-player mode instead of fabricating a move or blocking the saved game.
 - A pending computer turn is suspended when the document is hidden and resumed when the app returns to the foreground.
 - Game saves remain a versioned legal move log. Computer-generated moves are persisted exactly like human moves and replay through the same core after reload.
 
 ## Current strength
 
-Version 0.7.0 turns the original tactical opponent into a selectable four-level opponent. It is still a bounded tactical engine rather than a solved-game system. Hard and Expert can see short multi-ply exchanges that Easy and Normal cannot, while adaptive budgets keep long games practical for the browser/PWA target.
+Version **0.8.0** adds measured tactical quality rather than another blanket depth increase: cycle-closing/house pressure, local stone-danger evaluation, bounded immediate and setup threat probes, improved move ordering, alpha-beta pruning, forcing-capture horizon extensions, and deterministic AI-vs-AI strength regression matches.
 
-Future AI work should focus on measured tactical quality, pruning, and real-device responsiveness rather than increasing depth without a bound.
+The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
