@@ -30,12 +30,13 @@ Current source version: **0.1.0** · repository foundation · Web + PWA · GitHu
 
 1. Red moves first by default.
 2. Players alternate placing one dot on a legal empty grid intersection.
-3. Same-color dots connect horizontally, vertically, and diagonally.
-4. A closed chain captures when it encloses at least one opponent dot.
-5. Captured opponent dots count toward the surrounding player's score.
-6. A closed empty area is a **house**, not a scored capture.
-7. Captured areas can themselves be surrounded, allowing previously captured dots to be released.
-8. The player with more currently captured opponent dots has the higher score.
+3. Every two consecutive dots of a boundary must be on neighboring grid intersections: exactly one grid step horizontally, vertically, or diagonally. Gaps and long segments are not allowed.
+4. The last boundary dot must also be adjacent to the first, forming a closed chain.
+5. A closed chain captures when it encloses at least one opponent dot.
+6. Captured opponent dots count toward the surrounding player's score.
+7. A closed empty area is a **house**, not a scored capture.
+8. Captured areas can themselves be surrounded, allowing previously captured dots to be released.
+9. The player with more currently captured opponent dots has the higher score.
 
 The authoritative implementation rules and edge cases are tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
 

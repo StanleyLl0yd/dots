@@ -27,11 +27,13 @@ The product should feel like squared notebook paper with two pens rather than a 
 
 ### Connectivity
 
-Two dots of the same color are adjacent when their coordinates differ by no more than one grid step horizontally, vertically, or diagonally. A capture boundary is therefore built with 8-direction connectivity.
+Two distinct dots of the same color are adjacent only when they occupy neighboring grid intersections. Formally, for coordinate difference `(dx, dy)`, adjacency requires `max(abs(dx), abs(dy)) = 1`. This gives 8-direction connectivity: horizontal, vertical, and diagonal neighbors are allowed.
+
+Every pair of consecutive vertices in a capture boundary must satisfy this adjacency rule, including the closing pair from the last vertex back to the first. A boundary may not skip an intersection, bridge a gap, or use a straight or diagonal segment spanning more than one grid step.
 
 ### Capture
 
-1. A capture occurs when a move completes a closed, non-self-intersecting chain of the current player's adjacent dots.
+1. A capture occurs when a move completes a closed, non-self-intersecting chain of the current player's dots in which every consecutive pair is adjacent under the rule above.
 2. At least one opponent dot must be inside the closed chain at the moment it closes.
 3. The captured area is outlined through the surrounding player's boundary dots and visually filled or hatched with that player's color.
 4. Opponent dots inside the captured area are captured and added to the surrounding player's score.
@@ -66,6 +68,7 @@ The primary score is the number of currently captured opponent dots. A complete 
 
 - legal placement;
 - robust capture detection;
+- strict neighboring-point boundary validation;
 - minimum-area boundary resolution;
 - houses;
 - capture-of-capture resolution;
@@ -107,5 +110,6 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - Game coordinates are integers and are never derived from viewport pixels after input conversion.
 - Rendering cannot be the source of truth for rules.
 - Capture boundaries are stored as ordered game-coordinate paths.
+- Every consecutive pair of boundary coordinates, including the last-to-first pair, must have Chebyshev distance exactly `1`; longer boundary edges are invalid.
 - Score must be reproducible from the current rule state.
 - Serialization must be versioned before persisted game data becomes part of a public release.

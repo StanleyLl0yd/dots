@@ -7,6 +7,7 @@
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
 - Keep game rules, capture detection, scoring, and future AI independent from rendering and browser UI where practical.
 - Treat the rules in `docs/PRODUCT.md` as authoritative for this repository.
+- Preserve the boundary-adjacency invariant: every consecutive pair of dots in an enclosure path, including last-to-first, must be neighboring grid intersections exactly one step apart horizontally, vertically, or diagonally. Never connect across a gap or multiple grid steps.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
