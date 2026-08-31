@@ -7,7 +7,9 @@ const messages = {
     red: "Красные",
     blue: "Синие",
     turn: "Ход",
+    undo: "Отменить",
     newGame: "Новая игра",
+    resetConfirm: "Начать новую игру? Текущая партия будет удалена.",
     hint: "Замкните соседними точками контур вокруг точки соперника."
   },
   en: {
@@ -16,7 +18,9 @@ const messages = {
     red: "Red",
     blue: "Blue",
     turn: "Turn",
+    undo: "Undo",
     newGame: "New game",
+    resetConfirm: "Start a new game? The current game will be cleared.",
     hint: "Close a boundary of neighboring dots around an opponent dot."
   }
 } as const;

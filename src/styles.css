@@ -30,7 +30,8 @@ button { font: inherit; }
 .topbar h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1; letter-spacing: -.04em; }
 .topbar p { margin: 7px 0 0; color: #71695f; font-size: 14px; }
 
-.new-game {
+.game-actions { display: flex; gap: 8px; align-items: center; }
+.game-actions button {
   border: 1px solid #b9ae9e;
   border-radius: 999px;
   padding: 10px 16px;
@@ -38,6 +39,7 @@ button { font: inherit; }
   color: #2b2925;
   cursor: pointer;
 }
+.game-actions button:disabled { opacity: .45; cursor: default; }
 
 .scorebar {
   display: grid;
@@ -74,10 +76,11 @@ button { font: inherit; }
 }
 
 @media (max-width: 640px) {
-  .topbar { padding: 14px 16px 10px; }
+  .topbar { padding: 14px 16px 10px; gap: 12px; }
   .topbar p { display: none; }
   .scorebar { padding: 9px 16px; gap: 8px; font-size: 12px; }
-  .new-game { padding: 8px 12px; }
+  .game-actions { gap: 6px; }
+  .game-actions button { padding: 8px 11px; font-size: 13px; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -85,6 +88,6 @@ button { font: inherit; }
   .shell { background: #1d1b18; }
   .topbar, .scorebar { border-color: #3b3731; }
   .topbar p, .notice { color: #b5aca0; }
-  .new-game, .notice { background: rgb(42 39 34 / .94); color: #eee8de; border-color: #514b42; }
+  .game-actions button, .notice { background: rgb(42 39 34 / .94); color: #eee8de; border-color: #514b42; }
   .board { background: #25221e; }
 }
