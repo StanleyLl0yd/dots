@@ -2,6 +2,26 @@
 
 All notable project changes are recorded here.
 
+## [0.3.0] - 2026-08-31
+
+### Added
+
+- reversible game-session history with one-move undo that restores player, capture state, released/captured dots, and derived score;
+- confirmed new-game/reset flow for games already in progress;
+- versioned browser-local persistence using an ordered legal move log;
+- deterministic restore by replaying saved moves through the authoritative game core, including restoration of undo history;
+- safe rejection and removal of malformed, illegal, corrupted, or unsupported persisted move logs;
+- persistence regression tests covering state replay, capture/score reconstruction, invalid repeated moves, malformed coordinates, and clearing saved games;
+- topology hardening for direct-capture priority, nested-house minimum selection, partial overlap of opponent captures, and dense legal adjacency graphs.
+
+### Changed
+
+- application composition now operates on a game session rather than mutating a standalone current state reference;
+- undo availability is reflected directly in the controls and survives a page reload through move-log reconstruction;
+- persistence stores no authoritative score or capture geometry; all derived state is rebuilt by rule replay;
+- Phase 2 game-state ergonomics is complete and the roadmap now moves to pan/zoom and practically unbounded viewport interaction;
+- source version advanced to 0.3.0.
+
 ## [0.2.0] - 2026-08-31
 
 ### Added

@@ -64,9 +64,20 @@ This resolution can remove several opponent captures at once. Score must never d
 
 The primary score is the number of currently captured opponent dots. A later complete release may support agreed ending conditions such as mutual finish/pass or a configured finite board. The web implementation should not invent a victory condition that changes classic capture scoring.
 
+## Game-state ergonomics
+
+- **Undo** reverses one legal move and restores the player to move, active captures, released/captured status, and score to the exact previous rule state.
+- Illegal clicks do not create undo history.
+- **New game** resets the board and asks for confirmation when a game is in progress.
+- An unfinished game is saved automatically in browser-local storage after every legal move and undo.
+- Persistence stores a versioned ordered move log rather than trusting serialized derived capture/score state.
+- Loading a save replays every stored move through the same game core used for live play, rebuilding captures, score, current player, and undo history deterministically.
+- Malformed, illegal, corrupted, or unsupported save data is discarded instead of being accepted as game state.
+- Starting a new game clears the saved unfinished game.
+
 ## Current implementation status
 
-Version **0.2.0** supports the main advanced local capture flow:
+Version **0.3.0** supports the advanced local capture flow plus complete Phase 2 game-state ergonomics:
 
 - alternating local two-player placement on grid intersections;
 - strict 8-direction neighboring-dot topology;
@@ -80,9 +91,14 @@ Version **0.2.0** supports the main advanced local capture flow:
 - removal of several nested opponent captures by one outer capture;
 - score derived from active captures;
 - blocking placement inside active captured areas;
-- Canvas outline, translucent fill, and light diagonal hatching for completed captures.
+- Canvas outline, translucent fill, and light diagonal hatching for completed captures;
+- move history and exact one-move undo;
+- confirmed new-game/reset flow;
+- versioned automatic local save and deterministic replay restore;
+- restoration of undo history after page reload;
+- topology hardening for direct-capture priority, nested houses, partial overlap, dense legal adjacency, and invalid persisted move sequences.
 
-Remaining rule-engine work is hardening for adversarial self-touching/crossing graph configurations and broader stress coverage. The principal house and release semantics are implemented.
+Remaining rule-engine work is ongoing adversarial/stress coverage rather than a missing principal rule. The next product feature phase is viewport ergonomics.
 
 ## Delivery phases
 
@@ -109,14 +125,16 @@ Remaining rule-engine work is hardening for adversarial self-touching/crossing g
 - topology regression tests;
 - captured-area rendering and placement blocking.
 
-Ongoing hardening remains for rare adversarial graph embeddings, but it does not block the 0.2.0 rule release.
+### Phase 2 — game-state ergonomics — complete in 0.3.0
 
-### Phase 2 — game-state ergonomics
-
-- new-game/reset flow;
+- new-game/reset confirmation flow;
 - undo backed by rule-state history;
 - versioned local persistence of unfinished games;
-- optional JSON import/export only if it remains simple and useful.
+- deterministic restore by replaying the legal move log through the game core;
+- restored undo history after reload;
+- safe rejection of malformed or unsupported saves.
+
+JSON import/export remains optional and should be added only if it is clearly useful without complicating the core flow.
 
 ### Phase 3 — board ergonomics
 
@@ -129,7 +147,7 @@ Ongoing hardening remains for rare adversarial graph embeddings, but it does not
 
 ### Phase 4 — computer opponent
 
-AI may be added only after the rules engine and history model are stable. AI logic must use the game core without depending on Canvas or browser UI.
+AI may be added only after the rules engine, history model, and viewport interaction are stable. AI logic must use the game core without depending on Canvas or browser UI.
 
 ### Phase 5 — optional Android packaging
 
@@ -156,4 +174,7 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - Fully surrounded active opponent captures are removed before score is derived from the resulting active state.
 - Capture visuals may be rendered only from confirmed active capture state.
 - Score must be reproducible from the current active capture state.
-- Serialization must be versioned before persisted game data becomes part of a public release.
+- Undo must restore rule state, not visually approximate it.
+- Persisted unfinished games must be versioned.
+- Persisted moves must be replayed through the authoritative game core; persisted capture geometry or score must never become a trusted parallel source of truth.
+- Invalid or unsupported persisted move logs must fail closed to a fresh game.

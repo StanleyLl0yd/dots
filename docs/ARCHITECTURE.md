@@ -4,21 +4,26 @@
 
 ```text
 src/
-├── game/                  pure game state and rules
+├── game/                  pure game state, rules, and reversible session state
 │   ├── types.ts
 │   ├── board.ts
 │   ├── board.test.ts
 │   ├── capture.ts
-│   └── capture.test.ts
+│   ├── capture.test.ts
+│   ├── session.ts
+│   ├── session.test.ts
+│   └── topology.test.ts
 ├── ui/                    Canvas rendering and pointer/touch input
 │   └── canvas-board.ts
+├── persistence.ts         versioned local move-log persistence
+├── persistence.test.ts    persistence replay/validation tests
 ├── i18n.ts                locale resolution and user-facing copy
 ├── i18n.test.ts           locale tests
 ├── main.ts                application composition
 └── styles.css             page chrome and visual system
 ```
 
-The capture engine lives under `src/game/` and does not import DOM or Canvas APIs. Rendering consumes confirmed capture state; it does not decide whether an enclosure exists.
+The capture engine and session history live under `src/game/` and do not import DOM, Canvas, or storage APIs. Rendering consumes confirmed capture state; it does not decide whether an enclosure exists. Browser persistence is a separate adapter that rebuilds authoritative state by replaying moves through the game core.
 
 ## Capture engine
 
@@ -54,31 +59,72 @@ Direct capture therefore has priority over house activation on the same move. Sc
 
 A newly created capture removes any fully enclosed active opponent captures before the new active state is scored. Same-owner captures may coexist when they represent separate or previously established captured regions; score de-duplicates captured stone coordinates.
 
+## Session history and undo
+
+`src/game/session.ts` wraps `GameState` with reversible move history without making the UI a rule authority.
+
+For every legal move, the history entry stores only the information needed to restore the exact previous rule state:
+
+- the placed game-coordinate point;
+- the player who was about to move;
+- the previous active capture set.
+
+Undo removes the most recently placed stone, restores the previous active captures and player, and derives score again from those captures. Illegal placement attempts return the same session object and do not create history entries.
+
+This avoids keeping a complete copied stone map for every historical move while preserving exact capture/release reversal.
+
+## Persistence
+
+`src/persistence.ts` uses browser-local storage only as a persistence transport, never as a second rule engine.
+
+Save format version 1 stores:
+
+```text
+{
+  version: 1,
+  moves: [{ x, y }, ...]
+}
+```
+
+Derived data such as score, active captures, current player, and rendering geometry is deliberately not persisted as authoritative state. On load, every saved point must be an integer game coordinate and every move is replayed in order through `playMove()` from a fresh session.
+
+If any stored move becomes illegal during replay, or the JSON/version/coordinate format is invalid, the save is removed and the application starts fresh. Successful replay reconstructs the same game state and the full undo history.
+
+Saving occurs after every legal move and undo. Returning to an empty history or starting a new game removes the saved unfinished game.
+
 ## Current hardening targets
 
-Version 0.2.0 implements the main house, multiple-capture, capture-of-capture, nested-release, and minimum-face flows. Remaining rule-engine work is concentrated on difficult geometric cases rather than missing primary mechanics:
+Version 0.3.0 adds targeted regression cases around difficult rule-order and graph interactions:
 
-- adversarial self-touching graphs with many legal diagonal adjacencies;
-- crossing-edge configurations where graph embedding becomes ambiguous;
-- broader competing-boundary stress cases;
-- performance on very long games before viewport/persistence work is added.
+- direct capture versus opponent-house activation priority;
+- minimum containing face with nested houses;
+- opponent captures that overlap but are not fully enclosed;
+- dense legal diagonal adjacency around a captured point;
+- invalid repeated or malformed moves in persisted logs.
 
-These cases must remain in the game layer and must not be patched in the renderer.
+Further rule-engine work remains ongoing stress coverage for unusual large/dense positions. The next architectural feature is a viewport model for pan/zoom that must remain independent from integer game coordinates and persisted rule history.
 
 ## Regression coverage
 
-Covered by the current game tests:
+Covered by the current tests:
 
 - ordinary single-dot enclosure;
 - almost-enclosure with a gap;
 - empty house that does not score;
 - house activation after opponent entry;
+- direct-capture priority over house activation;
+- nested-house minimum-face selection;
 - blocking placement inside an active capture;
 - several independent captures closed by one move;
 - rejection of two-step boundary gaps;
 - capture-of-capture with release and score reversal;
 - removal of several surrounded opponent captures by one outer capture;
+- partial-overlap preservation of opponent captures;
 - deterministic minimum-area face selection;
+- dense legal adjacency around the minimum capture face;
 - strict polygon boundary-versus-interior handling;
 - de-duplicated score derivation;
-- large game coordinates independent of viewport position.
+- large game coordinates independent of viewport position;
+- legal-move history and invalid-move history rejection;
+- undo of ordinary and capture-producing moves;
+- versioned persistence replay, capture/score reconstruction, malformed save rejection, and undo-history restoration.

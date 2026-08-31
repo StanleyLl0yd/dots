@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.2.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.3.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. When a valid neighboring-dot boundary is actually closed around opponent dots, the captured area is outlined and lightly hatched.
 
-Current source version: **0.2.0** · advanced capture rules · Web + PWA · GitHub Pages live
+Current source version: **0.3.0** · advanced capture rules + game-state ergonomics · Web + PWA · GitHub Pages live
 
 ## 🎯 Rules
 
@@ -53,13 +53,18 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 - score derived from active captured dots rather than an irreversible counter;
 - captured areas blocked from further placement;
 - capture outline, translucent fill, and light diagonal hatching;
+- undo that restores the previous player, capture set, released/captured dots, and score together;
+- new-game reset with confirmation when a game is in progress;
+- versioned automatic local save using a legal move log, with full game and undo-history restoration after reload;
+- invalid, corrupted, or unsupported saves discarded safely instead of becoming game state;
+- additional topology hardening for direct-capture priority, nested houses, partial capture overlap, and dense legal adjacency graphs;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - responsive desktop/mobile layout with light and dark presentation;
 - installable PWA and offline-ready build pipeline;
-- Vitest topology/regression tests, CI, and automatic GitHub Pages deployment;
+- Vitest topology/regression tests, CI, automatic GitHub Pages deployment, and automated GitHub releases;
 - proprietary All Rights Reserved license.
 
-Version **0.2.0** establishes the advanced local capture rules. Remaining rule-engine work is focused on adversarial self-touching/crossing topologies and broader stress coverage rather than the main house/release flow.
+Version **0.3.0** completes the planned game-state ergonomics phase. The next product work is board navigation: pan, zoom, touch gestures, and a practically unbounded viewport.
 
 ## 🧱 Technology
 
@@ -70,7 +75,7 @@ Version **0.2.0** establishes the advanced local capture rules. Remaining rule-e
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest |
-| Persistence | not yet implemented |
+| Persistence | versioned localStorage move log |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -83,16 +88,21 @@ src/
 │   ├── board.test.ts      move/capture integration tests
 │   ├── capture.ts         topology, house, release, and scoring logic
 │   ├── capture.test.ts    capture-geometry regression tests
+│   ├── session.ts         move history, undo, and reset state
+│   ├── session.test.ts    session/undo regression tests
+│   ├── topology.test.ts   adversarial topology hardening tests
 │   └── types.ts           domain types
 ├── ui/
 │   └── canvas-board.ts    Canvas rendering and pointer input
+├── persistence.ts         versioned move-log save and restore
+├── persistence.test.ts    persistence validation/replay tests
 ├── i18n.ts                Russian / English interface
 ├── i18n.test.ts           locale tests
 ├── main.ts                application composition
 └── styles.css             notebook-inspired visual layer
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current capture-engine architecture and [`CHANGELOG.md`](CHANGELOG.md) for release changes.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current architecture and [`CHANGELOG.md`](CHANGELOG.md) for release changes.
 
 ## 🛠 Development
 
@@ -114,11 +124,11 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Harden rare self-touching, crossing-edge, and competing-boundary topologies with additional regression and stress tests.
-2. Add new game, confirmation flow, undo, and versioned local persistence.
-3. Add board panning/zooming and polished mouse/touch gestures for a practically unbounded play area.
-4. Stabilize PWA/offline behavior across desktop and mobile browsers.
-5. Consider AI only after the local rules engine and game-state history are proven.
+1. Add board panning/zooming and polished mouse/touch gestures for a practically unbounded play area.
+2. Add viewport-state persistence only if it remains separate from authoritative game coordinates.
+3. Harden PWA/offline behavior across desktop and mobile browsers and improve accessibility/reduced-motion handling.
+4. Continue topology stress testing as new difficult positions are found.
+5. Consider AI only after board navigation and the local game flow are proven.
 6. Optionally package the same codebase for Android through Capacitor later.
 
 ## 📄 License
