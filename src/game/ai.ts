@@ -658,6 +658,27 @@ export const chooseAiMove = (state: GameState, options: AiMoveOptions = {}): Poi
   );
   if (candidates.length === 0) return undefined;
 
+  const opponent = otherPlayer(player);
+  if (difficulty === "expert") {
+    const immediateCaptures = candidates
+      .map((candidate) => ({
+        candidate,
+        gain:
+          candidate.state.score[player] - state.score[player] +
+          state.score[opponent] - candidate.state.score[opponent]
+      }))
+      .filter(({ candidate, gain }) => gain > 0 && candidate.state.score[opponent] <= state.score[opponent])
+      .sort(
+        (a, b) =>
+          b.gain - a.gain ||
+          b.candidate.tacticalScore - a.candidate.tacticalScore ||
+          b.candidate.score - a.candidate.score ||
+          a.candidate.point.y - b.candidate.point.y ||
+          a.candidate.point.x - b.candidate.point.x
+      );
+    if (immediateCaptures.length > 0) return { ...immediateCaptures[0].candidate.point };
+  }
+
   const extensions =
     state.stones.size >= 250
       ? difficulty === "expert"
@@ -668,7 +689,6 @@ export const chooseAiMove = (state: GameState, options: AiMoveOptions = {}): Poi
         : difficulty === "hard"
           ? 1
           : 0;
-  const opponent = otherPlayer(player);
   const safeCandidates = candidates.filter(
     (candidate) => candidate.state.score[opponent] <= state.score[opponent]
   );
