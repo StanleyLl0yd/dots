@@ -78,19 +78,27 @@ The computer opponent is deterministic and offline. It may propose only a coordi
 
 ## Computer opponent
 
-Version 0.6.0 implements the first tactical computer opponent.
+Version 0.7.0 provides four selectable computer strengths over one shared deterministic engine.
+
+- **Easy** evaluates a small bounded set of immediate computer moves and does not search an opponent reply.
+- **Normal** searches a bounded opponent reply and chooses the best worst-case result. It is the default and preserves the intended 0.6.0 tactical strength profile.
+- **Hard** adds a selective computer continuation after each searched opponent reply.
+- **Expert** adds one further bounded opponent reply and uses the widest candidate budget.
+
+All four levels share these invariants:
 
 - AI logic lives in `src/game/ai.ts` and imports no DOM, Canvas, storage, service-worker, or network APIs.
 - Candidate moves are generated from empty intersections adjacent to active stones.
 - A cheap local ranking prioritizes likely closing points, blocking points, same-color connectivity, contact with opponent structure, and recent local pressure.
 - Shortlisted candidates are validated and simulated through `placeStone()`. The AI therefore observes real houses, captures, capture-of-capture, releases, blocked territory, and score rather than approximating those rules itself.
-- Search evaluates a bounded set of opponent replies and selects the move with the best worst-case result.
 - Capture-score changes dominate evaluation; structural same-color connectivity is secondary.
-- Candidate and reply limits shrink as positions grow so browser work remains bounded.
-- Identical game state/options produce the same move; no randomness or external service is used.
+- Search uses deterministic bounded minimax to the depth enabled by the selected difficulty.
+- Per-ply candidate limits shrink as positions grow so browser work remains bounded.
+- Repeated equivalent search states may be reused through an ephemeral per-move transposition cache. The cache key includes player-to-move, score, stones, inactive captured stones, and active capture geometry.
+- Identical game state/difficulty/options produce the same move; no randomness or external service is used.
 - If no legal AI move can be produced, the UI must fail safe to local two-player mode rather than inventing a move or leaving the saved game unusable.
 
-This is a tactical bounded-search opponent, not a solved-game engine. Future strength improvements may add better threat extraction, deeper selective search, transposition reuse, or difficulty levels, but they must preserve deterministic legality and browser responsiveness.
+Difficulty affects search policy only. It cannot change rules, scoring, legality, saved moves, or viewport state.
 
 ## Game-state ergonomics
 
@@ -104,7 +112,8 @@ This is a tactical bounded-search opponent, not a solved-game engine. Future str
 - Computer-generated moves are persisted as ordinary legal moves and require no AI-specific save format.
 - Malformed, illegal, corrupted, or unsupported save data is discarded instead of being accepted as game state.
 - Starting a new game clears the saved unfinished game.
-- Game-mode preference is versioned and stored separately from both the game move log and viewport state.
+- Game mode and AI difficulty are versioned preferences stored separately from both the game move log and viewport state.
+- Preference format version 2 migrates valid 0.6.0 version-1 mode data and assigns **Normal** difficulty.
 
 ## Board navigation
 
@@ -119,7 +128,7 @@ The visible board is a viewport over integer game coordinates rather than a fini
 - Zoom and viewport center values are numerically bounded for rendering safety, not as gameplay board edges.
 - Grid/capture/stone rendering work is limited to visible or bounded screen-space ranges.
 
-Viewport state is independently persisted and may be discarded without affecting moves, captures, score, current player, Undo, or game mode. Starting a new game resets it to `(0, 0, 1)`.
+Viewport state is independently persisted and may be discarded without affecting moves, captures, score, current player, Undo, game mode, or AI difficulty. Starting a new game resets it to `(0, 0, 1)`.
 
 ## Browser, accessibility, and PWA behavior
 
@@ -129,7 +138,7 @@ Viewport state is independently persisted and may be discarded without affecting
 - Offline/online/update status is presentation state only and must never alter game rules or persisted moves.
 - A pending computer turn should not continue consuming work while the page is hidden; if Blue is still to move, scheduling resumes when the app returns to the foreground.
 - The game board is keyboard focusable, includes assistive instructions, and reports keyboard cursor movement and placement results through live regions.
-- Computer-thinking and computer-move status uses the same accessible live-feedback path.
+- Computer-thinking, computer-move, mode, and difficulty feedback use accessible localized controls/status paths.
 - Primary controls maintain practical touch targets and visible focus states.
 - Mobile layout accounts for safe-area insets and dynamic viewport height.
 - Dark mode, forced-colors, and reduced-motion preferences must not hide essential game state.
@@ -137,25 +146,27 @@ Viewport state is independently persisted and may be discarded without affecting
 
 ## Current implementation status
 
-Version **0.6.0** supports the planned classic local game, browser/PWA/accessibility stack, and first computer opponent:
+Version **0.7.0** supports the planned classic local game, browser/PWA/accessibility stack, and four-level computer opponent:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
 - Canvas capture outline, translucent fill, and light diagonal hatching;
 - local two-player and human-Red-vs-computer-Blue modes;
-- deterministic bounded tactical AI with immediate-capture preference, obvious-threat blocking, one-reply lookahead, adaptive search budgets, and game-core simulation;
+- Easy / Normal / Hard / Expert deterministic AI levels with progressively deeper bounded search;
+- immediate-capture preference, opponent-reply analysis from Normal upward, selective continuation search on Hard/Expert, and a final opponent reply on Expert;
+- adaptive per-level budgets and per-move evaluation/transposition reuse;
 - exact Undo semantics for local mode and full human decision rollback in computer mode;
 - confirmed New game;
 - versioned move-log persistence with replay restoration of rules and Undo history;
-- separately versioned game-mode and viewport persistence;
+- separately versioned game-mode/difficulty preferences and viewport persistence;
 - pan/zoom viewport independent from rules, pointer/touch/pinch interaction, anchor-preserving transforms, and keyboard board control;
 - safe-area/dynamic-viewport mobile layout, practical touch targets, focus-visible, dark, forced-colors, and reduced-motion handling;
 - installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, and status feedback;
 - build-time verification of generated manifest, service worker, and required install/mobile assets;
 - bounded visible-grid rendering, DPR cap, debounced viewport persistence, and stress tests for long histories and repeated/extreme viewport transforms;
-- AI regression tests including a 300-stone sparse position.
+- AI regression tests covering all four search profiles and a 300-stone Expert position.
 
-Remaining work is mainly empirical real-device/browser testing, continued adversarial topology coverage, and optional AI-strength refinement rather than a missing principal game layer.
+Remaining work is mainly empirical real-device/browser testing, continued adversarial topology coverage, and measured AI-quality/performance refinement rather than a missing principal game layer.
 
 ## Delivery phases
 
@@ -210,9 +221,18 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - foreground/background scheduling safety;
 - deterministic tactical and large-position tests.
 
+### Phase 5.1 — four AI difficulty levels — complete in 0.7.0
+
+- Easy / Normal / Hard / Expert selector;
+- progressive bounded 1/2/3/4-ply search behavior;
+- adaptive per-level budgets;
+- ephemeral evaluation/transposition reuse;
+- version-2 preference persistence and migration from 0.6.0;
+- difficulty-aware regression and large-position tests.
+
 ### Phase 6 — optional refinement and Android packaging
 
-Further AI strength/difficulty work is optional and must remain bounded. Package the same web codebase with Capacitor only after sufficient real-device PWA validation.
+Further AI refinement must be driven by measured weaknesses and remain bounded. Package the same web codebase with Capacitor only after sufficient real-device PWA validation.
 
 ## Visual direction
 
@@ -237,9 +257,11 @@ Further AI strength/difficulty work is optional and must remain bounded. Package
 - Computer moves are ordinary core moves and require no parallel AI persistence format.
 - AI may rank/propose coordinates only; legality and resulting captures/score remain authoritative core responsibilities.
 - AI must not import or depend on Canvas, DOM, viewport, service worker, storage, or network state.
+- AI difficulty may change only bounded search policy, never game rules or authoritative persistence.
 - AI search must remain bounded independently from world-coordinate distance and must fail safely if no move is produced.
+- AI caches must be ephemeral and keyed by rule-relevant position state; they are never trusted or persisted as `GameState`.
 - Invalid or unsupported persisted move logs fail closed to a fresh game.
-- Game-mode preference and viewport are presentation/session preferences stored separately from the move log.
+- Game-mode/difficulty preference and viewport are presentation/session preferences stored separately from the move log.
 - Screen input is transformed to game space and snapped to an integer intersection before the core receives a move.
 - Pan/zoom and accessibility camera-follow may change only presentation.
 - Rendering loops operate on visible/bounded work rather than arbitrary world extents.

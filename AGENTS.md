@@ -13,12 +13,15 @@
 - Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed active game-state captures. Never infer or create captures in the UI layer.
 - AI may rank and propose only integer game-coordinate moves. Every computer move must still be validated and accepted through the authoritative `placeStone()` / `playMove()` path; never let AI create captures, score, releases, or legality as parallel state.
 - Keep `src/game/ai.ts` free of DOM, Canvas, viewport, storage, service-worker, and network dependencies. AI behavior must remain usable offline and independently testable from the browser shell.
-- Keep computer search deterministic unless a future product requirement explicitly introduces selectable randomness. Identical state/options should produce identical moves so regressions remain reproducible.
-- Keep AI search bounded. Expensive simulation budgets must not grow with arbitrary world-coordinate distance or without an explicit cap as the position grows.
+- Keep computer search deterministic unless a future product requirement explicitly introduces selectable randomness. Identical state/difficulty/options should produce identical moves so regressions remain reproducible.
+- Preserve the four difficulty contracts: Easy has no opponent-reply search, Normal searches one opponent reply, Hard adds a selective computer continuation, and Expert adds a final bounded opponent reply. Changes may tune bounded budgets but should not collapse all levels into cosmetic labels.
+- Keep AI search bounded. Per-difficulty simulation budgets must not grow with arbitrary world-coordinate distance or without an explicit cap as the position grows.
+- Reduce expensive AI budgets as positions grow rather than allowing higher difficulty to create unbounded browser work.
+- AI evaluation/transposition caches must be ephemeral to one move calculation and keyed by rule-relevant state. They must never become persisted or authoritative game state; rule-relevant cache identity must include active capture geometry when future legality can depend on it.
 - The current computer mode assigns Red to the human and Blue to the computer. Changing that contract requires synchronized UI, persistence, Undo, accessibility, tests, and documentation changes.
 - Computer-generated moves are ordinary session moves and must use the same persisted move log as human moves. Do not add a trusted AI-specific game-state or capture save format.
-- Game-mode preference must remain separately versioned from the authoritative game move log and viewport state. Invalid preference data must fail closed to local two-player mode without changing a valid game.
-- Switching between local and computer mode must not rewrite the move log or silently reset the current board unless the user explicitly starts a new game.
+- Game-mode and AI-difficulty preferences must remain separately versioned from the authoritative game move log and viewport state. Invalid preference data must fail closed without changing a valid game; supported older preference versions should be migrated explicitly when practical.
+- Switching local/computer mode or AI difficulty must not rewrite the move log or silently reset the current board unless the user explicitly starts a new game.
 - In computer mode, Undo should return the human to the previous decision point by reversing the computer move and preceding human move when that normal pair exists. The underlying one-move `undoMove()` primitive remains authoritative.
 - A pending computer turn should not continue scheduled work while the document is hidden. If Blue is still to move when the app returns to the foreground, scheduling must resume without requiring a fabricated input.
 - If AI cannot produce an accepted legal move, fail safely to local two-player mode rather than inventing a move, corrupting history, or leaving the game permanently blocked.
@@ -39,13 +42,13 @@
 - Offline, online, update-available, and service-worker error states are presentation only. They must never alter `GameState`, move history, score, captures, AI legality, or saved moves.
 - Preserve offline/PWA behavior and GitHub Pages compatibility. Required manifest/service-worker/install assets must continue to be verified by the production build.
 - Preserve keyboard accessibility: board focus, visible intersection cursor, arrow navigation, Enter/Space placement, zoom shortcuts, assistive instructions/live announcements, and visible focus states unless an equivalent or better path replaces them.
-- Computer-thinking state and computer moves must remain understandable through the accessible status path and must not rely on color alone.
+- Computer mode, difficulty, computer-thinking state, and computer moves must remain understandable through accessible localized controls/status and must not rely on color alone.
 - Essential game information and controls must remain usable with reduced motion, forced colors, dark mode, mobile safe areas, and touch input.
 - Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
-- Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
+- Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism/difficulty profiles, preference migration, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
 - Keep deterministic stress tests meaningful but hardware-independent; do not turn CI into a fragile wall-clock benchmark.
 - Run relevant tests and the full production build, including PWA artifact verification, before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.

@@ -2,6 +2,28 @@
 
 All notable project changes are recorded here.
 
+## [0.7.0] - 2026-08-31
+
+### Added
+
+- four selectable computer difficulty levels: Easy, Normal, Hard, and Expert;
+- per-difficulty bounded search profiles with progressively deeper minimax: immediate move only, opponent reply, computer continuation, and final opponent reply;
+- adaptive per-level search budgets that shrink as the board grows;
+- per-move evaluation and transposition caches keyed by rule-relevant position state, including active capture geometry;
+- version-2 preference persistence for game mode plus AI difficulty, with automatic migration of 0.6.0 preferences to Normal difficulty;
+- localized and accessible difficulty selector in computer mode;
+- AI regression coverage for all four levels, search-profile depth, large-position budget reduction, immediate captures, threat blocking, determinism, and 300-stone Expert search.
+
+### Changed
+
+- Normal difficulty preserves the intended bounded one-reply behavior of the original 0.6.0 opponent;
+- Hard now searches a selective computer continuation after each considered opponent reply;
+- Expert searches one further bounded opponent reply and uses the widest candidate budget;
+- Easy deliberately omits reply search for a faster and more forgiving opponent while still using real game-core simulation and immediate capture scoring;
+- the computer difficulty can be changed without resetting or rewriting the current game and is stored separately from the authoritative move log;
+- AI documentation and architecture now describe multi-ply search, adaptive profiles, ephemeral transposition reuse, and preference migration;
+- source version advanced to 0.7.0.
+
 ## [0.6.0] - 2026-08-31
 
 ### Added

@@ -162,7 +162,15 @@ const stateSignature = (state: GameState, context: SearchContext): string => {
     .sort()
     .join(";");
   const inactive = [...inactiveStoneKeys(state)].sort().join(";");
-  const signature = `${state.currentPlayer}|${state.score.red},${state.score.blue}|${stones}|${inactive}`;
+  const captures = state.captures
+    .map((capture) => {
+      const boundary = capture.boundary.map((point) => `${point.x},${point.y}`).join(";");
+      const captured = capture.captured.map(pointKey).sort().join(";");
+      return `${capture.owner}|${boundary}|${captured}`;
+    })
+    .sort()
+    .join("/");
+  const signature = `${state.currentPlayer}|${state.score.red},${state.score.blue}|${stones}|${inactive}|${captures}`;
   context.signatureCache.set(state, signature);
   return signature;
 };

@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.7.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.6.0** · advanced classic capture rules + local two-player mode + deterministic computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
+Current source version: **0.7.0** · advanced classic capture rules + local two-player mode + four-level deterministic computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
 
 ## 🎯 Rules
 
@@ -42,21 +42,24 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 
 ## 🤖 Computer opponent
 
-Choose **Vs computer** from the mode selector to play Red against the Blue computer opponent. The original **Two players** mode remains available.
+Choose **Vs computer** from the mode selector to play Red against the Blue computer opponent. The original **Two players** mode remains available. Computer mode now exposes four difficulty levels:
 
-The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState` and validates every candidate by applying it through the existing game core.
+| Difficulty | Behavior |
+| --- | --- |
+| **Easy** | Fast immediate-move evaluation with no opponent-reply search. |
+| **Normal** | Searches a bounded opponent reply and chooses the best worst-case result. This is the default. |
+| **Hard** | Adds a selective computer continuation after each searched opponent reply. |
+| **Expert** | Adds one more bounded opponent reply and the widest candidate budget. |
 
-Its first release uses a deterministic bounded tactical search:
+The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState` and validates every candidate through the existing game core.
 
-- candidates are generated from empty intersections neighboring active stones;
-- likely captures, blocking points, own connectivity, and recent local pressure rank the frontier;
-- shortlisted moves are simulated through `placeStone()`, so houses, capture-of-capture, releases, blocked territory, and scoring are handled by the real rules engine;
-- the computer examines a bounded set of opponent replies and prefers the move with the best worst-case result;
-- search budgets shrink as a position grows so browser work remains bounded.
+All levels share the same legal-move generation and evaluation. Difficulty changes only bounded search breadth/depth. Search budgets shrink as a position grows, and per-move transposition/evaluation caches reuse repeated rule-equivalent positions without becoming persisted game state.
 
-The human always plays **Red** and the computer plays **Blue** in this version. Switching game mode does not reset the current board. If Blue is already to move when computer mode is enabled, the computer takes over that turn. In computer mode, **Undo** rolls back the computer move and the preceding human move when both exist, returning to the previous human decision point.
+Immediate captures remain important on every level. Normal and above explicitly account for opponent replies; Hard and Expert can see short multi-ply attack/defense exchanges. Identical state, difficulty, and options always produce the same move.
 
-See [`docs/AI.md`](docs/AI.md) for the AI contract and limitations.
+The human always plays **Red** and the computer plays **Blue**. Switching game mode or difficulty does not reset the current board. If Blue is already to move when computer mode is enabled, the computer takes over that turn. In computer mode, **Undo** rolls back the computer move and the preceding human move when both exist, returning to the previous human decision point.
+
+Existing 0.6.0 computer-mode preferences migrate automatically to **Normal** difficulty. See [`docs/AI.md`](docs/AI.md) for the AI contract, search profiles, and limitations.
 
 ## 🖱 Board navigation
 
@@ -77,11 +80,11 @@ Viewport movement never changes game coordinates. Pointer and keyboard placement
 - safe-area and dynamic viewport handling for mobile/installed PWA use;
 - explicit dark-mode, forced-colors, and reduced-motion handling;
 - bounded Canvas DPR to avoid excessive backing-buffer memory on extreme-density screens;
-- localized computer-thinking and computer-move announcements reuse the same accessible status path.
+- localized computer-thinking, computer-move, mode, and difficulty controls reuse the same accessible status path.
 
 ## 📦 PWA & offline lifecycle
 
-The application shell is precached for offline use. Saved games, viewport state, and game-mode preference are local browser data and do not depend on the network or service worker.
+The application shell is precached for offline use. Saved games, viewport state, game mode, and AI difficulty are local browser data and do not depend on the network or service worker.
 
 When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage.
 
@@ -90,19 +93,20 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - complete classic local rule engine separated from Canvas and browser UI;
 - strict 8-direction neighboring-dot topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
 - local two-player mode plus deterministic offline Blue computer opponent;
-- bounded AI candidate/reply search using real game-core simulation with immediate-capture and obvious-threat handling;
-- separately versioned persisted game-mode preference;
+- four AI levels with bounded 1/2/3/4-ply search behavior, adaptive budgets, real game-core simulation, and ephemeral transposition reuse;
+- immediate-capture handling at every level and explicit opponent-threat response from Normal upward;
+- versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
 - exact Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
 - accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
 - explicit offline/update PWA lifecycle with user-confirmed refresh;
 - build-time verification of generated PWA/offline artifacts;
-- regression/stress coverage for rules, persistence, AI tactics, long histories, large viewport transforms, and bounded 8K rendering ranges;
+- regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.6.0** completes the first computer-opponent phase. The AI is tactical rather than a solved-game engine; future work can improve strength or add difficulty levels while preserving the same pure core-facing API and browser responsiveness.
+Version **0.7.0** completes the four-level AI-strength phase. Further AI work should focus on measured tactical quality, pruning, and real-device responsiveness rather than unbounded depth.
 
 ## 🧱 Technology
 
@@ -113,8 +117,8 @@ Version **0.6.0** completes the first computer-opponent phase. The AI is tactica
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest + build artifact verification |
-| Persistence | versioned localStorage move log + viewport + game-mode preference |
-| AI | deterministic bounded tactical search over the game core |
+| Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
+| AI | deterministic bounded multi-ply search over the game core |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -123,8 +127,8 @@ Version **0.6.0** completes the first computer-opponent phase. The AI is tactica
 ```text
 src/
 ├── game/
-│   ├── ai.ts              pure computer-opponent search
-│   ├── ai.test.ts         tactical/determinism/large-position AI tests
+│   ├── ai.ts              pure multi-level computer-opponent search
+│   ├── ai.test.ts         difficulty/tactics/determinism/large-position tests
 │   ├── board.ts           game state and legal placement
 │   ├── capture.ts         topology, houses, release, and scoring
 │   ├── session.ts         history, undo, and reset
@@ -135,7 +139,7 @@ src/
 │   ├── viewport.ts        pan/zoom, visible bounds, screen↔game transforms
 │   └── viewport.test.ts   viewport/performance regression tests
 ├── persistence.ts         authoritative move-log save/restore adapter
-├── preferences.ts         versioned local/computer mode preference
+├── preferences.ts         versioned game-mode + AI-difficulty preference
 ├── viewport-persistence.ts  separate viewport save/restore adapter
 ├── pwa.ts                 service-worker update/offline lifecycle
 ├── i18n.ts                Russian / English interface and a11y copy
@@ -170,8 +174,8 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Continue real-device/browser and adversarial topology validation.
-2. Improve AI selectively: stronger threat extraction, deeper bounded search, transposition reuse, or difficulty levels only if responsiveness remains predictable.
+1. Continue real-device/browser and adversarial topology validation, including Expert-mode responsiveness on mobile hardware.
+2. Improve AI only from measured weaknesses: better pruning/threat extraction or move ordering without removing search bounds.
 3. Add optional import/export only if it stays simple and useful.
 4. Optionally package the same codebase for Android through Capacitor later.
 

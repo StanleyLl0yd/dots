@@ -12,11 +12,6 @@ export const PREFERENCES_VERSION = 2;
 export const PREFERENCES_KEY = "dots.preferences";
 export const DEFAULT_PREFERENCES: GamePreferences = { gameMode: "local", aiDifficulty: "normal" };
 
-interface StoredPreferencesV1 {
-  version: 1;
-  gameMode: GameMode;
-}
-
 interface StoredPreferencesV2 extends GamePreferences {
   version: 2;
 }
@@ -68,5 +63,3 @@ export const savePreferences = (storage: StorageLike, preferences: GamePreferenc
     storage.setItem(PREFERENCES_KEY, JSON.stringify(payload));
   } catch {}
 };
-
-export type { StoredPreferencesV1 };
