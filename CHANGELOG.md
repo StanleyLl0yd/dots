@@ -2,6 +2,28 @@
 
 All notable project changes are recorded here.
 
+## [0.8.2] - 2026-09-01
+
+### Added
+
+- committed npm lockfile (lockfile v3) for reproducible dependency resolution;
+- CI high/critical dependency audit gate with `npm audit --audit-level=high`;
+- monthly Dependabot coverage for GitHub Actions in addition to npm dependencies;
+- explicit Node.js `>=22` engine requirement.
+
+### Fixed
+
+- upgraded Vite from 7.1.3 to 7.3.6, clearing the high-severity Vite development-server/path advisories reported by npm audit;
+- upgraded Vitest from 3.2.4 to 3.2.7, clearing the critical Vitest UI-server advisory;
+- upgraded `actions/checkout` and `actions/setup-node` from v4 to v7 so workflow JavaScript actions no longer depend on the deprecated Node 20 action runtime.
+
+### Changed
+
+- CI and GitHub Pages now install exactly the committed dependency graph with `npm ci`;
+- release workflow uses the maintained checkout action runtime;
+- dependency/tooling hardening is now part of repository operational verification; gameplay, saves, PWA behavior, accessibility, and AI behavior are unchanged;
+- source version advanced to 0.8.2.
+
 ## [0.8.1] - 2026-08-31
 
 ### Added
