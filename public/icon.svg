@@ -4,9 +4,19 @@
     <path d="M64 64v384M128 64v384M192 64v384M256 64v384M320 64v384M384 64v384M448 64v384"/>
     <path d="M64 64h384M64 128h384M64 192h384M64 256h384M64 320h384M64 384h384M64 448h384"/>
   </g>
+  <path d="M256 128 192 192 192 256 192 320 256 384 320 320 320 256 320 192Z" fill="#dc2626" fill-opacity=".06" stroke="#dc2626" stroke-width="12" stroke-linejoin="round"/>
   <g fill="#dc2626">
-    <circle cx="192" cy="192" r="18"/><circle cx="256" cy="128" r="18"/><circle cx="320" cy="192" r="18"/><circle cx="320" cy="320" r="18"/><circle cx="256" cy="384" r="18"/><circle cx="192" cy="320" r="18"/>
+    <circle cx="256" cy="128" r="18"/>
+    <circle cx="192" cy="192" r="18"/>
+    <circle cx="192" cy="256" r="18"/>
+    <circle cx="192" cy="320" r="18"/>
+    <circle cx="256" cy="384" r="18"/>
+    <circle cx="320" cy="320" r="18"/>
+    <circle cx="320" cy="256" r="18"/>
+    <circle cx="320" cy="192" r="18"/>
   </g>
-  <g fill="#2563eb"><circle cx="256" cy="256" r="20"/><circle cx="256" cy="320" r="20"/></g>
-  <path d="M192 192 256 128 320 192 320 320 256 384 192 320Z" fill="none" stroke="#dc2626" stroke-width="12" stroke-linejoin="round"/>
+  <g fill="#2563eb">
+    <circle cx="256" cy="256" r="20"/>
+    <circle cx="256" cy="320" r="20"/>
+  </g>
 </svg>

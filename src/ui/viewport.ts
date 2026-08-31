@@ -16,6 +16,13 @@ export interface Viewport {
   zoom: number;
 }
 
+export interface GridBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
 export const BASE_CELL_SIZE = 32;
 export const MIN_ZOOM = 0.4;
 export const MAX_ZOOM = 3.5;
@@ -59,6 +66,22 @@ export const screenToGrid = (
 ): Point => {
   const game = screenToGame(point, viewport, size, baseCell);
   return { x: Math.round(game.x), y: Math.round(game.y) };
+};
+
+export const visibleGridBounds = (
+  viewport: Viewport,
+  size: ViewportSize,
+  padding = 1,
+  baseCell = BASE_CELL_SIZE
+): GridBounds => {
+  const topLeft = screenToGame({ x: 0, y: 0 }, viewport, size, baseCell);
+  const bottomRight = screenToGame({ x: size.width, y: size.height }, viewport, size, baseCell);
+  return {
+    minX: Math.floor(Math.min(topLeft.x, bottomRight.x)) - padding,
+    maxX: Math.ceil(Math.max(topLeft.x, bottomRight.x)) + padding,
+    minY: Math.floor(Math.min(topLeft.y, bottomRight.y)) - padding,
+    maxY: Math.ceil(Math.max(topLeft.y, bottomRight.y)) + padding
+  };
 };
 
 export const panViewport = (

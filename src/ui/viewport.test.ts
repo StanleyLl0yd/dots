@@ -8,6 +8,7 @@ import {
   panViewport,
   screenToGame,
   screenToGrid,
+  visibleGridBounds,
   zoomViewportAt,
   type ViewportSize
 } from "./viewport";
@@ -58,5 +59,40 @@ describe("viewport", () => {
     const far = panViewport(DEFAULT_VIEWPORT, -1e20, 1e20);
     expect(far.centerX).toBe(MAX_VIEWPORT_CENTER);
     expect(far.centerY).toBe(-MAX_VIEWPORT_CENTER);
+  });
+
+  it("bounds grid work even for an 8K viewport at minimum zoom", () => {
+    const bounds = visibleGridBounds(
+      { centerX: MAX_VIEWPORT_CENTER - 1000, centerY: -MAX_VIEWPORT_CENTER + 1000, zoom: MIN_ZOOM },
+      { width: 7680, height: 4320 }
+    );
+
+    expect(bounds.maxX - bounds.minX + 1).toBeLessThan(610);
+    expect(bounds.maxY - bounds.minY + 1).toBeLessThan(350);
+  });
+
+  it("keeps repeated pan and zoom transforms finite and reversible", () => {
+    let viewport = { ...DEFAULT_VIEWPORT };
+    const stressSize = { width: 2560, height: 1440 };
+
+    for (let index = 0; index < 2000; index += 1) {
+      viewport = panViewport(viewport, (index % 9) - 4, (index % 7) - 3);
+      viewport = zoomViewportAt(
+        viewport,
+        { x: (index * 37) % stressSize.width, y: (index * 29) % stressSize.height },
+        stressSize,
+        index % 2 === 0 ? 1.001 : 0.999
+      );
+    }
+
+    expect(Number.isFinite(viewport.centerX)).toBe(true);
+    expect(Number.isFinite(viewport.centerY)).toBe(true);
+    expect(viewport.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
+    expect(viewport.zoom).toBeLessThanOrEqual(MAX_ZOOM);
+
+    const game = { x: 987_654_321, y: -123_456_789 };
+    const restored = screenToGame(gameToScreen(game, viewport, stressSize), viewport, stressSize);
+    expect(restored.x).toBeCloseTo(game.x, 5);
+    expect(restored.y).toBeCloseTo(game.y, 5);
   });
 });

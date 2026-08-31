@@ -6,6 +6,7 @@ import {
   screenToGame,
   screenToGrid,
   viewportForAnchor,
+  visibleGridBounds,
   zoomViewportAt,
   type ScreenPoint,
   type Viewport,
@@ -13,9 +14,10 @@ import {
 } from "./viewport";
 
 interface CanvasBoardOptions {
-  onPoint: (point: Point) => void;
+  onPoint: (point: Point) => boolean;
   initialViewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
+  onKeyboardCursorChange?: (point: Point) => void;
 }
 
 interface DragGesture {
@@ -34,6 +36,8 @@ interface PinchGesture {
 }
 
 const DRAG_THRESHOLD = 6;
+const KEYBOARD_ZOOM_FACTOR = 1.2;
+const KEYBOARD_MARGIN = 48;
 
 const distance = (a: ScreenPoint, b: ScreenPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a: ScreenPoint, b: ScreenPoint): ScreenPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
@@ -46,6 +50,7 @@ export class CanvasBoard {
   private readonly pointers = new Map<number, ScreenPoint>();
   private drag?: DragGesture;
   private pinch?: PinchGesture;
+  private keyboardCursor?: Point;
   private viewportDirty = false;
 
   constructor(
@@ -63,6 +68,9 @@ export class CanvasBoard {
     this.canvas.addEventListener("pointerup", this.handlePointerUp);
     this.canvas.addEventListener("pointercancel", this.handlePointerCancel);
     this.canvas.addEventListener("wheel", this.handleWheel, { passive: false });
+    this.canvas.addEventListener("keydown", this.handleKeyDown);
+    this.canvas.addEventListener("focus", this.handleFocus);
+    this.canvas.addEventListener("blur", this.handleBlur);
     window.addEventListener("resize", this.resize);
     this.resize();
   }
@@ -79,8 +87,10 @@ export class CanvasBoard {
   resetViewport(): void {
     this.viewport = copyViewport(DEFAULT_VIEWPORT);
     this.viewportDirty = true;
+    if (this.keyboardCursor) this.keyboardCursor = { x: 0, y: 0 };
     this.draw();
     this.commitViewport();
+    if (this.keyboardCursor) this.options.onKeyboardCursorChange?.({ ...this.keyboardCursor });
   }
 
   destroy(): void {
@@ -89,6 +99,9 @@ export class CanvasBoard {
     this.canvas.removeEventListener("pointerup", this.handlePointerUp);
     this.canvas.removeEventListener("pointercancel", this.handlePointerCancel);
     this.canvas.removeEventListener("wheel", this.handleWheel);
+    this.canvas.removeEventListener("keydown", this.handleKeyDown);
+    this.canvas.removeEventListener("focus", this.handleFocus);
+    this.canvas.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("resize", this.resize);
   }
 
@@ -101,9 +114,13 @@ export class CanvasBoard {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
+  private viewportCenterGrid(): Point {
+    return { x: Math.round(this.viewport.centerX), y: Math.round(this.viewport.centerY) };
+  }
+
   private readonly resize = (): void => {
     const rect = this.canvas.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
+    const ratio = Math.min(3, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(rect.width * ratio);
     this.canvas.height = Math.round(rect.height * ratio);
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -129,6 +146,10 @@ export class CanvasBoard {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (this.keyboardCursor) {
+      this.keyboardCursor = undefined;
+      this.draw();
+    }
     const point = this.localPoint(event);
     this.pointers.set(event.pointerId, point);
     this.canvas.setPointerCapture(event.pointerId);
@@ -239,6 +260,80 @@ export class CanvasBoard {
     this.commitViewport();
   };
 
+  private readonly handleFocus = (): void => {
+    if (!this.keyboardCursor) this.keyboardCursor = this.viewportCenterGrid();
+    this.options.onKeyboardCursorChange?.({ ...this.keyboardCursor });
+    this.draw();
+  };
+
+  private readonly handleBlur = (): void => {
+    if (!this.keyboardCursor) return;
+    this.keyboardCursor = undefined;
+    this.draw();
+  };
+
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const current = this.keyboardCursor ?? this.viewportCenterGrid();
+    let nextCursor: Point | undefined;
+
+    if (event.key === "ArrowLeft") nextCursor = { x: current.x - 1, y: current.y };
+    else if (event.key === "ArrowRight") nextCursor = { x: current.x + 1, y: current.y };
+    else if (event.key === "ArrowUp") nextCursor = { x: current.x, y: current.y - 1 };
+    else if (event.key === "ArrowDown") nextCursor = { x: current.x, y: current.y + 1 };
+
+    if (nextCursor) {
+      event.preventDefault();
+      this.keyboardCursor = nextCursor;
+      this.ensureKeyboardCursorVisible();
+      this.options.onKeyboardCursorChange?.({ ...nextCursor });
+      this.draw();
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.keyboardCursor = current;
+      this.options.onPoint({ ...current });
+      return;
+    }
+
+    const zoomFactor = event.key === "+" ? KEYBOARD_ZOOM_FACTOR : event.key === "-" ? 1 / KEYBOARD_ZOOM_FACTOR : undefined;
+    if (zoomFactor === undefined) return;
+
+    event.preventDefault();
+    this.keyboardCursor = current;
+    this.ensureKeyboardCursorVisible();
+    const anchor = this.screenPoint(current);
+    const next = zoomViewportAt(this.viewport, anchor, this.size(), zoomFactor);
+    if (next.zoom === this.viewport.zoom && next.centerX === this.viewport.centerX && next.centerY === this.viewport.centerY) return;
+    this.viewport = next;
+    this.viewportDirty = true;
+    this.draw();
+    this.commitViewport();
+  };
+
+  private ensureKeyboardCursorVisible(): void {
+    if (!this.keyboardCursor) return;
+    const size = this.size();
+    const screen = this.screenPoint(this.keyboardCursor);
+    if (
+      screen.x >= KEYBOARD_MARGIN &&
+      screen.x <= size.width - KEYBOARD_MARGIN &&
+      screen.y >= KEYBOARD_MARGIN &&
+      screen.y <= size.height - KEYBOARD_MARGIN
+    ) return;
+
+    this.viewport = viewportForAnchor(
+      this.keyboardCursor,
+      { x: size.width / 2, y: size.height / 2 },
+      size,
+      this.viewport.zoom
+    );
+    this.viewportDirty = true;
+    this.commitViewport();
+  }
+
   private commitViewport(): void {
     if (!this.viewportDirty) return;
     this.viewportDirty = false;
@@ -292,20 +387,33 @@ export class CanvasBoard {
     this.context.stroke();
   }
 
+  private drawKeyboardCursor(radius: number): void {
+    if (!this.keyboardCursor) return;
+    const { x, y } = this.screenPoint(this.keyboardCursor);
+    const size = this.size();
+    if (x < 0 || x > size.width || y < 0 || y > size.height) return;
+    const focusColor = getComputedStyle(this.canvas).getPropertyValue("--board-focus").trim() || "#2b2925";
+    const ring = Math.max(11, radius + 5);
+    this.context.save();
+    this.context.beginPath();
+    this.context.arc(x, y, ring, 0, Math.PI * 2);
+    this.context.strokeStyle = focusColor;
+    this.context.lineWidth = 2;
+    this.context.setLineDash([3, 3]);
+    this.context.stroke();
+    this.context.restore();
+  }
+
   private draw(): void {
     const size = this.size();
-    const topLeft = screenToGame({ x: 0, y: 0 }, this.viewport, size);
-    const bottomRight = screenToGame({ x: size.width, y: size.height }, this.viewport, size);
-    const minGridX = Math.floor(Math.min(topLeft.x, bottomRight.x)) - 1;
-    const maxGridX = Math.ceil(Math.max(topLeft.x, bottomRight.x)) + 1;
-    const minGridY = Math.floor(Math.min(topLeft.y, bottomRight.y)) - 1;
-    const maxGridY = Math.ceil(Math.max(topLeft.y, bottomRight.y)) + 1;
+    const bounds = visibleGridBounds(this.viewport, size);
 
     this.context.clearRect(0, 0, size.width, size.height);
-    this.context.strokeStyle = "#c9bfae";
+    const gridColor = getComputedStyle(this.canvas).getPropertyValue("--board-grid").trim() || "#c9bfae";
+    this.context.strokeStyle = gridColor;
     this.context.lineWidth = 1;
 
-    for (let gridX = minGridX; gridX <= maxGridX; gridX += 1) {
+    for (let gridX = bounds.minX; gridX <= bounds.maxX; gridX += 1) {
       const x = gameToScreen({ x: gridX, y: 0 }, this.viewport, size).x;
       this.context.beginPath();
       this.context.moveTo(x, 0);
@@ -313,7 +421,7 @@ export class CanvasBoard {
       this.context.stroke();
     }
 
-    for (let gridY = minGridY; gridY <= maxGridY; gridY += 1) {
+    for (let gridY = bounds.minY; gridY <= bounds.maxY; gridY += 1) {
       const y = gameToScreen({ x: 0, y: gridY }, this.viewport, size).y;
       this.context.beginPath();
       this.context.moveTo(0, y);
@@ -332,5 +440,7 @@ export class CanvasBoard {
       this.context.fillStyle = stone.player === "red" ? "#dc2626" : "#2563eb";
       this.context.fill();
     }
+
+    this.drawKeyboardCursor(radius);
   }
 }
