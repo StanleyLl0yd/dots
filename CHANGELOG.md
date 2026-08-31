@@ -2,6 +2,29 @@
 
 All notable project changes are recorded here.
 
+## [0.8.0] - 2026-08-31
+
+### Added
+
+- active same-color connectivity/component analysis that recognizes frontier points capable of closing an existing path into a cycle, improving capture/house construction pressure and defensive blocking of opponent closing points;
+- local active-stone danger evaluation based on concentrated opponent contact, available neighboring space, and same-color support;
+- bounded authoritative immediate-capture threat probes for Hard and Expert, including identification of newly threatened stones through real `placeStone()` simulation;
+- bounded setup probes that recognize short two-own-move capture plans without changing turn rules, session history, or persisted state;
+- alpha-beta pruning over the existing deterministic minimax search with exact transposition caching only for fully searched nodes;
+- selective quiescence-style horizon extensions that continue only immediate score-changing capture/release moves on Hard and Expert;
+- deterministic `src/game/ai-match.ts` AI-vs-AI harness that validates every generated move through the authoritative game core;
+- paired Expert-vs-Normal and Expert-vs-Hard strength-regression tests with swapped colors, non-losing paired requirements, and a positive aggregate captured-score margin.
+
+### Changed
+
+- Hard and Expert move ordering now combines ordinary tactical ranking with cycle-closing pressure, opponent closing-point blocking, immediate threat forecasts, local danger, and bounded setup potential;
+- Expert uses the strongest strategic analysis while preserving deterministic behavior and the same four user-facing difficulty contracts introduced in 0.7.0;
+- Hard may extend one forcing capture/release continuation beyond its nominal horizon on ordinary-size positions, while Expert may extend up to two;
+- at 250+ stones expensive setup probes are disabled, immediate-threat budgets are reduced, Hard forcing extensions are disabled, and Expert is reduced to one extension to keep browser work bounded;
+- search caches now also cover connected components, enclosure pressure, threat probes, and setup probes while remaining ephemeral to one AI move;
+- AI documentation, architecture, product status, repository rules, and both READMEs now describe strategic quality analysis and deterministic strength regressions;
+- source version advanced to 0.8.0.
+
 ## [0.7.0] - 2026-08-31
 
 ### Added
