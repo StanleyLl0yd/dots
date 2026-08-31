@@ -4,7 +4,7 @@
 
 ### ОКРУЖАЙ · ЗАХВАТЫВАЙ · КОНТРОЛИРУЙ
 
-<img src="docs/assets/readme/dots-board.svg" alt="Игровое поле Точек" width="100%">
+<img src="docs/assets/readme/dots-board.webp" alt="Игровое поле Точек" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/ci.yml?branch=main&label=CI&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/ci.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
