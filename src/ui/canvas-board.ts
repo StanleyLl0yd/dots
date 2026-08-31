@@ -1,6 +1,7 @@
 import type { Capture, GameState, Point } from "../game/types";
 import {
   DEFAULT_VIEWPORT,
+  fitViewportToPoints,
   gameToScreen,
   panViewport,
   screenToGame,
@@ -38,10 +39,22 @@ interface PinchGesture {
 const DRAG_THRESHOLD = 6;
 const KEYBOARD_ZOOM_FACTOR = 1.2;
 const KEYBOARD_MARGIN = 48;
+const INVALID_FEEDBACK_MS = 240;
+const CAPTURE_FLASH_MS = 420;
 
 const distance = (a: ScreenPoint, b: ScreenPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a: ScreenPoint, b: ScreenPoint): ScreenPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const copyViewport = (viewport: Viewport): Viewport => ({ ...viewport });
+const samePoint = (a: Point | undefined, b: Point | undefined): boolean =>
+  a?.x === b?.x && a?.y === b?.y;
+const captureKey = (capture: Capture): string => {
+  const boundary = capture.boundary.map((point) => `${point.x},${point.y}`).join(";");
+  const captured = capture.captured
+    .map((stone) => `${stone.player}:${stone.x},${stone.y}`)
+    .sort()
+    .join(";");
+  return `${capture.owner}|${boundary}|${captured}`;
+};
 
 export class CanvasBoard {
   private readonly context: CanvasRenderingContext2D;
@@ -51,6 +64,12 @@ export class CanvasBoard {
   private drag?: DragGesture;
   private pinch?: PinchGesture;
   private keyboardCursor?: Point;
+  private hoverPoint?: Point;
+  private lastMove?: Point;
+  private invalidPoint?: Point;
+  private readonly highlightedCaptureKeys = new Set<string>();
+  private invalidTimer?: number;
+  private captureTimer?: number;
   private viewportDirty = false;
 
   constructor(
@@ -67,6 +86,7 @@ export class CanvasBoard {
     this.canvas.addEventListener("pointermove", this.handlePointerMove);
     this.canvas.addEventListener("pointerup", this.handlePointerUp);
     this.canvas.addEventListener("pointercancel", this.handlePointerCancel);
+    this.canvas.addEventListener("pointerleave", this.handlePointerLeave);
     this.canvas.addEventListener("wheel", this.handleWheel, { passive: false });
     this.canvas.addEventListener("keydown", this.handleKeyDown);
     this.canvas.addEventListener("focus", this.handleFocus);
@@ -75,13 +95,48 @@ export class CanvasBoard {
     this.resize();
   }
 
-  setState(state: GameState): void {
+  setState(state: GameState, lastMove?: Point): void {
     this.state = state;
+    this.lastMove = lastMove ? { ...lastMove } : undefined;
+    this.clearTransientFeedback();
     this.draw();
   }
 
   getViewport(): Viewport {
     return copyViewport(this.viewport);
+  }
+
+  fitPosition(): boolean {
+    if (this.state.stones.size === 0) return false;
+    this.viewport = fitViewportToPoints(this.state.stones.values(), this.size());
+    this.viewportDirty = true;
+    this.draw();
+    this.commitViewport();
+    return true;
+  }
+
+  flashCaptures(captures: readonly Capture[]): void {
+    if (captures.length === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (this.captureTimer !== undefined) window.clearTimeout(this.captureTimer);
+    this.highlightedCaptureKeys.clear();
+    for (const capture of captures) this.highlightedCaptureKeys.add(captureKey(capture));
+    this.draw();
+    this.captureTimer = window.setTimeout(() => {
+      this.captureTimer = undefined;
+      this.highlightedCaptureKeys.clear();
+      this.draw();
+    }, CAPTURE_FLASH_MS);
+  }
+
+  showInvalidPoint(point: Point): void {
+    if (this.invalidTimer !== undefined) window.clearTimeout(this.invalidTimer);
+    this.invalidPoint = { ...point };
+    this.draw();
+    this.invalidTimer = window.setTimeout(() => {
+      this.invalidTimer = undefined;
+      this.invalidPoint = undefined;
+      this.draw();
+    }, INVALID_FEEDBACK_MS);
   }
 
   resetViewport(): void {
@@ -98,11 +153,23 @@ export class CanvasBoard {
     this.canvas.removeEventListener("pointermove", this.handlePointerMove);
     this.canvas.removeEventListener("pointerup", this.handlePointerUp);
     this.canvas.removeEventListener("pointercancel", this.handlePointerCancel);
+    this.canvas.removeEventListener("pointerleave", this.handlePointerLeave);
     this.canvas.removeEventListener("wheel", this.handleWheel);
     this.canvas.removeEventListener("keydown", this.handleKeyDown);
     this.canvas.removeEventListener("focus", this.handleFocus);
     this.canvas.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("resize", this.resize);
+    if (this.invalidTimer !== undefined) window.clearTimeout(this.invalidTimer);
+    if (this.captureTimer !== undefined) window.clearTimeout(this.captureTimer);
+  }
+
+  private clearTransientFeedback(): void {
+    if (this.invalidTimer !== undefined) window.clearTimeout(this.invalidTimer);
+    if (this.captureTimer !== undefined) window.clearTimeout(this.captureTimer);
+    this.invalidTimer = undefined;
+    this.captureTimer = undefined;
+    this.invalidPoint = undefined;
+    this.highlightedCaptureKeys.clear();
   }
 
   private size(): ViewportSize {
@@ -146,10 +213,8 @@ export class CanvasBoard {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (this.keyboardCursor) {
-      this.keyboardCursor = undefined;
-      this.draw();
-    }
+    this.hoverPoint = undefined;
+    if (this.keyboardCursor) this.keyboardCursor = undefined;
     const point = this.localPoint(event);
     this.pointers.set(event.pointerId, point);
     this.canvas.setPointerCapture(event.pointerId);
@@ -165,10 +230,21 @@ export class CanvasBoard {
     } else if (this.pointers.size === 2) {
       this.beginPinch();
     }
+    this.draw();
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (!this.pointers.has(event.pointerId)) return;
+    if (!this.pointers.has(event.pointerId)) {
+      if (event.pointerType === "mouse") {
+        const next = screenToGrid(this.localPoint(event), this.viewport, this.size());
+        if (!samePoint(next, this.hoverPoint)) {
+          this.hoverPoint = next;
+          this.draw();
+        }
+      }
+      return;
+    }
+
     const point = this.localPoint(event);
     this.pointers.set(event.pointerId, point);
 
@@ -237,7 +313,9 @@ export class CanvasBoard {
     }
 
     if (this.pointers.size === 0) this.canvas.classList.remove("is-panning");
+    if (event.pointerType === "mouse") this.hoverPoint = screenToGrid(point, this.viewport, this.size());
     this.commitViewport();
+    this.draw();
   }
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
@@ -246,6 +324,12 @@ export class CanvasBoard {
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
     this.finishPointer(event, false);
+  };
+
+  private readonly handlePointerLeave = (): void => {
+    if (this.pointers.size > 0 || !this.hoverPoint) return;
+    this.hoverPoint = undefined;
+    this.draw();
   };
 
   private readonly handleWheel = (event: WheelEvent): void => {
@@ -262,6 +346,7 @@ export class CanvasBoard {
 
   private readonly handleFocus = (): void => {
     if (!this.keyboardCursor) this.keyboardCursor = this.viewportCenterGrid();
+    this.hoverPoint = undefined;
     this.options.onKeyboardCursorChange?.({ ...this.keyboardCursor });
     this.draw();
   };
@@ -348,6 +433,7 @@ export class CanvasBoard {
     const points = capture.boundary.map((point) => this.screenPoint(point));
     if (points.length < 3) return;
 
+    const highlighted = this.highlightedCaptureKeys.has(captureKey(capture));
     const color = capture.owner === "red" ? "220, 38, 38" : "37, 99, 235";
     const minX = Math.min(...points.map((point) => point.x));
     const maxX = Math.max(...points.map((point) => point.x));
@@ -362,11 +448,11 @@ export class CanvasBoard {
     this.context.moveTo(points[0].x, points[0].y);
     for (const point of points.slice(1)) this.context.lineTo(point.x, point.y);
     this.context.closePath();
-    this.context.fillStyle = `rgba(${color}, 0.055)`;
+    this.context.fillStyle = `rgba(${color}, ${highlighted ? 0.11 : 0.055})`;
     this.context.fill();
     this.context.clip();
 
-    this.context.strokeStyle = `rgba(${color}, 0.16)`;
+    this.context.strokeStyle = `rgba(${color}, ${highlighted ? 0.24 : 0.16})`;
     this.context.lineWidth = 1;
     const hatchStep = Math.min(16, Math.max(7, 10 * visualScale));
     for (let x = -size.height; x <= size.width; x += hatchStep) {
@@ -382,9 +468,60 @@ export class CanvasBoard {
     for (const point of points.slice(1)) this.context.lineTo(point.x, point.y);
     this.context.closePath();
     this.context.strokeStyle = `rgb(${color})`;
-    this.context.lineWidth = Math.min(4, Math.max(1.5, 2.5 * visualScale));
+    this.context.lineWidth = Math.min(5, Math.max(1.5, 2.5 * visualScale + (highlighted ? 1.5 : 0)));
     this.context.lineJoin = "round";
     this.context.stroke();
+  }
+
+  private drawHoverPreview(radius: number): void {
+    if (!this.hoverPoint || this.keyboardCursor) return;
+    const { x, y } = this.screenPoint(this.hoverPoint);
+    const size = this.size();
+    if (x < 0 || x > size.width || y < 0 || y > size.height) return;
+    this.context.save();
+    this.context.globalAlpha = 0.22;
+    this.context.beginPath();
+    this.context.arc(x, y, Math.max(3, radius * 0.82), 0, Math.PI * 2);
+    this.context.fillStyle = this.state.currentPlayer === "red" ? "#dc2626" : "#2563eb";
+    this.context.fill();
+    this.context.restore();
+  }
+
+  private drawLastMove(radius: number): void {
+    if (!this.lastMove) return;
+    const { x, y } = this.screenPoint(this.lastMove);
+    const size = this.size();
+    if (x < -radius || x > size.width + radius || y < -radius || y > size.height + radius) return;
+    const color = getComputedStyle(this.canvas).getPropertyValue("--board-last-move").trim() || "#6b6257";
+    this.context.save();
+    this.context.beginPath();
+    this.context.arc(x, y, radius + 4, 0, Math.PI * 2);
+    this.context.strokeStyle = color;
+    this.context.lineWidth = 1.5;
+    this.context.stroke();
+    this.context.restore();
+  }
+
+  private drawInvalidPoint(radius: number): void {
+    if (!this.invalidPoint) return;
+    const { x, y } = this.screenPoint(this.invalidPoint);
+    const size = this.size();
+    if (x < 0 || x > size.width || y < 0 || y > size.height) return;
+    const color = getComputedStyle(this.canvas).getPropertyValue("--board-invalid").trim() || "#9a3412";
+    const ring = radius + 5;
+    this.context.save();
+    this.context.strokeStyle = color;
+    this.context.lineWidth = 2;
+    this.context.beginPath();
+    this.context.arc(x, y, ring, 0, Math.PI * 2);
+    this.context.stroke();
+    this.context.beginPath();
+    this.context.moveTo(x - ring * 0.5, y - ring * 0.5);
+    this.context.lineTo(x + ring * 0.5, y + ring * 0.5);
+    this.context.moveTo(x + ring * 0.5, y - ring * 0.5);
+    this.context.lineTo(x - ring * 0.5, y + ring * 0.5);
+    this.context.stroke();
+    this.context.restore();
   }
 
   private drawKeyboardCursor(radius: number): void {
@@ -432,6 +569,7 @@ export class CanvasBoard {
     for (const capture of this.state.captures) this.drawCapture(capture);
 
     const radius = Math.min(10, Math.max(3.5, 6.5 * Math.sqrt(this.viewport.zoom)));
+    this.drawHoverPreview(radius);
     for (const stone of this.state.stones.values()) {
       const { x, y } = this.screenPoint(stone);
       if (x < -radius || x > size.width + radius || y < -radius || y > size.height + radius) continue;
@@ -441,6 +579,8 @@ export class CanvasBoard {
       this.context.fill();
     }
 
+    this.drawLastMove(radius);
+    this.drawInvalidPoint(radius);
     this.drawKeyboardCursor(radius);
   }
 }

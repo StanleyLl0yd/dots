@@ -1,7 +1,9 @@
 import "./styles.css";
-import { chooseAiMove, type AiDifficulty } from "./game/ai";
+import AiWorker from "./game/ai-worker?worker";
+import type { AiDifficulty } from "./game/ai";
+import type { AiWorkerRequest, AiWorkerResponse } from "./game/ai-worker-protocol";
 import { createSession, playMove, resetSession, undoMove } from "./game/session";
-import type { Player, Point } from "./game/types";
+import type { Capture, Player, Point } from "./game/types";
 import { resolveLocale, t } from "./i18n";
 import { clearSavedGame, loadSession, saveSession, type StorageLike } from "./persistence";
 import { DEFAULT_PREFERENCES, loadPreferences, savePreferences, type GameMode } from "./preferences";
@@ -12,6 +14,7 @@ import { loadViewport, saveViewport } from "./viewport-persistence";
 
 const COMPUTER_PLAYER: Player = "blue";
 const COMPUTER_DELAY_MS = 120;
+const PLAYERS: readonly Player[] = ["red", "blue"];
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("App root is missing");
@@ -25,34 +28,40 @@ app.innerHTML = `
   <a class="skip-link" href="#game-board">${copy.boardLabel}</a>
   <main class="shell">
     <header class="topbar">
-      <div>
+      <div class="brand">
         <h1>${copy.title}</h1>
         <p>${copy.subtitle}</p>
       </div>
       <div class="game-actions">
-        <label class="mode-control">
-          <span>${copy.mode}</span>
-          <select data-game-mode aria-label="${copy.mode}">
-            <option value="local">${copy.localGame}</option>
-            <option value="computer">${copy.computerGame}</option>
-          </select>
-        </label>
-        <label class="mode-control difficulty-control" data-difficulty-control>
-          <span>${copy.difficulty}</span>
-          <select data-ai-difficulty aria-label="${copy.difficulty}">
-            <option value="easy">${copy.difficultyEasy}</option>
-            <option value="normal">${copy.difficultyNormal}</option>
-            <option value="hard">${copy.difficultyHard}</option>
-            <option value="expert">${copy.difficultyExpert}</option>
-          </select>
-        </label>
-        <button class="undo" type="button">${copy.undo}</button>
-        <button class="new-game" type="button">${copy.newGame}</button>
+        <div class="settings-group">
+          <label class="mode-control">
+            <span>${copy.mode}</span>
+            <select data-game-mode aria-label="${copy.mode}">
+              <option value="local">${copy.localGame}</option>
+              <option value="computer">${copy.computerGame}</option>
+            </select>
+          </label>
+          <label class="mode-control difficulty-control" data-difficulty-control>
+            <span>${copy.difficulty}</span>
+            <select data-ai-difficulty aria-label="${copy.difficulty}">
+              <option value="easy">${copy.difficultyEasy}</option>
+              <option value="normal">${copy.difficultyNormal}</option>
+              <option value="hard">${copy.difficultyHard}</option>
+              <option value="expert">${copy.difficultyExpert}</option>
+            </select>
+          </label>
+        </div>
+        <div class="action-buttons">
+          <button class="undo" type="button" aria-label="${copy.undo}" title="${copy.undo}"><span class="action-symbol" aria-hidden="true">↶</span><span class="action-label">${copy.undo}</span></button>
+          <button class="fit-game" type="button" aria-label="${copy.fitPosition}" title="${copy.fitPosition}"><span class="action-symbol" aria-hidden="true">◎</span><span class="action-label">${copy.fitPosition}</span></button>
+          <button class="help" type="button" aria-label="${copy.help}" title="${copy.help}"><span class="action-symbol" aria-hidden="true">?</span><span class="action-label">${copy.help}</span></button>
+          <button class="new-game" type="button" aria-label="${copy.newGame}" title="${copy.newGame}"><span class="action-symbol" aria-hidden="true">＋</span><span class="action-label">${copy.newGame}</span></button>
+        </div>
       </div>
     </header>
     <section class="scorebar" aria-live="polite" aria-atomic="true">
       <span class="player red"><span data-red-label>${copy.red}</span>: <strong data-score-red>0</strong></span>
-      <span data-turn></span>
+      <span class="turn-stack"><span data-turn></span><small data-move-count></small></span>
       <span class="player blue"><span data-blue-label>${copy.blue}</span>: <strong data-score-blue>0</strong></span>
     </section>
     <section class="board-wrap">
@@ -73,14 +82,35 @@ app.innerHTML = `
           <button type="button" data-update-now>${copy.updateNow}</button>
         </div>
       </div>
-      <div class="notice">${copy.hint}</div>
+      <div class="game-feedback" data-game-feedback role="status" hidden></div>
+      <div class="notice" data-hint>${copy.hint}</div>
       <div class="sr-only" data-a11y-status aria-live="polite" aria-atomic="true"></div>
     </section>
   </main>
+  <dialog class="game-dialog" data-help-dialog aria-labelledby="help-title">
+    <form method="dialog">
+      <h2 id="help-title">${copy.helpTitle}</h2>
+      <p>${copy.helpIntro}</p>
+      <p>${copy.helpNavigation}</p>
+      <p>${copy.helpKeyboard}</p>
+      <div class="dialog-actions"><button value="close" autofocus>${copy.close}</button></div>
+    </form>
+  </dialog>
+  <dialog class="game-dialog" data-new-game-dialog aria-labelledby="new-game-title">
+    <form method="dialog">
+      <h2 id="new-game-title">${copy.newGameTitle}</h2>
+      <p>${copy.resetConfirm}</p>
+      <div class="dialog-actions">
+        <button value="cancel" autofocus>${copy.cancel}</button>
+        <button class="danger" value="confirm">${copy.newGame}</button>
+      </div>
+    </form>
+  </dialog>
 `;
 
 const canvas = app.querySelector<HTMLCanvasElement>("canvas");
 const turn = app.querySelector<HTMLElement>("[data-turn]");
+const moveCount = app.querySelector<HTMLElement>("[data-move-count]");
 const scoreRed = app.querySelector<HTMLElement>("[data-score-red]");
 const scoreBlue = app.querySelector<HTMLElement>("[data-score-blue]");
 const redLabel = app.querySelector<HTMLElement>("[data-red-label]");
@@ -89,14 +119,21 @@ const modeSelect = app.querySelector<HTMLSelectElement>("[data-game-mode]");
 const difficultyControl = app.querySelector<HTMLElement>("[data-difficulty-control]");
 const difficultySelect = app.querySelector<HTMLSelectElement>("[data-ai-difficulty]");
 const undo = app.querySelector<HTMLButtonElement>(".undo");
+const fitGame = app.querySelector<HTMLButtonElement>(".fit-game");
+const help = app.querySelector<HTMLButtonElement>(".help");
 const newGame = app.querySelector<HTMLButtonElement>(".new-game");
 const appStatus = app.querySelector<HTMLElement>("[data-app-status]");
+const gameFeedback = app.querySelector<HTMLElement>("[data-game-feedback]");
+const hint = app.querySelector<HTMLElement>("[data-hint]");
 const updatePrompt = app.querySelector<HTMLElement>("[data-update-prompt]");
 const updateNow = app.querySelector<HTMLButtonElement>("[data-update-now]");
 const a11yStatus = app.querySelector<HTMLElement>("[data-a11y-status]");
+const helpDialog = app.querySelector<HTMLDialogElement>("[data-help-dialog]");
+const newGameDialog = app.querySelector<HTMLDialogElement>("[data-new-game-dialog]");
 if (
   !canvas ||
   !turn ||
+  !moveCount ||
   !scoreRed ||
   !scoreBlue ||
   !redLabel ||
@@ -105,11 +142,17 @@ if (
   !difficultyControl ||
   !difficultySelect ||
   !undo ||
+  !fitGame ||
+  !help ||
   !newGame ||
   !appStatus ||
+  !gameFeedback ||
+  !hint ||
   !updatePrompt ||
   !updateNow ||
-  !a11yStatus
+  !a11yStatus ||
+  !helpDialog ||
+  !newGameDialog
 ) {
   throw new Error("UI initialization failed");
 }
@@ -128,10 +171,13 @@ let aiDifficulty: AiDifficulty = initialPreferences.aiDifficulty;
 modeSelect.value = gameMode;
 difficultySelect.value = aiDifficulty;
 const initialViewport = storage ? loadViewport(storage) : undefined;
+let hintDismissed = session.history.length > 0;
 let statusTimer: number | undefined;
+let feedbackTimer: number | undefined;
 let viewportSaveTimer: number | undefined;
 let pendingViewport: Viewport | undefined;
 let computerTimer: number | undefined;
+let computerWorker: Worker | undefined;
 let computerGeneration = 0;
 let computerThinking = false;
 
@@ -152,6 +198,28 @@ const showStatus = (message: string, duration = 0): void => {
     statusTimer = undefined;
   }, duration);
 };
+
+const clearGameFeedback = (): void => {
+  if (feedbackTimer !== undefined) window.clearTimeout(feedbackTimer);
+  feedbackTimer = undefined;
+  gameFeedback.hidden = true;
+  gameFeedback.textContent = "";
+};
+
+const showGameFeedback = (message: string, duration = 2200): void => {
+  clearGameFeedback();
+  gameFeedback.textContent = message;
+  gameFeedback.hidden = false;
+  feedbackTimer = window.setTimeout(clearGameFeedback, duration);
+};
+
+const dismissHint = (): void => {
+  if (hintDismissed) return;
+  hintDismissed = true;
+  hint.hidden = true;
+};
+
+hint.hidden = hintDismissed;
 
 const persist = (): void => {
   if (!storage) return;
@@ -192,24 +260,39 @@ const difficultyName = (difficulty: AiDifficulty): string => {
   return copy.difficultyNormal;
 };
 
+const lastMove = (): Point | undefined => session.history.at(-1)?.placed;
+
 const renderStatus = (): void => {
   const state = session.state;
   const current = playerName(state.currentPlayer);
   turn.textContent = computerThinking && isComputerTurn()
     ? `${copy.turn}: ${current} · ${copy.computerThinking}`
     : `${copy.turn}: ${current}`;
+  moveCount.textContent = `${copy.moveNumber}${session.history.length}`;
   redLabel.textContent = gameMode === "computer" ? copy.youRed : copy.red;
   blueLabel.textContent = gameMode === "computer" ? copy.computerBlue : copy.blue;
   scoreRed.textContent = String(state.score.red);
   scoreBlue.textContent = String(state.score.blue);
   difficultyControl.hidden = gameMode !== "computer";
-  undo.disabled = computerThinking || session.history.length === 0;
-  newGame.disabled = computerThinking;
-  modeSelect.disabled = computerThinking;
-  difficultySelect.disabled = computerThinking || gameMode !== "computer";
+  undo.disabled = session.history.length === 0;
+  fitGame.disabled = state.stones.size === 0;
+  difficultySelect.disabled = gameMode !== "computer";
 };
 
 const pointMessage = (prefix: string, point: Point): string => `${prefix}: ${point.x}, ${point.y}`;
+const captureIdentity = (capture: Capture): string => {
+  const boundary = capture.boundary.map((point) => `${point.x},${point.y}`).join(";");
+  const captured = capture.captured
+    .map((stone) => `${stone.player}:${stone.x},${stone.y}`)
+    .sort()
+    .join(";");
+  return `${capture.owner}|${boundary}|${captured}`;
+};
+const isPoint = (value: unknown): value is Point => {
+  if (!value || typeof value !== "object") return false;
+  const point = value as Partial<Point>;
+  return Number.isSafeInteger(point.x) && Number.isSafeInteger(point.y);
+};
 
 let board: CanvasBoard;
 
@@ -217,17 +300,51 @@ const cancelComputerMove = (): void => {
   computerGeneration += 1;
   if (computerTimer !== undefined) window.clearTimeout(computerTimer);
   computerTimer = undefined;
+  if (computerWorker) computerWorker.terminate();
+  computerWorker = undefined;
   computerThinking = false;
 };
 
 const fallBackToLocalMode = (): void => {
+  cancelComputerMove();
   gameMode = "local";
   modeSelect.value = gameMode;
   persistPreferences();
-  computerThinking = false;
   renderStatus();
   showStatus(copy.computerFallback, 5000);
   announce(copy.computerFallback);
+};
+
+const applyMove = (
+  next: typeof session,
+  point: Point,
+  computerMove: boolean
+): void => {
+  const previousState = session.state;
+  const previousCaptureKeys = new Set(previousState.captures.map(captureIdentity));
+  const createdCaptures = next.state.captures.filter((capture) => !previousCaptureKeys.has(captureIdentity(capture)));
+
+  session = next;
+  computerThinking = false;
+  persist();
+  board.setState(session.state, lastMove());
+  renderStatus();
+  dismissHint();
+
+  if (createdCaptures.length > 0) {
+    board.flashCaptures(createdCaptures);
+    const owner = createdCaptures[0].owner;
+    const scoreGain = next.state.score[owner] - previousState.score[owner];
+    const capturedCount = createdCaptures
+      .filter((capture) => capture.owner === owner)
+      .reduce((sum, capture) => sum + capture.captured.length, 0);
+    const amount = Math.max(1, scoreGain, capturedCount);
+    const message = `${copy.capture}: ${playerName(owner)} +${amount}`;
+    showGameFeedback(message);
+    announce(`${pointMessage(computerMove ? copy.computerPlaced : copy.placed, point)}. ${message}`);
+  } else {
+    announce(pointMessage(computerMove ? copy.computerPlaced : copy.placed, point));
+  }
 };
 
 const scheduleComputerMove = (): void => {
@@ -245,25 +362,63 @@ const scheduleComputerMove = (): void => {
       return;
     }
 
-    const focus = session.history.at(-1)?.placed;
-    const move = chooseAiMove(session.state, { player: COMPUTER_PLAYER, focus, difficulty: aiDifficulty });
-    if (!move) {
+    let worker: Worker;
+    try {
+      worker = new AiWorker();
+    } catch {
       fallBackToLocalMode();
       return;
     }
+    computerWorker = worker;
 
-    const next = playMove(session, move);
-    if (next === session) {
+    const finishWorker = (): void => {
+      if (computerWorker === worker) computerWorker = undefined;
+      worker.terminate();
+    };
+
+    worker.onmessage = (event: MessageEvent<AiWorkerResponse>) => {
+      finishWorker();
+      if (generation !== computerGeneration || !isComputerTurn()) {
+        computerThinking = false;
+        renderStatus();
+        return;
+      }
+      const response = event.data;
+      if (response.requestId !== generation || response.error || !isPoint(response.move)) {
+        fallBackToLocalMode();
+        return;
+      }
+
+      const next = playMove(session, response.move);
+      if (next === session) {
+        fallBackToLocalMode();
+        return;
+      }
+
+      applyMove(next, response.move, true);
+    };
+
+    worker.onerror = () => {
+      finishWorker();
+      if (generation === computerGeneration && isComputerTurn()) fallBackToLocalMode();
+    };
+
+    const request: AiWorkerRequest = {
+      requestId: generation,
+      state: session.state,
+      options: {
+        player: COMPUTER_PLAYER,
+        focus: session.history.at(-1)?.placed,
+        difficulty: aiDifficulty
+      }
+    };
+
+    try {
+      worker.postMessage(request);
+    } catch {
+      finishWorker();
       fallBackToLocalMode();
-      return;
     }
-
-    session = next;
-    computerThinking = false;
-    persist();
-    board.setState(session.state);
-    renderStatus();
-    announce(pointMessage(copy.computerPlaced, move));
   }, COMPUTER_DELAY_MS);
 };
 
@@ -280,23 +435,24 @@ board = new CanvasBoard(canvas, session.state, {
 
     const next = playMove(session, point);
     if (next === session) {
+      board.showInvalidPoint(point);
       announce(pointMessage(copy.unavailable, point));
       return false;
     }
-    session = next;
-    persist();
-    board.setState(session.state);
-    renderStatus();
-    announce(pointMessage(copy.placed, point));
+    applyMove(next, point, false);
     scheduleComputerMove();
     return true;
   }
 });
+board.setState(session.state, lastMove());
 
 undo.addEventListener("click", () => {
-  if (computerThinking) return;
+  cancelComputerMove();
   let previous = undoMove(session);
-  if (previous === session) return;
+  if (previous === session) {
+    renderStatus();
+    return;
+  }
 
   if (gameMode === "computer" && previous.state.currentPlayer === COMPUTER_PLAYER && previous.history.length > 0) {
     previous = undoMove(previous);
@@ -304,23 +460,51 @@ undo.addEventListener("click", () => {
 
   session = previous;
   persist();
-  board.setState(session.state);
+  board.setState(session.state, lastMove());
+  clearGameFeedback();
   renderStatus();
+  scheduleComputerMove();
 });
 
-newGame.addEventListener("click", () => {
-  if (computerThinking) return;
-  if (session.history.length > 0 && !window.confirm(copy.resetConfirm)) return;
+const resetGame = (): void => {
   cancelComputerMove();
   session = resetSession();
   persist();
   board.setState(session.state);
   board.resetViewport();
+  clearGameFeedback();
   renderStatus();
+};
+
+newGame.addEventListener("click", () => {
+  if (session.history.length === 0) {
+    resetGame();
+    return;
+  }
+  cancelComputerMove();
+  renderStatus();
+  newGameDialog.returnValue = "";
+  newGameDialog.showModal();
+});
+
+newGameDialog.addEventListener("close", () => {
+  if (newGameDialog.returnValue === "confirm") resetGame();
+  else {
+    renderStatus();
+    scheduleComputerMove();
+  }
+});
+
+fitGame.addEventListener("click", () => {
+  if (board.fitPosition()) announce(copy.fitPosition);
+});
+
+help.addEventListener("click", () => {
+  if (!helpDialog.open) helpDialog.showModal();
 });
 
 modeSelect.addEventListener("change", () => {
-  if (computerThinking) return;
+  cancelComputerMove();
   gameMode = modeSelect.value === "computer" ? "computer" : "local";
   persistPreferences();
   renderStatus();
@@ -329,11 +513,12 @@ modeSelect.addEventListener("change", () => {
 });
 
 difficultySelect.addEventListener("change", () => {
-  if (computerThinking) return;
+  cancelComputerMove();
   const value = difficultySelect.value;
   aiDifficulty = value === "easy" || value === "hard" || value === "expert" ? value : "normal";
   difficultySelect.value = aiDifficulty;
   persistPreferences();
+  renderStatus();
   announce(`${copy.difficultyChanged}: ${difficultyName(aiDifficulty)}`);
   scheduleComputerMove();
 });
@@ -345,7 +530,12 @@ window.addEventListener("pagehide", () => {
   flushViewport();
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") scheduleComputerMove();
+  if (document.visibilityState === "hidden") {
+    cancelComputerMove();
+    renderStatus();
+  } else {
+    scheduleComputerMove();
+  }
 });
 window.addEventListener("pageshow", scheduleComputerMove);
 if (!navigator.onLine) showStatus(copy.offline);
