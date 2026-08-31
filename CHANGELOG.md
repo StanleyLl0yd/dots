@@ -2,6 +2,31 @@
 
 All notable project changes are recorded here.
 
+## [0.9.0] - 2026-09-01
+
+### Added
+
+- dedicated browser Web Worker entry and typed request/response protocol for computer-turn computation while keeping `src/game/ai.ts` browser-independent;
+- structured-clone regression coverage proving Map-based `GameState` survives the Worker transport contract;
+- **Fit game** viewport recovery that recenters/scales all placed stones with bounded automatic zoom;
+- subtle latest-move ring and a move counter derived directly from session history;
+- brief capture feedback derived from confirmed before/after active capture state, with reduced-motion-safe visual emphasis and localized live feedback;
+- point-local invalid-placement feedback plus desktop mouse snap preview at the exact integer intersection that would be submitted;
+- compact first-run board hint with persistent accessible Help dialog;
+- responsive mobile primary-action toolbar keeping Undo, Fit game, Help, and New game visible;
+- accessible in-app New game confirmation dialog replacing browser-native `window.confirm()`;
+- production-build verification that requires the generated `ai-worker-*.js` asset in addition to the existing PWA/offline artifacts.
+
+### Changed
+
+- browser computer search now executes off the UI thread; returned coordinates remain proposals and are accepted only through authoritative `playMove()`;
+- pending computer work can be cancelled by Undo, New game, mode/difficulty changes, page hiding, or a newer request generation, and stale Worker responses are ignored;
+- primary controls remain responsive while the computer is thinking so pending work can be cancelled or redirected safely;
+- the first-run navigation hint disappears after the first legal move while Help remains available on demand;
+- Canvas rendering now owns presentation-only latest-move, snap-preview, invalid-point, and confirmed-capture emphasis without changing legality or persistence;
+- game rules, saved-game schema, AI search policy/difficulty behavior, tactical benchmark expectations, and scoring semantics are unchanged;
+- source version advanced to 0.9.0 as the pre-1.0 game-UX/release-candidate foundation.
+
 ## [0.8.2] - 2026-09-01
 
 ### Added
@@ -162,7 +187,7 @@ All notable project changes are recorded here.
 
 ### Added
 
-- reversible game-session history with one-move undo that restores player, capture state, released/captured dots, and derived score;
+- reversible game-session history with one-move undo that restores player, capture state, released/captured status, and derived score;
 - confirmed new-game/reset flow for games already in progress;
 - versioned browser-local persistence using an ordered legal move log;
 - deterministic restore by replaying saved moves through the authoritative game core, including restoration of undo history;
