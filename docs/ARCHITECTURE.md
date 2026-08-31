@@ -261,7 +261,7 @@ Network and worker failures remain status UI only. The persisted move log, viewp
 
 `package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed dependency graph. `package.json` requires Node.js 22 or newer.
 
-CI runs `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail the job. GitHub workflows use maintained Node-24-compatible checkout/setup actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state.
+CI runs `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail the job. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state.
 
 ## Regression and operational verification
 

@@ -104,7 +104,7 @@
 - детерминированные парные AI-vs-AI проверки силы и шесть фиксированных тактических позиций «Эксперта»;
 - зафиксированный `package-lock.json` и воспроизводимая установка через `npm ci` в CI и GitHub Pages;
 - обязательный `npm audit --audit-level=high`, блокирующий high/critical уязвимости; сейчас audit сообщает ноль уязвимостей;
-- GitHub Actions `checkout/setup-node` на Node-24-compatible runtime и Dependabot для npm и GitHub Actions;
+- GitHub Actions `checkout/setup-node` и Pages-actions на Node-24-compatible runtime, плюс Dependabot для npm и GitHub Actions;
 - версионированное сохранение режима и сложности с миграцией настроек 0.6.0;
 - точный Undo, подтверждаемая новая игра, версионированный журнал ходов и детерминированное восстановление через replay;
 - практически неограниченный pan/zoom viewport для мыши, трекпада, touch/pinch и клавиатуры;

@@ -268,7 +268,7 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - patched Vite and Vitest versions that clear the high/critical advisories reported against the previous toolchain;
 - committed lockfile v3 and reproducible `npm ci` installs;
 - mandatory high/critical npm audit gate before tests/build in CI;
-- maintained Node-24-compatible checkout/setup GitHub Actions;
+- maintained Node-24-compatible checkout/setup and Pages GitHub Actions;
 - Dependabot coverage for both npm and GitHub Actions.
 
 ### Phase 6 — optional refinement and Android packaging

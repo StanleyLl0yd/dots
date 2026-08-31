@@ -111,7 +111,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - build-time verification of generated PWA/offline artifacts;
 - committed npm lockfile with reproducible `npm ci` installs in CI and Pages;
 - CI security gate rejecting high/critical npm advisories, currently reporting zero vulnerabilities;
-- Node-24-compatible GitHub Actions runtime for checkout/setup plus Dependabot coverage for npm and GitHub Actions;
+- Node-24-compatible GitHub Actions runtimes for checkout/setup and Pages actions, plus Dependabot coverage for npm and GitHub Actions;
 - regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.

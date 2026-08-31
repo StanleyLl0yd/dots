@@ -15,7 +15,7 @@ All notable project changes are recorded here.
 
 - upgraded Vite from 7.1.3 to 7.3.6, clearing the high-severity Vite development-server/path advisories reported by npm audit;
 - upgraded Vitest from 3.2.4 to 3.2.7, clearing the critical Vitest UI-server advisory;
-- upgraded `actions/checkout` and `actions/setup-node` from v4 to v7 so workflow JavaScript actions no longer depend on the deprecated Node 20 action runtime.
+- upgraded GitHub Actions to maintained Node-24 generations: `actions/checkout`/`actions/setup-node` v4→v7, `actions/configure-pages` v5→v6, `actions/upload-pages-artifact` v3→v5, and `actions/deploy-pages` v4→v5, eliminating the Node 20 runtime deprecation warnings from CI and Pages.
 
 ### Changed
 
