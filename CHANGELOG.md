@@ -2,6 +2,29 @@
 
 All notable project changes are recorded here.
 
+## [0.5.0] - 2026-08-31
+
+### Added
+
+- explicit PWA update lifecycle with a user-facing refresh prompt instead of silent mid-session replacement, plus update checks when the app returns to the foreground, reconnects, and periodically while open;
+- offline-ready, offline, online-restored, and PWA-error status feedback without making network availability part of game state;
+- keyboard board interaction: arrow-key intersection navigation, Enter/Space placement, plus/minus zoom, automatic camera follow, visible keyboard cursor, and screen-reader announcements;
+- skip-link, board instructions, keyboard shortcut metadata, live status regions, stronger focus-visible treatment, forced-colors support, and reduced-motion safeguards;
+- mobile/installed-PWA metadata, safe-area-aware layout, 44px primary touch targets, Apple touch icon, and a PNG PWA icon alongside the scalable SVG icon;
+- build-time PWA verification that requires the generated manifest, service worker, install icons, Apple touch icon linkage, and expected standalone metadata;
+- stress regression coverage for 500 reversible sparse moves, bounded visible-grid work on an 8K viewport at minimum zoom, and 2,000 repeated pan/zoom transforms.
+
+### Changed
+
+- service-worker registration now uses a prompt-based update flow so the user explicitly applies a waiting version;
+- viewport persistence is debounced during navigation and flushed when the page is hidden, reducing synchronous localStorage write churn;
+- Canvas backing resolution is capped at device-pixel-ratio 3 to avoid disproportionate memory use on extreme-density displays while CSS-space game geometry remains unchanged;
+- visible grid bounds are calculated through a pure tested viewport helper, keeping render loops proportional to the current screen;
+- the PWA manifest and precache configuration explicitly cover install/offline assets and remove outdated Workbox caches;
+- the application shell now handles dynamic mobile viewport units, display cutouts/safe areas, overscroll suppression, dark theme metadata, and standalone-friendly browser chrome;
+- the project icon enclosure was corrected so every boundary point lies on a grid intersection and every consecutive boundary step obeys the game's one-step adjacency rule;
+- Phase 4 browser/PWA/accessibility hardening is complete and source version advanced to 0.5.0.
+
 ## [0.4.0] - 2026-08-31
 
 ### Added

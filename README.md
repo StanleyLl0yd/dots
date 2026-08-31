@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.4.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. When a valid neighboring-dot boundary is actually closed around opponent dots, the captured area is outlined and lightly hatched.
 
-Current source version: **0.4.0** · advanced capture rules + reversible sessions + practically unbounded board navigation · Web + PWA · GitHub Pages live
+Current source version: **0.5.0** · advanced capture rules + reversible sessions + practically unbounded board + hardened PWA/accessibility · GitHub Pages live
 
 ## 🎯 Rules
 
@@ -43,41 +43,46 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 ## 🖱 Board navigation
 
 - **Click / tap** an intersection to place a dot.
-- **Drag** with one pointer to pan the board. A small movement threshold keeps ordinary clicks/taps from becoming accidental pans.
+- **Drag** with one pointer to pan the board; the movement threshold keeps an ordinary click/tap from becoming a pan.
 - **Mouse wheel / trackpad scroll** zooms around the pointer position.
-- **Two-finger pinch** zooms and pans around the gesture midpoint.
+- **Two-finger pinch** zooms and pans around the moving gesture midpoint.
+- **Keyboard:** focus the board, use the arrow keys to move the intersection cursor, **Enter / Space** to place a dot, and **+ / -** to zoom.
 - The viewport is restored after reload independently from the saved game. Starting a new game resets the viewport to the origin at 100% zoom.
 
-Viewport movement never changes game coordinates. A pointer is transformed through the current viewport and snapped exactly once to an integer grid intersection before the game core sees it.
+Viewport movement never changes game coordinates. Pointer and keyboard placement both resolve to integer grid intersections before the authoritative game core sees a move.
+
+## ♿ Accessibility & mobile
+
+- the board is keyboard-operable and has screen-reader instructions/live announcements for cursor movement and placement results;
+- a skip link moves keyboard focus directly to the board;
+- primary buttons use mobile-sized touch targets and visible keyboard focus;
+- mobile layouts respect display cutouts and safe areas, dynamic viewport height, and installed-PWA browser chrome;
+- dark mode, forced-colors mode, and reduced-motion preferences receive explicit handling;
+- Canvas DPR is bounded to avoid excessive backing-buffer memory on extreme-density screens.
+
+## 📦 PWA & offline lifecycle
+
+The game is installable and its application shell is precached for offline use. A local saved game remains available without a network connection because game/session persistence is independent from the service worker.
+
+When a newer application version is waiting, Dots **prompts before applying it** instead of silently replacing the running page. The app checks for updates after reconnecting, when returning to the foreground, and periodically while open. The production build also verifies that the manifest, service worker, required install assets, and mobile icon linkage were actually generated.
 
 ## ✨ Current build
 
-- TypeScript game core separated from Canvas rendering;
-- local two-player placement on grid intersections;
-- real closed-enclosure detection using neighboring dots in 8 directions;
-- rejection of open contours and empty houses as scored captures;
-- house activation when an opponent enters an empty house without completing a direct capture;
-- multiple independent captures completed by one move;
-- deterministic minimum-face selection when several valid boundaries compete;
-- capture-of-capture with deactivation of fully surrounded opponent captures and release of previously captured own dots;
-- score derived from active captured dots rather than an irreversible counter;
-- captured areas blocked from further placement;
-- capture outline, translucent fill, and light diagonal hatching;
-- undo that restores the previous player, capture set, released/captured dots, and score together;
-- new-game reset with confirmation when a game is in progress;
-- versioned automatic local save using a legal move log, with full game and undo-history restoration after reload;
-- invalid, corrupted, or unsupported saves discarded safely instead of becoming game state;
-- practically unbounded pan/zoom viewport with mouse, trackpad, touch, and pinch interaction;
-- anchor-preserving zoom and exact screen↔game coordinate conversion with integer placement snapping;
-- separately versioned local viewport persistence with safe validation and numerical bounds;
-- visible-range grid and stone rendering plus capture hatching bounded to the screen for stable navigation performance;
-- topology and viewport regression tests, CI, automatic GitHub Pages deployment, and automated GitHub releases;
+- complete local two-player game core separated from Canvas rendering;
+- strict 8-direction neighboring-dot enclosure topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
+- capture outline, translucent fill, light hatching, and placement blocking inside active captured areas;
+- exact one-move Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
+- practically unbounded pan/zoom viewport with mouse, trackpad, touch, pinch, and keyboard interaction;
+- separate validated viewport persistence and bounded visible-range rendering;
+- screen-reader/live-status support, focus-visible states, safe-area mobile UI, reduced-motion and forced-colors handling;
+- explicit offline/update PWA lifecycle with user-confirmed refresh;
+- corrected scalable/PWA icon geometry that follows the same adjacency/intersection rules as the game;
+- build-time verification of generated PWA/offline artifacts;
+- regression/stress coverage for topology, persistence, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
-- responsive desktop/mobile layout with light and dark presentation;
-- installable PWA and offline-ready build pipeline;
-- proprietary All Rights Reserved license.
+- CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.4.0** completes the core board-navigation phase. The next work is PWA/mobile polish, accessibility/reduced-motion handling, and continued rule/performance stress testing before AI is considered.
+Version **0.5.0** completes the planned browser/PWA/accessibility hardening phase. The principal local-game rules, reversible state, navigation, persistence, offline shell, and accessibility path are now in place; remaining work is continued real-device/topology validation and optional higher-level features such as AI.
 
 ## 🧱 Technology
 
@@ -87,7 +92,7 @@ Version **0.4.0** completes the core board-navigation phase. The next work is PW
 | Rendering | HTML5 Canvas |
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
-| Tests | Vitest |
+| Tests | Vitest + build artifact verification |
 | Persistence | versioned localStorage move log + separate viewport state |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
@@ -98,25 +103,23 @@ Version **0.4.0** completes the core board-navigation phase. The next work is PW
 src/
 ├── game/
 │   ├── board.ts           game state and legal placement
-│   ├── board.test.ts      move/capture integration tests
-│   ├── capture.ts         topology, house, release, and scoring logic
-│   ├── capture.test.ts    capture-geometry regression tests
-│   ├── session.ts         move history, undo, and reset state
-│   ├── session.test.ts    session/undo regression tests
-│   ├── topology.test.ts   adversarial topology hardening tests
+│   ├── capture.ts         topology, houses, release, and scoring
+│   ├── session.ts         history, undo, and reset
+│   ├── *.test.ts          rule/session/topology/stress regression tests
 │   └── types.ts           domain types
 ├── ui/
-│   ├── canvas-board.ts    Canvas rendering and pointer/touch gestures
-│   ├── viewport.ts        pan/zoom and screen↔game transforms
-│   └── viewport.test.ts   viewport mathematics regression tests
-├── persistence.ts         versioned move-log save and restore
-├── persistence.test.ts    persistence validation/replay tests
-├── viewport-persistence.ts       independent viewport save/restore
-├── viewport-persistence.test.ts  viewport persistence validation tests
-├── i18n.ts                Russian / English interface
-├── i18n.test.ts           locale tests
-├── main.ts                application composition
-└── styles.css             notebook-inspired visual layer
+│   ├── canvas-board.ts    Canvas, pointer/touch/keyboard interaction
+│   ├── viewport.ts        pan/zoom, visible bounds, screen↔game transforms
+│   └── viewport.test.ts   viewport/performance regression tests
+├── persistence.ts         authoritative move-log save/restore adapter
+├── viewport-persistence.ts  separate viewport save/restore adapter
+├── pwa.ts                 service-worker update/offline lifecycle
+├── i18n.ts                Russian / English interface and a11y copy
+├── main.ts                application composition and browser status UI
+└── styles.css             notebook/mobile/accessibility visual layer
+
+scripts/
+└── verify-build.mjs       production PWA artifact verification
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current architecture and [`CHANGELOG.md`](CHANGELOG.md) for release changes.
@@ -139,13 +142,14 @@ npm test
 npm run build
 ```
 
+`npm run build` includes TypeScript validation, the Vite/PWA production build, and a post-build check of the generated manifest/service worker/install assets.
+
 ## 🗺 Roadmap
 
-1. Harden PWA/offline behavior across desktop and mobile browsers and improve accessibility/reduced-motion handling.
-2. Continue topology and viewport/performance stress testing on large and difficult positions.
-3. Add optional import/export only if it remains simple and genuinely useful.
-4. Consider AI only after the complete local game and board interaction remain stable under broader testing.
-5. Optionally package the same codebase for Android through Capacitor later.
+1. Continue real-device/browser validation and topology/performance stress testing as difficult positions are found.
+2. Add optional import/export only if it remains simple and genuinely useful.
+3. Consider a computer opponent now that the rule engine, reversible local flow, viewport, persistence, PWA lifecycle, and accessibility path are stable.
+4. Optionally package the same codebase for Android through Capacitor later.
 
 ## 📄 License
 

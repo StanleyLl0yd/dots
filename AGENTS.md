@@ -5,7 +5,7 @@
 - Inspect the existing implementation before changing it.
 - Preserve the core product: classic Dots / Tochki based on surrounding and capturing opponent dots. Do not add progression systems, resources, power-ups, world maps, unrelated meta mechanics, or rule-changing features unless explicitly approved.
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
-- Keep game rules, capture detection, scoring, history, and future AI independent from rendering, viewport state, and browser UI where practical.
+- Keep game rules, capture detection, scoring, history, and future AI independent from rendering, viewport state, service-worker state, and browser UI where practical.
 - Treat the rules in `docs/PRODUCT.md` as authoritative for this repository.
 - Preserve the boundary-adjacency invariant: every consecutive pair of dots in an enclosure path, including last-to-first, must be neighboring grid intersections exactly one step apart horizontally, vertically, or diagonally. Never connect across a gap or multiple grid steps.
 - Resolve each move in rule order: direct captures completed by the mover first; only when none resolve may the new dot activate an opponent house.
@@ -16,19 +16,26 @@
 - Invalid, malformed, unsupported, or no-longer-legal persisted move logs must be rejected safely.
 - Keep viewport center/zoom separate from integer game coordinates, `GameState`, scoring, capture detection, and persisted move history.
 - Convert pointer coordinates from screen space through the viewport and snap them to an integer grid intersection before passing a placement to the game core. Never make rule decisions in screen coordinates.
-- Pan and zoom may change only presentation. The same game coordinate must remain the same rule-space point regardless of viewport center, zoom, device-pixel ratio, resize, or input device.
+- Keyboard placement must call the same authoritative placement path as pointer placement. Do not create a separate keyboard rules implementation.
+- Pan, zoom, keyboard camera-follow, resize, and device-pixel ratio may change only presentation. The same game coordinate must remain the same rule-space point.
 - Preserve anchor-based zoom behavior: wheel/trackpad zoom keeps the game point under the pointer fixed, and pinch keeps the game point under the gesture midpoint fixed while that midpoint may move.
-- A drag gesture must not also place a dot. Preserve a deliberate movement threshold that separates click/tap placement from one-pointer panning, and suppress placement after pinch gestures.
-- Viewport persistence must use a separate versioned storage key, validate finite safe numeric values, and fail closed without invalidating or mutating a valid saved game.
+- A drag gesture must not also place a dot. Preserve a deliberate movement threshold separating click/tap placement from one-pointer pan, and suppress placement after pinch gestures.
+- Viewport persistence must use a separate versioned storage key, validate finite safe numeric values, and fail closed without invalidating a valid saved game.
 - Starting a new game must reset the viewport to the origin at default zoom as well as reset rule/session state.
-- Keep rendering work bounded by the visible viewport where practical. Do not iterate across arbitrary world extents merely because the viewport center or a capture is far from the origin.
+- Keep rendering work bounded by the visible viewport or finite screen-space work. Do not iterate across arbitrary world extents merely because the camera/capture is far from the origin.
+- Keep Canvas backing resolution bounded independently from CSS/game geometry when needed for mobile memory safety; changing the DPR cap must not change game coordinates or snapping.
+- Preserve the prompt-based service-worker update lifecycle. A waiting PWA update must not silently reload or replace an active local game; activation requires an explicit user action from the update prompt.
+- Offline, online, update-available, and service-worker error states are presentation only. They must never alter `GameState`, move history, score, captures, or saved moves.
+- Preserve offline/PWA behavior and GitHub Pages compatibility. Required manifest/service-worker/install assets must continue to be verified by the production build.
+- Preserve keyboard accessibility: board focus, visible intersection cursor, arrow navigation, Enter/Space placement, zoom shortcuts, assistive instructions/live announcements, and visible focus states unless an equivalent or better path replaces them.
+- Essential game information and controls must remain usable with reduced motion, forced colors, dark mode, mobile safe areas, and touch input.
+- Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
-- Preserve offline/PWA behavior and GitHub Pages compatibility.
-- Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
-- Add or update tests for game rules, capture detection, scoring, history, persistence, viewport transforms/persistence, locale handling, and regressions where practical.
-- Run relevant tests and the production build before considering a task complete.
+- Add or update tests for rules, capture detection, scoring, history, persistence, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
+- Keep deterministic stress tests meaningful but hardware-independent; do not turn CI into a fragile wall-clock benchmark.
+- Run relevant tests and the full production build, including PWA artifact verification, before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
 - Comments must be minimal, necessary, current, and English-only.
 - Do not keep commented-out code or obsolete TODOs.
