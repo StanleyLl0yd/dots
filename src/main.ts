@@ -202,7 +202,7 @@ const fallBackToLocalMode = (): void => {
 };
 
 const scheduleComputerMove = (): void => {
-  if (!isComputerTurn() || computerThinking) return;
+  if (document.visibilityState === "hidden" || !isComputerTurn() || computerThinking) return;
   const generation = ++computerGeneration;
   computerThinking = true;
   renderStatus();
@@ -305,6 +305,10 @@ window.addEventListener("pagehide", () => {
   cancelComputerMove();
   flushViewport();
 });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleComputerMove();
+});
+window.addEventListener("pageshow", scheduleComputerMove);
 if (!navigator.onLine) showStatus(copy.offline);
 
 const pwa = setupPwaLifecycle({
