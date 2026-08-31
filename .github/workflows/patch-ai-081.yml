@@ -1,0 +1,115 @@
+name: Patch AI 0.8.1
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-ai-081.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply tactical AI patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          ai_path = Path("src/game/ai.ts")
+          text = ai_path.read_text()
+          start = text.index("const rankedMoves = (")
+          end = text.index("\nconst tier =", start)
+          replacement = '''const rankedMoves = (
+            state: GameState,
+            player: Player,
+            focus: Point | undefined,
+            limit: number,
+            context: SearchContext,
+            forecast: boolean
+          ): RankedMove[] => {
+            if (state.currentPlayer !== player || limit <= 0) return [];
+            const before = evaluateState(state, player, context);
+            const ranked: RankedMove[] = [];
+            const pool = new Map<string, { seed: CandidateSeed; state: GameState }>();
+            const scanLimit =
+              forecast && state.stones.size < 80
+                ? Math.max(limit, 32)
+                : forecast && state.stones.size < 250
+                  ? Math.max(limit, 16)
+                  : limit;
+            const opponent = otherPlayer(player);
+            let considered = 0;
+
+            for (const seed of generateSeeds(state, player, focus, context)) {
+              const next = placeStone(state, seed.point);
+              if (next === state) continue;
+              considered += 1;
+              const immediateSwing =
+                next.score[player] - state.score[player] +
+                state.score[opponent] - next.score[opponent];
+              if (pool.size < limit || immediateSwing > 0) {
+                pool.set(pointKey(seed.point), { seed, state: next });
+              }
+              if (considered >= scanLimit) break;
+            }
+
+            for (const { seed, state: next } of pool.values()) {
+              const strategic = forecast ? forecastBonus(next, player, context) : 0;
+              const tacticalScore =
+                evaluateState(next, player, context) -
+                before +
+                seed.score * 4 +
+                strategic +
+                seed.ownCyclePairs * 30 +
+                seed.blockedCyclePairs * 34;
+              ranked.push({ ...seed, state: next, tacticalScore });
+            }
+
+            return ranked
+              .sort(
+                (a, b) =>
+                  b.tacticalScore - a.tacticalScore ||
+                  b.score - a.score ||
+                  a.point.y - b.point.y ||
+                  a.point.x - b.point.x
+              )
+              .slice(0, limit);
+          };'''
+          text = text[:start] + replacement + text[end:]
+
+          old = '''  let best: { point: Point; value: number; tacticalScore: number } | undefined;
+
+  for (const candidate of candidates) {'''
+          new = '''  const opponent = otherPlayer(player);
+  const safeCandidates = candidates.filter(
+    (candidate) => candidate.state.score[opponent] <= state.score[opponent]
+  );
+  const searchCandidates = safeCandidates.length > 0 ? safeCandidates : candidates;
+  let best: { point: Point; value: number; tacticalScore: number } | undefined;
+
+  for (const candidate of searchCandidates) {'''
+          if old not in text:
+              raise SystemExit("chooseAiMove insertion point not found")
+          text = text.replace(old, new, 1)
+          ai_path.write_text(text)
+
+          benchmark = Path("src/game/ai-tactical-benchmark.test.ts")
+          tests = benchmark.read_text()
+          for case in ("TB01", "TB04", "TB05"):
+              marker = f'it.skip("{case} known gap:'
+              if marker not in tests:
+                  raise SystemExit(f"missing benchmark marker {case}")
+              tests = tests.replace(marker, f'it("{case}', 1)
+          benchmark.write_text(tests)
+          PY
+      - name: Commit patch
+        run: |
+          git diff --check
+          git config user.name "Stanley Lloyd"
+          git config user.email "131160519+StanleyLl0yd@users.noreply.github.com"
+          git add src/game/ai.ts src/game/ai-tactical-benchmark.test.ts
+          git commit -m "fix: resolve Expert tactical gaps"
+          git push
