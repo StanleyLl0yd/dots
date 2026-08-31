@@ -20,7 +20,7 @@ All notable project changes are recorded here.
 ### Changed
 
 - CI and GitHub Pages now install exactly the committed dependency graph with `npm ci`;
-- release workflow uses the maintained checkout action runtime;
+- release and Pages workflows use maintained Node-24-compatible action runtimes;
 - dependency/tooling hardening is now part of repository operational verification; gameplay, saves, PWA behavior, accessibility, and AI behavior are unchanged;
 - source version advanced to 0.8.2.
 
