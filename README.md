@@ -7,7 +7,7 @@
 <img src="docs/assets/readme/dots-board.svg" alt="Dots game board" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/ci.yml?branch=main&label=CI&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/ci.yml)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-planned-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready%20foundation-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Source version](https://img.shields.io/badge/source-0.1.0-16A34A?labelColor=2b2925)](package.json)
@@ -18,11 +18,13 @@
 
 A minimalist digital version of the classic **Dots / Tochki** surround-and-capture strategy game.
 
+[**▶ Open current web build**](https://stanleyll0yd.github.io/dots/)
+
 </div>
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. A closed chain of your dots captures opponent dots inside it and claims the enclosed area.
 
-Current source version: **0.1.0** · repository foundation · Web + PWA · GitHub Pages ready
+Current source version: **0.1.0** · repository foundation · Web + PWA · GitHub Pages live
 
 ## 🎯 Rules
 
