@@ -10,6 +10,9 @@ src/
 │   ├── capture.ts
 │   ├── session.ts
 │   ├── ai.ts
+│   ├── ai-worker.ts
+│   ├── ai-worker-protocol.ts
+│   ├── ai-worker-protocol.test.ts
 │   ├── ai-match.ts
 │   ├── board.test.ts
 │   ├── capture.test.ts
@@ -196,6 +199,12 @@ Current legal values are:
 
 Version-1 preferences from 0.6.0 contain only game mode. They are migrated in place to version 2 while preserving that mode and assigning `normal` difficulty. Malformed or unsupported preference data is removed and falls back to local mode plus Normal difficulty. Preference failure cannot invalidate or mutate the authoritative game save or viewport state.
 
+### Browser Worker and UX orchestration
+
+Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses.
+
+`CanvasBoard` owns presentation-only latest-move, desktop snap-preview, invalid-point, and confirmed-capture emphasis. `fitViewportToPoints()` remains a pure viewport helper with bounded automatic zoom. Move count comes from session history, Help/New game use native accessible dialogs, and mobile primary actions stay visible as compact controls.
+
 ## Viewport model
 
 `src/ui/viewport.ts` contains pure screen↔game transforms, pan, anchor-preserving zoom, snapping, and visible-grid-bound calculations. The viewport stores fractional game-space center coordinates plus zoom and is not part of `GameState`.
@@ -247,7 +256,7 @@ Starting a new game resets the viewport to `(0, 0, 1)` and persists that present
 
 Network and worker failures remain status UI only. The persisted move log, viewport, preferences, and AI are independent of service-worker caches.
 
-`scripts/verify-build.mjs` runs after every production build and fails if the generated PWA manifest, service worker, key install/mobile assets, expected standalone metadata, or Apple touch-icon linkage is missing.
+`scripts/verify-build.mjs` runs after every production build and fails if the generated PWA manifest, service worker, key install/mobile assets, expected standalone metadata, Apple touch-icon linkage, or generated `ai-worker-*.js` Worker asset is missing.
 
 ## Mobile and accessibility shell
 

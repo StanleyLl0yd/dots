@@ -111,12 +111,16 @@ Difficulty and strategic heuristics affect search policy only. They cannot chang
 
 These are deterministic tactical regression guards, not an Elo system or a wall-clock benchmark. Match length remains deliberately short so CI does not become hardware-sensitive.
 
+### Browser AI orchestration in 0.9.0
+
+The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.
+
 ## Game-state ergonomics
 
 - **Undo** in two-player mode reverses one legal move and restores the player to move, active captures, released/captured status, and score to the exact previous rule state.
 - In computer mode, when the usual human+computer pair exists, Undo removes the latest computer move and the preceding human move so the human returns to the previous decision point.
 - Illegal clicks do not create undo history.
-- **New game** resets the board and asks for confirmation when a game is in progress.
+- **New game** resets the board and uses an accessible in-app confirmation dialog when a game is in progress.
 - An unfinished game is saved automatically in browser-local storage after every legal move and Undo.
 - Persistence stores a versioned ordered move log rather than trusting serialized derived capture/score state.
 - Loading a save replays every stored move through the same game core used for live play, rebuilding captures, score, current player, and Undo history deterministically.
@@ -141,6 +145,10 @@ The visible board is a viewport over integer game coordinates rather than a fini
 
 Viewport state is independently persisted and may be discarded without affecting moves, captures, score, current player, Undo, game mode, or AI difficulty. Starting a new game resets it to `(0, 0, 1)`.
 
+### UX feedback in 0.9.0
+
+Latest-move rings, move counters, desktop snap previews, invalid-placement markers, capture emphasis, first-run Help, and the mobile action toolbar are presentation only. **Fit game** derives a bounded viewport from placed-stone coordinates and cannot alter rule-space coordinates or history. Capture feedback is derived from confirmed before/after active capture state; reduced-motion mode may suppress transient emphasis but not essential textual/assistive feedback.
+
 ## Browser, accessibility, and PWA behavior
 
 - The browser UI must remain fully usable without a network connection once the PWA shell has been cached; game-state persistence and AI never depend on the service worker or network.
@@ -157,7 +165,7 @@ Viewport state is independently persisted and may be discarded without affecting
 
 ## Current implementation status
 
-Version **0.8.2** supports the planned classic local game, browser/PWA/accessibility stack, strategically refined four-level computer opponent, fixed-position tactical regression coverage, and a reproducible audited development/deployment toolchain:
+Version **0.9.0** supports the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, responsive Worker-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -271,9 +279,20 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - maintained Node-24-compatible checkout/setup and Pages GitHub Actions;
 - Dependabot coverage for both npm and GitHub Actions.
 
-### Phase 6 — optional refinement and Android packaging
+### Phase 6 — game UX polish / release-candidate foundation — complete in 0.9.0
 
-Further AI refinement must be driven by concrete failing positions or measured regressions and remain bounded. Import/export may be added only if it stays simple and useful. Package the same web codebase with Capacitor only after sufficient real-device PWA validation.
+- cancellable browser Web Worker for computer search without changing AI decisions or core rules;
+- latest-move marker and move counter;
+- Fit game viewport recovery;
+- capture and invalid-placement feedback plus desktop snap preview;
+- compact first-run guidance with persistent Help dialog;
+- compact mobile primary-action toolbar;
+- accessible in-app New game confirmation;
+- production verification that the AI Worker bundle is generated.
+
+### Phase 7 — 1.0 validation and optional post-1.0 work
+
+Treat 0.9.x as a release-candidate line for empirical browser/device/PWA testing and concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export and Capacitor/Android packaging remain optional post-1.0 work rather than prerequisites for the stable web release.
 
 ## Visual direction
 
@@ -297,7 +316,8 @@ Further AI refinement must be driven by concrete failing positions or measured r
 - Persisted games are versioned move logs replayed through the authoritative core; persisted capture geometry/score is never trusted.
 - Computer moves are ordinary core moves and require no parallel AI persistence format.
 - AI may rank/propose coordinates only; legality and resulting captures/score remain authoritative core responsibilities.
-- AI must not import or depend on Canvas, DOM, viewport, service worker, storage, or network state.
+- AI must not import or depend on Canvas, DOM, viewport, service worker, storage, or network state. Browser Worker transport may carry a structured-cloned `GameState` and options but must not become a rules authority.
+- Worker responses are proposals only. Stale/cancelled generations must be ignored, and every accepted computer coordinate must still enter through `playMove()`.
 - AI difficulty and strategic heuristics may change only bounded search/evaluation policy, never game rules or authoritative persistence.
 - AI threat/setup probes are speculative evaluation only. They may not mutate the supplied `GameState`, session history, or persisted move log.
 - Hard/Expert root tactical discovery must remain bounded and use authoritative `placeStone()` outcomes.
@@ -309,13 +329,13 @@ Further AI refinement must be driven by concrete failing positions or measured r
 - Invalid or unsupported persisted move logs fail closed to a fresh game.
 - Game-mode/difficulty preference and viewport are presentation/session preferences stored separately from the move log.
 - Screen input is transformed to game space and snapped to an integer intersection before the core receives a move.
-- Pan/zoom and accessibility camera-follow may change only presentation.
+- Pan/zoom, Fit game, desktop snap preview, latest-move/invalid markers, and accessibility camera-follow may change only presentation.
 - Rendering loops operate on visible/bounded work rather than arbitrary world extents.
 - Offline/online/service-worker state cannot alter or replace `GameState` or its persistence.
 - A waiting service-worker update must not silently reload an active game; the user controls activation from the update prompt.
 - Keyboard placement must call the same game-core path as pointer placement; accessibility is not a parallel rules implementation.
 - Essential state must remain perceivable with reduced motion and forced colors; focus must remain visible for keyboard interaction.
-- Production builds must fail if required PWA/offline install artifacts are missing.
+- Production builds must fail if required PWA/offline install artifacts or the browser AI Worker bundle are missing.
 - `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.
 - High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.
 - GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled.

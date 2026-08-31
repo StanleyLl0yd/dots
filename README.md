@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.8.2-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.9.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.8.2** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility + reproducible audited toolchain
+Current source version: **0.9.0** · classic advanced rules + four-level local computer play + responsive Worker-based AI turns + polished board feedback/navigation + hardened PWA/accessibility + reproducible audited toolchain
 
 ## 🎯 Rules
 
@@ -51,7 +51,7 @@ Choose **Vs computer** from the mode selector to play Red against the Blue compu
 | **Hard** | Adds a selective computer continuation, strategic enclosure/threat analysis, and a forcing-capture horizon extension. |
 | **Expert** | Adds another bounded opponent reply, the widest strategic analysis, alpha-beta pruning, and deeper forcing-capture extensions. |
 
-The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState`, and every candidate is validated through the existing game core.
+The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` remains browser-independent; the browser now executes its potentially expensive search in a cancellable Web Worker, and every returned coordinate is still accepted only through the authoritative `playMove()` path.
 
 Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`. Version 0.8.2 does not change gameplay or AI behavior.
 
@@ -76,6 +76,14 @@ The repository includes a deterministic `src/game/ai-match.ts` harness. CI runs 
 
 Viewport movement never changes game coordinates. Pointer and keyboard placement both resolve to integer grid intersections before the authoritative game core sees a move.
 
+### 0.9.0 interaction polish
+
+- **Mouse hover** previews the exact snapped grid intersection on desktop without claiming legality.
+- **Fit game** recenters and scales the viewport so every placed stone is visible, with bounded automatic zoom.
+- The latest legal move has a subtle ring marker; rejected placements get a short point-local marker.
+- Newly confirmed captures receive brief visual emphasis plus localized visible/screen-reader feedback.
+- The first-run navigation hint disappears after the first legal move; **Help** remains available at any time.
+
 ## ♿ Accessibility & mobile
 
 - keyboard-operable board with screen-reader instructions and live announcements;
@@ -85,6 +93,10 @@ Viewport movement never changes game coordinates. Pointer and keyboard placement
 - explicit dark-mode, forced-colors, and reduced-motion handling;
 - bounded Canvas DPR to avoid excessive backing-buffer memory on extreme-density screens;
 - localized computer-thinking, computer-move, mode, and difficulty controls reuse the same accessible status path.
+
+### 0.9.0 responsive controls
+
+Computer search runs off the UI thread. Pending Worker computation can be cancelled by Undo, New game, mode/difficulty changes, or page hiding; stale Worker generations are ignored. The mobile toolbar keeps Undo, Fit game, Help, and New game visible as compact icon actions, while New game confirmation uses an accessible in-app dialog instead of `window.confirm()`.
 
 ## 📦 PWA & offline lifecycle
 
@@ -103,7 +115,9 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - tactical move ordering, alpha-beta pruning, and selective forcing capture/release horizon extensions;
 - deterministic AI-vs-AI paired strength regression tests plus six fixed Expert tactical benchmark positions;
 - versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
-- exact Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
+- exact Undo, accessible confirmed New game, versioned move-log persistence, and deterministic replay restore;
+- cancellable AI Web Worker orchestration with stale-response guards and authoritative `playMove()` acceptance;
+- latest-move marker, move counter, capture/invalid-placement feedback, desktop snap preview, first-run Help, Fit game, and responsive mobile action toolbar;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
 - accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
@@ -116,7 +130,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.8.2** is a technical hardening release. It patches vulnerable development tooling and makes dependency resolution/security checks reproducible without changing game rules, saves, UI behavior, or AI decisions.
+Version **0.9.0** is the pre-1.0 game-UX polish release. Game rules, saved-game format, and AI search decisions are unchanged; browser AI computation is isolated from the UI thread and the principal game interactions now provide clearer visual, mobile, and assistive feedback.
 
 ## 🧱 Technology
 
@@ -128,7 +142,7 @@ Version **0.8.2** is a technical hardening release. It patches vulnerable develo
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest 3.2.7 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
-| AI | deterministic bounded strategic minimax over the game core |
+| AI | deterministic bounded strategic minimax over the game core, executed in a browser Web Worker |
 | Dependencies | committed npm lockfile + `npm ci` + high/critical audit gate |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
@@ -139,6 +153,8 @@ Version **0.8.2** is a technical hardening release. It patches vulnerable develo
 src/
 ├── game/
 │   ├── ai.ts              pure multi-level strategic computer search
+│   ├── ai-worker.ts       browser Worker entry for isolated AI computation
+│   ├── ai-worker-protocol.ts  typed Worker request/response contract
 │   ├── ai-match.ts        deterministic AI-vs-AI regression harness
 │   ├── ai.test.ts         difficulty/tactics/determinism/large-position tests
 │   ├── ai-match.test.ts   paired strength regression tests
@@ -161,7 +177,7 @@ src/
 └── styles.css             notebook/mobile/accessibility visual layer
 
 scripts/
-└── verify-build.mjs       production PWA artifact verification
+└── verify-build.mjs       production PWA/AI-worker artifact verification
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), and [`CHANGELOG.md`](CHANGELOG.md).
@@ -185,14 +201,14 @@ npm test
 npm run build
 ```
 
-`npm run build` includes TypeScript validation, the Vite/PWA production build, and post-build verification of generated PWA artifacts.
+`npm run build` includes TypeScript validation, the Vite/PWA production build, and post-build verification of generated PWA and AI Web Worker artifacts.
 
 ## 🗺 Roadmap
 
-1. Continue real-device/browser and adversarial topology validation, including Expert-mode responsiveness on mobile hardware.
-2. Improve AI only from concrete failing positions or strength-regression evidence while preserving deterministic bounded search.
-3. Add optional import/export only if it stays simple and useful.
-4. Optionally package the same codebase for Android through Capacitor later.
+1. Treat 0.9.x as the release-candidate line: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only.
+2. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
+3. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
+4. Consider import/export or Android/Capacitor packaging only after the stable 1.0 web/PWA release.
 
 ## 📄 License
 

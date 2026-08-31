@@ -86,6 +86,14 @@ The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions
 
 All six are required tests in 0.8.1. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
 
+## Browser Worker isolation
+
+Version **0.9.0** changes browser orchestration, not AI policy. `main.ts` starts `src/game/ai-worker.ts` as a dedicated Web Worker and sends a structured-cloned `GameState`, focus point, player, difficulty, and request generation through `ai-worker-protocol.ts`. Structured clone preserves the state's `Map`; a regression test locks down that transport assumption.
+
+The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.
+
+This keeps long Hard/Expert calculations off the UI thread without changing search depth, evaluation, deterministic tie-breaking, tactical benchmarks, or game rules. Production verification requires the generated `ai-worker-*.js` asset.
+
 ## Preference migration
 
 AI difficulty is stored in preference format version 2. Existing version-1 preferences from Dots 0.6.0 are migrated automatically: the saved local/computer mode is preserved and computer difficulty defaults to **Normal**. Invalid newer preference data fails closed without touching the saved game.
@@ -103,7 +111,7 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 - Alpha-beta cutoffs must not be cached as exact transposition values.
 - Search remains bounded as the board grows; expensive setup analysis and extensions are reduced on large positions.
 - If the AI cannot produce a legal move, the UI fails safe by returning to two-player mode instead of fabricating a move or blocking the saved game.
-- A pending computer turn is suspended when the document is hidden and resumed when the app returns to the foreground.
+- Browser AI work is terminated when hidden or superseded, stale generations are ignored, and a needed Blue turn is rescheduled when the app returns to the foreground.
 - Game saves remain a versioned legal move log. Computer-generated moves are persisted exactly like human moves and replay through the same core after reload.
 
 ## Current strength

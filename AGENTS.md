@@ -13,6 +13,8 @@
 - Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed active game-state captures. Never infer or create captures in the UI layer.
 - AI may rank and propose only integer game-coordinate moves. Every computer move must still be validated and accepted through the authoritative `placeStone()` / `playMove()` path; never let AI create captures, score, releases, or legality as parallel state.
 - Keep `src/game/ai.ts` free of DOM, Canvas, viewport, storage, service-worker, and network dependencies. AI behavior must remain usable offline and independently testable from the browser shell.
+- Browser AI computation may run in a dedicated Web Worker, but Worker transport is orchestration only: it may carry structured-cloned rule state/options and a proposed coordinate, never parallel legality/capture/score state.
+- Treat Worker results as cancellable proposals. Ignore stale generations and validate every accepted computer coordinate through `playMove()` after it returns to the browser shell.
 - Keep computer search deterministic unless a future product requirement explicitly introduces selectable randomness. Identical state/difficulty/options should produce identical moves so regressions remain reproducible.
 - Preserve the four difficulty contracts: Easy has no opponent-reply search, Normal searches one opponent reply, Hard adds a selective computer continuation, and Expert adds a final bounded opponent reply. Changes may tune bounded budgets but should not collapse all levels into cosmetic labels.
 - Strategic AI features such as cycle-closing pressure, stone danger, house pressure, threat probes, setup probes, or move-ordering scores are heuristics only. They may influence ranking/evaluation but must never declare legal moves, captures, releases, houses, or score independently from the authoritative core.
@@ -37,16 +39,19 @@
 - Keep viewport center/zoom separate from integer game coordinates, `GameState`, scoring, capture detection, AI search state, and persisted move history.
 - Convert pointer coordinates from screen space through the viewport and snap them to an integer grid intersection before passing a placement to the game core. Never make rule decisions in screen coordinates.
 - Keyboard placement must call the same authoritative placement path as pointer placement. Do not create a separate keyboard rules implementation.
-- Pan, zoom, keyboard camera-follow, resize, and device-pixel ratio may change only presentation. The same game coordinate must remain the same rule-space point.
+- Pan, zoom, Fit game, keyboard camera-follow, resize, and device-pixel ratio may change only presentation. The same game coordinate must remain the same rule-space point. Fit game must derive only a viewport from existing placed-stone coordinates and must not alter the move log or rules.
 - Preserve anchor-based zoom behavior: wheel/trackpad zoom keeps the game point under the pointer fixed, and pinch keeps the game point under the gesture midpoint fixed while that midpoint may move.
 - A drag gesture must not also place a dot. Preserve a deliberate movement threshold separating click/tap placement from one-pointer pan, and suppress placement after pinch gestures.
 - Viewport persistence must use a separate versioned storage key, validate finite safe numeric values, and fail closed without invalidating a valid saved game.
 - Starting a new game must reset the viewport to the origin at default zoom as well as reset rule/session state.
 - Keep rendering work bounded by the visible viewport or finite screen-space work. Do not iterate across arbitrary world extents merely because the camera/capture is far from the origin.
 - Keep Canvas backing resolution bounded independently from CSS/game geometry when needed for mobile memory safety; changing the DPR cap must not change game coordinates or snapping.
+- Last-move markers, mouse snap previews, invalid-placement feedback, move counters, Help/first-run hints, and toolbar layout are presentation only. They must not become legality or persistence authorities.
+- Capture feedback must be derived only from confirmed before/after active capture state. Reduced-motion may suppress transient visual emphasis but not essential text/live feedback.
+- Destructive in-app dialogs must preserve keyboard/focus accessibility and must not change New game/Undo semantics.
 - Preserve the prompt-based service-worker update lifecycle. A waiting PWA update must not silently reload or replace an active local game; activation requires an explicit user action from the update prompt.
 - Offline, online, update-available, and service-worker error states are presentation only. They must never alter `GameState`, move history, score, captures, AI legality, or saved moves.
-- Preserve offline/PWA behavior and GitHub Pages compatibility. Required manifest/service-worker/install assets must continue to be verified by the production build.
+- Preserve offline/PWA behavior and GitHub Pages compatibility. Required manifest/service-worker/install assets and the generated browser AI Worker bundle must continue to be verified by the production build.
 - Preserve keyboard accessibility: board focus, visible intersection cursor, arrow navigation, Enter/Space placement, zoom shortcuts, assistive instructions/live announcements, and visible focus states unless an equivalent or better path replaces them.
 - Computer mode, difficulty, computer-thinking state, and computer moves must remain understandable through accessible localized controls/status and must not rely on color alone.
 - Essential game information and controls must remain usable with reduced motion, forced colors, dark mode, mobile safe areas, and touch input.
