@@ -24,6 +24,7 @@
 - Source identifiers must be English.
 - Keep `main` buildable and use focused commits and pull requests.
 - Repository cleanup must include a review of open pull requests and stale branches. Close PRs that are obsolete, superseded, conflicting with the current dependency/version strategy, or otherwise no longer intended to merge; remove obsolete branches when practical.
+- For a release, keep the package version, README version/status text, `CHANGELOG.md` entry, and GitHub release tag aligned.
 - When behavior, architecture, or project status changes, update the relevant repository documentation in the same work.
 - After every release, review and update all repository text files so they accurately reflect the released state.
 - Preserve the established formatting and visual presentation of text files during release updates; add, change, or remove formatting only when there is a compelling or urgent need.
