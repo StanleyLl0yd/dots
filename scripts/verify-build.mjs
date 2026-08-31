@@ -10,6 +10,11 @@ for (const file of ["index.html", "sw.js", "pwa-192.png", "icon.svg", "apple-tou
   await access(new URL(file, dist));
 }
 
+const assets = await readdir(new URL("assets/", dist));
+if (!assets.some((file) => /^ai-worker-.*\.js$/.test(file))) {
+  throw new Error("AI Web Worker bundle was not generated");
+}
+
 const manifest = JSON.parse(await readFile(new URL(manifestName, dist), "utf8"));
 if (manifest.name !== "Dots" || manifest.display !== "standalone") throw new Error("Unexpected PWA manifest metadata");
 if (!Array.isArray(manifest.icons)) throw new Error("PWA manifest icons are missing");
@@ -26,4 +31,4 @@ if (!index.includes("apple-touch-icon.png")) throw new Error("Apple touch icon i
 const serviceWorker = await readFile(new URL("sw.js", dist), "utf8");
 if (serviceWorker.length < 100) throw new Error("Generated service worker is unexpectedly empty");
 
-console.log(`Verified PWA build: ${join("dist", manifestName)} and offline assets are present.`);
+console.log(`Verified PWA build: ${join("dist", manifestName)}, AI worker, and offline assets are present.`);
