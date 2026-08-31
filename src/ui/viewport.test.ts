@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_VIEWPORT,
+  MAX_FIT_ZOOM,
   MAX_VIEWPORT_CENTER,
   MAX_ZOOM,
   MIN_ZOOM,
+  fitViewportToPoints,
   gameToScreen,
   panViewport,
   screenToGame,
@@ -50,6 +52,28 @@ describe("viewport", () => {
     expect(after.x).toBeCloseTo(before.x, 10);
     expect(after.y).toBeCloseTo(before.y, 10);
     expect(next.zoom).toBe(2);
+  });
+
+  it("fits the played position inside the viewport with bounded zoom", () => {
+    const points = [{ x: -10, y: -4 }, { x: 14, y: 8 }, { x: 2, y: 3 }];
+    const viewport = fitViewportToPoints(points, size);
+
+    expect(viewport.centerX).toBe(2);
+    expect(viewport.centerY).toBe(2);
+    expect(viewport.zoom).toBeLessThanOrEqual(MAX_FIT_ZOOM);
+    for (const point of points) {
+      const screen = gameToScreen(point, viewport, size);
+      expect(screen.x).toBeGreaterThanOrEqual(50);
+      expect(screen.x).toBeLessThanOrEqual(size.width - 50);
+      expect(screen.y).toBeGreaterThanOrEqual(50);
+      expect(screen.y).toBeLessThanOrEqual(size.height - 50);
+    }
+  });
+
+  it("does not over-zoom a single-point position", () => {
+    const viewport = fitViewportToPoints([{ x: 1_000_000, y: -1_000_000 }], size);
+
+    expect(viewport).toEqual({ centerX: 1_000_000, centerY: -1_000_000, zoom: MAX_FIT_ZOOM });
   });
 
   it("clamps zoom and extreme viewport centers", () => {
