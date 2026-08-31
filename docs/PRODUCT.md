@@ -78,7 +78,7 @@ The computer opponent is deterministic and offline. It may propose only a coordi
 
 ## Computer opponent
 
-Version **0.8.1** keeps the four selectable strengths introduced in 0.7.0, the strategic analysis added in 0.8.0, and hardens concrete Expert tactical decisions without creating a second rules engine.
+Version **0.8.1** keeps the four selectable strengths introduced in 0.7.0, the strategic analysis added in 0.8.0, and hardens concrete Expert tactical decisions without creating a second rules engine. Version **0.8.2** is toolchain-only and does not alter these AI contracts.
 
 - **Easy** evaluates a small bounded set of immediate computer moves and does not search an opponent reply.
 - **Normal** searches a bounded opponent reply and chooses the best worst-case result.
@@ -157,7 +157,7 @@ Viewport state is independently persisted and may be discarded without affecting
 
 ## Current implementation status
 
-Version **0.8.1** supports the planned classic local game, browser/PWA/accessibility stack, and strategically refined four-level computer opponent with fixed-position tactical regression coverage:
+Version **0.8.2** supports the planned classic local game, browser/PWA/accessibility stack, strategically refined four-level computer opponent, fixed-position tactical regression coverage, and a reproducible audited development/deployment toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -177,7 +177,8 @@ Version **0.8.1** supports the planned classic local game, browser/PWA/accessibi
 - installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, and status feedback;
 - build-time verification of generated manifest, service worker, and required install/mobile assets;
 - bounded visible-grid rendering, DPR cap, debounced viewport persistence, and stress tests for long histories and repeated/extreme viewport transforms;
-- AI regression tests covering all four search profiles and a 300-stone Expert position.
+- AI regression tests covering all four search profiles and a 300-stone Expert position;
+- committed npm lockfile, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm plus GitHub Actions.
 
 Remaining work is mainly empirical real-device/browser testing, continued adversarial topology coverage, and AI refinement driven by concrete failing positions rather than a missing principal game layer.
 
@@ -262,6 +263,14 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - safe immediate-capture priority for Expert;
 - all three benchmark-discovered gaps promoted from known gaps to required regressions.
 
+### Phase 5.4 — technical/toolchain hardening — complete in 0.8.2
+
+- patched Vite and Vitest versions that clear the high/critical advisories reported against the previous toolchain;
+- committed lockfile v3 and reproducible `npm ci` installs;
+- mandatory high/critical npm audit gate before tests/build in CI;
+- maintained Node-24-compatible checkout/setup GitHub Actions;
+- Dependabot coverage for both npm and GitHub Actions.
+
 ### Phase 6 — optional refinement and Android packaging
 
 Further AI refinement must be driven by concrete failing positions or measured regressions and remain bounded. Import/export may be added only if it stays simple and useful. Package the same web codebase with Capacitor only after sufficient real-device PWA validation.
@@ -307,3 +316,6 @@ Further AI refinement must be driven by concrete failing positions or measured r
 - Keyboard placement must call the same game-core path as pointer placement; accessibility is not a parallel rules implementation.
 - Essential state must remain perceivable with reduced motion and forced colors; focus must remain visible for keyboard interaction.
 - Production builds must fail if required PWA/offline install artifacts are missing.
+- `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.
+- High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.
+- GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled.

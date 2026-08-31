@@ -53,6 +53,10 @@
 - Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
+- Keep `package-lock.json` committed and synchronized with `package.json` whenever package metadata or dependencies change.
+- Use `npm ci` for CI and GitHub Pages so automated verification uses the committed dependency graph rather than re-resolving versions.
+- Keep `npm audit --audit-level=high` as a CI release gate. High or critical advisories must block release unless an exceptional, explicitly documented risk decision is approved.
+- Keep GitHub Actions on maintained Node-24-compatible action versions and keep Dependabot coverage for both npm and GitHub Actions.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
 - Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism/difficulty profiles, strategic threat behavior, AI-vs-AI regressions, preference migration, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
 - Keep deterministic stress tests meaningful but hardware-independent; do not turn CI into a fragile wall-clock benchmark.

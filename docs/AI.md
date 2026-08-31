@@ -108,6 +108,6 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Current strength
 
-Version **0.8.1** keeps the bounded strategic model from 0.8.0 and closes the first concrete tactical gaps exposed by the fixed-position suite: missed multi-target immediate capture, self-capturing entry into an opponent house, and defensive blocking when a safe counter-capture is the stronger forced choice. Root tactical discovery/safety now handles these cases before deeper Expert minimax comparison.
+Version **0.8.1** keeps the bounded strategic model from 0.8.0 and closes the first concrete tactical gaps exposed by the fixed-position suite: missed multi-target immediate capture, self-capturing entry into an opponent house, and defensive blocking when a safe counter-capture is the stronger forced choice. Root tactical discovery/safety now handles these cases before deeper Expert minimax comparison. Version **0.8.2** is toolchain-only and leaves this AI behavior and all benchmark expectations unchanged.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.

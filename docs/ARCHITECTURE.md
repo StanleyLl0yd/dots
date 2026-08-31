@@ -257,6 +257,12 @@ Network and worker failures remain status UI only. The persisted move log, viewp
 
 `main.ts` provides a skip link, hidden board instructions, live regions for keyboard cursor/placement/computer feedback, connection/offline status, and the update prompt. Accessibility never bypasses the core: human keyboard/pointer and computer moves all eventually enter the same legal session path.
 
+## Toolchain and dependency reproducibility
+
+`package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed dependency graph. `package.json` requires Node.js 22 or newer.
+
+CI runs `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail the job. GitHub workflows use maintained Node-24-compatible checkout/setup actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state.
+
 ## Regression and operational verification
 
 Automated coverage includes:
@@ -268,7 +274,8 @@ Automated coverage includes:
 - six fixed Expert tactical positions covering multi-capture, defense, false closure, house safety, counter-capture, and capture-of-capture release;
 - game↔screen coordinate round-trip, integer snapping, pan direction, anchor zoom, numeric clamps, visible-grid work bounds, and repeated-transform stress;
 - long sparse game history with deterministic partial Undo;
+- reproducible `npm ci` dependency installation plus a high/critical `npm audit` gate;
 - TypeScript validation and the complete Vite/PWA production build;
 - post-build verification of generated service-worker/manifest/install artifacts.
 
-Version **0.8.1** hardens the strategic AI-quality phase with fixed tactical positions, wider bounded root discovery, hostile-house safety, and explicit safe immediate-capture priority for Expert. Further AI work should continue from concrete failing positions or measured match regressions rather than unbounded depth increases.
+Version **0.8.2** is a toolchain/security hardening release: patched Vite/Vitest advisories, reproducible lockfile-based installs, an enforced high/critical audit gate, and maintained GitHub Actions runtimes. Game rules, persistence formats, UI behavior, PWA lifecycle, accessibility, and AI search/benchmark contracts are unchanged from 0.8.1.

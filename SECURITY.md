@@ -4,6 +4,10 @@
 
 Only the latest published version is supported.
 
+## Dependency hygiene
+
+The repository commits `package-lock.json` and uses `npm ci` in CI and GitHub Pages for reproducible installs. CI runs `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification. Dependabot monitors both npm packages and GitHub Actions.
+
 ## Reporting a vulnerability
 
 Please do not disclose security vulnerabilities in public issues.
