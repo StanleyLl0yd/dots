@@ -8,6 +8,7 @@
 - Keep game rules, capture detection, scoring, and future AI independent from rendering and browser UI where practical.
 - Treat the rules in `docs/PRODUCT.md` as authoritative for this repository.
 - Preserve the boundary-adjacency invariant: every consecutive pair of dots in an enclosure path, including last-to-first, must be neighboring grid intersections exactly one step apart horizontally, vertically, or diagonally. Never connect across a gap or multiple grid steps.
+- Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed game-state captures. Never infer or create captures in the UI layer.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
@@ -20,5 +21,6 @@
 - Do not keep commented-out code or obsolete TODOs.
 - Source identifiers must be English.
 - Keep `main` buildable and use focused commits and pull requests.
+- When behavior, architecture, or project status changes, update the relevant repository documentation in the same work.
 - After every release, review and update all repository text files so they accurately reflect the released state.
 - Preserve the established formatting and visual presentation of text files during release updates; add, change, or remove formatting only when there is a compelling or urgent need.

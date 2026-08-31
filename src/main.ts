@@ -27,7 +27,7 @@ app.innerHTML = `
     </section>
     <section class="board-wrap">
       <canvas class="board" aria-label="${copy.title}"></canvas>
-      <div class="notice">${copy.scaffold}</div>
+      <div class="notice">${copy.hint}</div>
     </section>
   </main>
 `;

@@ -6,51 +6,65 @@
 src/
 ├── game/                  pure game state and rules
 │   ├── types.ts
-│   └── board.ts
+│   ├── board.ts
+│   ├── board.test.ts
+│   └── capture.ts
 ├── ui/                    Canvas rendering and pointer/touch input
 │   └── canvas-board.ts
 ├── i18n.ts                locale resolution and user-facing copy
+├── i18n.test.ts           locale tests
 ├── main.ts                application composition
 └── styles.css             page chrome and visual system
 ```
 
-The capture engine belongs under `src/game/` and must not import DOM or Canvas APIs.
+The capture engine lives under `src/game/` and does not import DOM or Canvas APIs. Rendering consumes capture state; it does not decide whether an enclosure exists.
 
-## Capture engine design target
+## Capture engine
 
-Capture detection is the highest-risk part of the project. It should be implemented as deterministic game logic with topology-focused tests before UI polish.
+Capture detection is deterministic game logic. The current implementation builds an 8-direction adjacency graph from same-color dots, extracts closed simple faces, rejects open or self-intersecting candidates, finds opponent dots strictly inside valid faces, and resolves each newly captured dot against the smallest valid face created by the closing move.
 
-Boundary adjacency is a hard rule invariant. Two boundary vertices are connected only when their Chebyshev distance is exactly one grid step. Horizontal, vertical, and diagonal neighbors are valid; skipped intersections and edges spanning multiple grid steps are invalid. The same check applies to the final edge that closes the path from the last vertex to the first.
+Boundary adjacency is a hard rule invariant. Two boundary vertices are connected only when their Chebyshev distance is exactly one grid step. Horizontal, vertical, and diagonal neighbors are valid; skipped intersections and edges spanning multiple grid steps are invalid. The same rule applies to the final edge from the last boundary point back to the first.
 
-The engine should:
+The move flow is:
 
-1. apply one candidate move to immutable or safely cloned state;
-2. inspect only topology that can change because of that move;
-3. find closed same-color boundaries using strict 8-direction neighboring-point adjacency;
-4. reject any candidate containing a non-adjacent consecutive pair, a gap, a long edge, a self-intersection, or another invalid boundary condition;
-5. determine which opponent dots lie strictly inside each boundary;
-6. discard boundaries with no capturable opponent dots;
-7. resolve overlaps using the minimum-area rule;
-8. update active captures and release dots when captures themselves are surrounded;
-9. derive score from active captured dots;
-10. return rule events that the renderer can animate without recomputing rules.
+1. reject occupied intersections and intersections inside active captures;
+2. clone the board state and place the current player's dot;
+3. inspect same-color topology affected by the move;
+4. extract closed simple boundaries using strict 8-direction neighboring-point adjacency;
+5. discard boundaries that contain no uncaptured opponent dots;
+6. resolve the minimum valid capture face for each newly captured dot;
+7. derive score from active captures;
+8. pass capture boundaries to the Canvas renderer for outline, translucent fill, and light hatching.
+
+## Current limitations
+
+The ordinary closed-enclosure flow is implemented. The following classic-rule cases still require dedicated rule logic and regression coverage:
+
+- entering and activating a previously empty house;
+- capture-of-capture and release of previously captured dots;
+- nested capture resolution;
+- broader verification of several independent captures closed by one move;
+- adversarial competing-boundary and self-touching topologies.
+
+These cases must stay in the game layer and must not be patched in the renderer.
 
 ## Testing priorities
 
-The capture suite should cover:
+Already covered at integration level:
 
-- a single-dot enclosure;
-- horizontal and vertical neighboring boundary segments;
-- diagonal neighboring boundary segments;
-- rejection of a boundary edge spanning two or more grid steps;
-- a one-gap almost-enclosure that must remain open;
-- closing-edge adjacency from the last boundary dot back to the first;
-- a house with no opponent dots;
+- ordinary single-dot enclosure;
+- an almost-enclosure with a gap;
+- an empty closed house that does not score;
+- blocking a move inside an active capture.
+
+Still required as the engine is hardened:
+
+- horizontal, vertical, and diagonal boundary segments;
+- rejection of an edge spanning two or more grid steps;
+- explicit closing-edge adjacency from last point to first;
 - entering a house;
-- multiple captures closed by one move;
-- nested captures;
-- release after surrounding an opponent capture;
-- competing valid boundary paths;
-- minimum-area selection;
+- several captures closed by one move;
+- nested captures and release after surrounding an opponent capture;
+- competing valid paths and minimum-area selection;
 - self-touching and self-intersecting candidate chains;
-- large coordinate values independent of viewport position.
+- large game coordinates independent of viewport position.

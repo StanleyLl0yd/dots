@@ -8,7 +8,7 @@ const messages = {
     blue: "Синие",
     turn: "Ход",
     newGame: "Новая игра",
-    scaffold: "Замкните соседними точками контур вокруг точки соперника."
+    hint: "Замкните соседними точками контур вокруг точки соперника."
   },
   en: {
     title: "Dots",
@@ -17,7 +17,7 @@ const messages = {
     blue: "Blue",
     turn: "Turn",
     newGame: "New game",
-    scaffold: "Close a boundary of neighboring dots around an opponent dot."
+    hint: "Close a boundary of neighboring dots around an opponent dot."
   }
 } as const;
 

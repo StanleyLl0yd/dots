@@ -35,7 +35,7 @@ Every pair of consecutive vertices in a capture boundary must satisfy this adjac
 
 1. A capture occurs when a move completes a closed, non-self-intersecting chain of the current player's dots in which every consecutive pair is adjacent under the rule above.
 2. At least one opponent dot must be inside the closed chain at the moment it closes.
-3. The captured area is outlined through the surrounding player's boundary dots and visually filled or hatched with that player's color.
+3. The captured area is outlined through the surrounding player's boundary dots and visually filled or lightly hatched with that player's color.
 4. Opponent dots inside the captured area are captured and added to the surrounding player's score.
 5. Captured intersections are removed from normal play and no new dots may be placed inside the captured area.
 6. A move that creates several independent captures may resolve all captures created by that move.
@@ -53,9 +53,24 @@ Captured areas may themselves be surrounded. When an opponent capture is validly
 
 The primary score is the number of currently captured opponent dots. A complete release may support agreed ending conditions such as mutual finish/pass or a configured finite board. The initial web implementation should not invent a new victory condition that changes classic scoring.
 
-## Initial delivery phases
+## Current implementation status
 
-### Phase 0 — repository foundation
+The web build currently supports the ordinary capture loop:
+
+- alternating local two-player placement on grid intersections;
+- strict 8-direction neighboring-dot topology;
+- detection of newly closed simple capture boundaries;
+- rejection of open contours and empty houses as scored captures;
+- minimum-face selection for ordinary newly captured dots;
+- score derived from active captures;
+- blocking placement inside active captured areas;
+- Canvas outline, translucent fill, and light diagonal hatching for completed captures.
+
+Advanced classic-rule cases are not yet complete: entering a house, capture-of-capture, release of previously captured dots, nested capture resolution, and the full set of difficult competing-boundary cases.
+
+## Delivery phases
+
+### Phase 0 — repository and web foundation — complete
 
 - repository structure;
 - TypeScript + Canvas + Vite + PWA;
@@ -64,19 +79,27 @@ The primary score is the number of currently captured opponent dots. A complete 
 - visual notebook-grid shell;
 - proprietary license and project documentation.
 
-### Phase 1 — complete local game
+### Phase 1 — complete local game — in progress
 
-- legal placement;
-- robust capture detection;
-- strict neighboring-point boundary validation;
-- minimum-area boundary resolution;
-- houses;
-- capture-of-capture resolution;
+Completed core pieces:
+
+- legal basic placement;
+- ordinary capture detection;
+- strict neighboring-point boundary construction;
+- ordinary minimum-area capture resolution;
 - score recalculation;
 - local two-player mode;
-- undo/new game;
+- initial topology regression tests;
+- captured-area rendering and placement blocking.
+
+Remaining:
+
+- full house behavior;
+- capture-of-capture and release;
+- nested and competing capture hardening;
+- undo;
 - persistence of an unfinished game;
-- unit tests for difficult capture topologies.
+- broader unit tests for difficult capture topologies.
 
 ### Phase 2 — ergonomics
 
@@ -100,7 +123,7 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - warm squared-paper background;
 - restrained red and blue ink colors;
 - thin notebook-like grid;
-- captured areas shown with a clear boundary plus translucent fill or subtle hatching;
+- captured areas shown with a clear boundary plus translucent fill and subtle hatching;
 - minimal controls around the board;
 - no glossy casino/game-dashboard styling;
 - dark mode may reinterpret the paper aesthetic without reducing dot/boundary contrast.
@@ -111,5 +134,6 @@ Package the same web codebase with Capacitor only after the PWA version is stabl
 - Rendering cannot be the source of truth for rules.
 - Capture boundaries are stored as ordered game-coordinate paths.
 - Every consecutive pair of boundary coordinates, including the last-to-first pair, must have Chebyshev distance exactly `1`; longer boundary edges are invalid.
+- Capture visuals may be rendered only from confirmed capture state.
 - Score must be reproducible from the current rule state.
 - Serialization must be versioned before persisted game data becomes part of a public release.
