@@ -2,6 +2,31 @@
 
 All notable project changes are recorded here.
 
+## [0.6.0] - 2026-08-31
+
+### Added
+
+- deterministic offline computer opponent playing Blue while the human plays Red;
+- switchable and independently persisted `Two players` / `Vs computer` game mode without changing the authoritative move-log format;
+- pure `src/game/ai.ts` search engine with no DOM, Canvas, storage, service-worker, or network dependencies;
+- bounded frontier candidate generation around active stones, tactical move ranking, real core simulation, and one-opponent-reply minimax evaluation;
+- immediate-capture preference, obvious one-move threat blocking, capture/house/release awareness through authoritative `placeStone()` simulation, and connected-shape tie-breaking;
+- adaptive AI search budgets that decrease as positions grow to keep browser work bounded;
+- deterministic AI regression tests covering legal/non-mutating choice, immediate capture, threat blocking, wrong-turn rejection, and a 300-stone sparse position;
+- versioned game-mode preference persistence with fail-closed invalid-data handling;
+- dedicated `docs/AI.md` describing the AI contract, search model, limitations, and invariants.
+
+### Changed
+
+- the top bar now includes an accessible game-mode selector with responsive mobile layout and localized labels;
+- in computer mode the score/turn UI identifies the human as Red and the computer as Blue and announces computer thinking/moves through the existing live region;
+- computer turns are scheduled only while the document is visible, cancelled on page hide, and resumed on foreground/pageshow so background suspension cannot strand the saved game on Blue's turn;
+- computer-generated moves use `playMove()` and are persisted/replayed exactly like human moves;
+- Undo in computer mode rolls back the computer move plus the preceding human move when both exist, returning the user to the previous decision point;
+- switching to computer mode while Blue is already to move lets the computer take over that turn without resetting the game;
+- if the computer cannot produce a legal move, the UI fails safe to local two-player mode instead of inventing a move or blocking the session;
+- Phase 5 computer opponent is complete and source version advanced to 0.6.0.
+
 ## [0.5.0] - 2026-08-31
 
 ### Added
