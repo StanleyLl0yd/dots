@@ -5,16 +5,27 @@
 - Inspect the existing implementation before changing it.
 - Preserve the core product: classic Dots / Tochki based on surrounding and capturing opponent dots. Do not add progression systems, resources, power-ups, world maps, unrelated meta mechanics, or rule-changing features unless explicitly approved.
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
-- Keep game rules, capture detection, scoring, history, and future AI independent from rendering, viewport state, service-worker state, and browser UI where practical.
+- Keep game rules, capture detection, scoring, history, and AI independent from rendering, viewport state, service-worker state, storage transport, network state, and browser UI where practical.
 - Treat the rules in `docs/PRODUCT.md` as authoritative for this repository.
 - Preserve the boundary-adjacency invariant: every consecutive pair of dots in an enclosure path, including last-to-first, must be neighboring grid intersections exactly one step apart horizontally, vertically, or diagonally. Never connect across a gap or multiple grid steps.
 - Resolve each move in rule order: direct captures completed by the mover first; only when none resolve may the new dot activate an opponent house.
 - When a new capture fully surrounds active opponent captures, deactivate those inner captures and release the dots they held before deriving the new score.
 - Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed active game-state captures. Never infer or create captures in the UI layer.
+- AI may rank and propose only integer game-coordinate moves. Every computer move must still be validated and accepted through the authoritative `placeStone()` / `playMove()` path; never let AI create captures, score, releases, or legality as parallel state.
+- Keep `src/game/ai.ts` free of DOM, Canvas, viewport, storage, service-worker, and network dependencies. AI behavior must remain usable offline and independently testable from the browser shell.
+- Keep computer search deterministic unless a future product requirement explicitly introduces selectable randomness. Identical state/options should produce identical moves so regressions remain reproducible.
+- Keep AI search bounded. Expensive simulation budgets must not grow with arbitrary world-coordinate distance or without an explicit cap as the position grows.
+- The current computer mode assigns Red to the human and Blue to the computer. Changing that contract requires synchronized UI, persistence, Undo, accessibility, tests, and documentation changes.
+- Computer-generated moves are ordinary session moves and must use the same persisted move log as human moves. Do not add a trusted AI-specific game-state or capture save format.
+- Game-mode preference must remain separately versioned from the authoritative game move log and viewport state. Invalid preference data must fail closed to local two-player mode without changing a valid game.
+- Switching between local and computer mode must not rewrite the move log or silently reset the current board unless the user explicitly starts a new game.
+- In computer mode, Undo should return the human to the previous decision point by reversing the computer move and preceding human move when that normal pair exists. The underlying one-move `undoMove()` primitive remains authoritative.
+- A pending computer turn should not continue scheduled work while the document is hidden. If Blue is still to move when the app returns to the foreground, scheduling must resume without requiring a fabricated input.
+- If AI cannot produce an accepted legal move, fail safely to local two-player mode rather than inventing a move, corrupting history, or leaving the game permanently blocked.
 - Undo must restore authoritative rule state, including player, active captures, released/captured status, and derived score; do not implement visual-only rollback.
 - Persist unfinished games with an explicit format version. Rebuild saved games by replaying the persisted legal move log through the authoritative game core; do not trust persisted score or capture geometry as a parallel source of truth.
 - Invalid, malformed, unsupported, or no-longer-legal persisted move logs must be rejected safely.
-- Keep viewport center/zoom separate from integer game coordinates, `GameState`, scoring, capture detection, and persisted move history.
+- Keep viewport center/zoom separate from integer game coordinates, `GameState`, scoring, capture detection, AI search state, and persisted move history.
 - Convert pointer coordinates from screen space through the viewport and snap them to an integer grid intersection before passing a placement to the game core. Never make rule decisions in screen coordinates.
 - Keyboard placement must call the same authoritative placement path as pointer placement. Do not create a separate keyboard rules implementation.
 - Pan, zoom, keyboard camera-follow, resize, and device-pixel ratio may change only presentation. The same game coordinate must remain the same rule-space point.
@@ -25,15 +36,16 @@
 - Keep rendering work bounded by the visible viewport or finite screen-space work. Do not iterate across arbitrary world extents merely because the camera/capture is far from the origin.
 - Keep Canvas backing resolution bounded independently from CSS/game geometry when needed for mobile memory safety; changing the DPR cap must not change game coordinates or snapping.
 - Preserve the prompt-based service-worker update lifecycle. A waiting PWA update must not silently reload or replace an active local game; activation requires an explicit user action from the update prompt.
-- Offline, online, update-available, and service-worker error states are presentation only. They must never alter `GameState`, move history, score, captures, or saved moves.
+- Offline, online, update-available, and service-worker error states are presentation only. They must never alter `GameState`, move history, score, captures, AI legality, or saved moves.
 - Preserve offline/PWA behavior and GitHub Pages compatibility. Required manifest/service-worker/install assets must continue to be verified by the production build.
 - Preserve keyboard accessibility: board focus, visible intersection cursor, arrow navigation, Enter/Space placement, zoom shortcuts, assistive instructions/live announcements, and visible focus states unless an equivalent or better path replaces them.
+- Computer-thinking state and computer moves must remain understandable through the accessible status path and must not rely on color alone.
 - Essential game information and controls must remain usable with reduced motion, forced colors, dark mode, mobile safe areas, and touch input.
 - Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
-- Add or update tests for rules, capture detection, scoring, history, persistence, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
+- Add or update tests for rules, capture detection, scoring, history, persistence, AI legality/tactics/determinism, viewport transforms/persistence, locale handling, bounded rendering math, and regressions where practical.
 - Keep deterministic stress tests meaningful but hardware-independent; do not turn CI into a fragile wall-clock benchmark.
 - Run relevant tests and the full production build, including PWA artifact verification, before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
