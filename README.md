@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.8.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.8.1-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.8.0** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
+Current source version: **0.8.1** · advanced classic capture rules + local two-player mode + strategically refined four-level computer opponent + reversible sessions + practically unbounded board + hardened PWA/accessibility
 
 ## 🎯 Rules
 
@@ -53,7 +53,7 @@ Choose **Vs computer** from the mode selector to play Red against the Blue compu
 
 The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` consumes the same authoritative `GameState`, and every candidate is validated through the existing game core.
 
-Version 0.8.0 improves **quality rather than blindly increasing depth**. Hard and Expert now recognize frontier points that can close an already connected same-color path, use those signals to build capture/house pressure or occupy an opponent closing point, estimate local danger around active stones, and run bounded authoritative probes for immediate captures and short setup plans. Actual capture legality and scoring still come only from `placeStone()`.
+Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert now performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`.
 
 Search uses stronger tactical ordering and alpha-beta pruning. Near the normal search horizon, Hard/Expert may selectively continue only score-changing capture/release moves, reducing obvious horizon mistakes without making the whole tree deeper. Expensive setup analysis and extensions are automatically reduced on large positions.
 
@@ -63,7 +63,7 @@ Existing 0.6.0 computer-mode preferences migrate automatically to **Normal** dif
 
 ### AI strength regression
 
-The repository includes a deterministic `src/game/ai-match.ts` harness. CI runs short paired **Expert vs Normal** and **Expert vs Hard** games with color assignment swapped. Expert must not lose either paired comparison and must keep a positive aggregate captured-score margin. These are tactical regression guards, not an Elo rating or a hardware benchmark.
+The repository includes a deterministic `src/game/ai-match.ts` harness. CI runs short paired **Expert vs Normal** and **Expert vs Hard** games with color assignment swapped. Expert must not lose either paired comparison and must keep a positive aggregate captured-score margin. A separate six-position `ai-tactical-benchmark.test.ts` suite locks down concrete Expert decisions including double captures, house safety, counter-capture, threat blocking, and capture-of-capture release. These are tactical regression guards, not an Elo rating or a hardware benchmark.
 
 ## 🖱 Board navigation
 
@@ -101,7 +101,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - strategic same-color cycle-closing/house pressure and defensive blocking of likely opponent closing points;
 - local active-stone danger evaluation plus bounded immediate-capture and short setup threat probes on Hard/Expert;
 - tactical move ordering, alpha-beta pruning, and selective forcing capture/release horizon extensions;
-- deterministic AI-vs-AI paired strength regression tests;
+- deterministic AI-vs-AI paired strength regression tests plus six fixed Expert tactical benchmark positions;
 - versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
 - exact Undo, confirmed New game, versioned move-log persistence, and deterministic replay restore;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
@@ -113,7 +113,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.8.0** completes the strategic AI-quality phase. Further AI changes should start from concrete failing positions or measured match regressions rather than unbounded depth increases.
+Version **0.8.1** closes the first tactical gaps found by the fixed Expert benchmark suite. Further AI changes should continue to start from concrete failing positions or measured match regressions rather than unbounded depth increases.
 
 ## 🧱 Technology
 
@@ -138,6 +138,7 @@ src/
 │   ├── ai-match.ts        deterministic AI-vs-AI regression harness
 │   ├── ai.test.ts         difficulty/tactics/determinism/large-position tests
 │   ├── ai-match.test.ts   paired strength regression tests
+│   ├── ai-tactical-benchmark.test.ts  fixed Expert tactical positions
 │   ├── board.ts           game state and legal placement
 │   ├── capture.ts         topology, houses, release, and scoring
 │   ├── session.ts         history, undo, and reset

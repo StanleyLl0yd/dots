@@ -78,19 +78,20 @@ The computer opponent is deterministic and offline. It may propose only a coordi
 
 ## Computer opponent
 
-Version **0.8.0** keeps the four selectable strengths introduced in 0.7.0 and improves tactical quality without creating a second rules engine.
+Version **0.8.1** keeps the four selectable strengths introduced in 0.7.0, the strategic analysis added in 0.8.0, and hardens concrete Expert tactical decisions without creating a second rules engine.
 
 - **Easy** evaluates a small bounded set of immediate computer moves and does not search an opponent reply.
 - **Normal** searches a bounded opponent reply and chooses the best worst-case result.
 - **Hard** adds a selective computer continuation, strategic enclosure/threat ordering, and a bounded forcing-capture extension on ordinary-size positions.
-- **Expert** adds one further bounded opponent reply, the widest strategic analysis, alpha-beta pruning, and up to two forcing-capture extensions on ordinary-size positions.
+- **Expert** adds one further bounded opponent reply, the widest strategic analysis, alpha-beta pruning, up to two forcing-capture extensions on ordinary-size positions, and root tactical safety/priority rules backed only by real game-core outcomes.
 
 All four levels share these invariants:
 
 - AI logic lives in `src/game/ai.ts` and imports no DOM, Canvas, storage, service-worker, or network APIs.
 - Candidate moves are generated from empty intersections adjacent to active stones.
 - Active same-color connectivity components are used to identify frontier points that can close an already connected path into a cycle. This helps rank likely house/capture construction and likely opponent closing points without declaring a capture itself.
-- Shortlisted candidates are validated and simulated through `placeStone()`. Houses, captures, capture-of-capture, releases, blocked territory, and score therefore remain authoritative game-core behavior.
+- Hard/Expert use a wider bounded authoritative root pre-scan before expensive search so real score-changing moves are not lost solely to heuristic seed ordering; all retained candidates are still simulated through `placeStone()`. Houses, captures, capture-of-capture, releases, blocked territory, and score therefore remain authoritative game-core behavior.
+- Expert rejects a root move that immediately increases the opponent's score when at least one safe candidate exists, and safe immediate captures take root tactical priority before deeper comparison.
 - Capture-score changes dominate evaluation. Secondary evaluation includes connected structure, local stone danger, and near-cycle pressure.
 - Hard and Expert use bounded authoritative probes for immediate capture threats and short setup sequences that may create a capture opportunity on a later own move.
 - Search uses deterministic bounded minimax with tactical move ordering and alpha-beta pruning.
@@ -106,7 +107,9 @@ Difficulty and strategic heuristics affect search policy only. They cannot chang
 
 `src/game/ai-match.ts` runs deterministic AI-vs-AI games by feeding every proposed move back through the authoritative `placeStone()` path. The CI suite uses short paired Expert-vs-Normal and Expert-vs-Hard matches, swapping Red/Blue assignment. Expert must not lose either paired comparison and must maintain a positive aggregate score margin across the suite.
 
-This is a deterministic tactical regression guard, not an Elo system or a wall-clock benchmark. Match length remains deliberately short so CI does not become hardware-sensitive.
+`src/game/ai-tactical-benchmark.test.ts` complements those paired games with six fixed Expert positions: double capture, mandatory blocking, false-closure rejection, hostile-house safety, counter-capture under two independent threats, and capture-of-capture release. All six are required regressions in 0.8.1.
+
+These are deterministic tactical regression guards, not an Elo system or a wall-clock benchmark. Match length remains deliberately short so CI does not become hardware-sensitive.
 
 ## Game-state ergonomics
 
@@ -154,7 +157,7 @@ Viewport state is independently persisted and may be discarded without affecting
 
 ## Current implementation status
 
-Version **0.8.0** supports the planned classic local game, browser/PWA/accessibility stack, and strategically refined four-level computer opponent:
+Version **0.8.1** supports the planned classic local game, browser/PWA/accessibility stack, and strategically refined four-level computer opponent with fixed-position tactical regression coverage:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -163,7 +166,8 @@ Version **0.8.0** supports the planned classic local game, browser/PWA/accessibi
 - Easy / Normal / Hard / Expert deterministic AI levels with progressively deeper bounded search;
 - cycle-closing/house pressure, opponent-closing-point blocking, local stone-danger evaluation, bounded immediate-threat and setup probes on Hard/Expert;
 - tactical move ordering, alpha-beta pruning, forcing capture/release horizon extensions, adaptive large-position budgets, and per-move caches;
-- deterministic AI-vs-AI regression harness with paired Expert-vs-Normal/Hard strength guards;
+- wider bounded Hard/Expert root discovery, Expert hostile-house safety, and safe immediate-capture root priority;
+- deterministic AI-vs-AI regression harness with paired Expert-vs-Normal/Hard strength guards plus six fixed Expert tactical benchmark positions;
 - exact Undo semantics for local mode and full human decision rollback in computer mode;
 - confirmed New game;
 - versioned move-log persistence with replay restoration of rules and Undo history;
@@ -250,6 +254,14 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - adaptive reduction of expensive probes/extensions on large positions;
 - deterministic AI-vs-AI paired strength regression harness.
 
+### Phase 5.3 — tactical Expert hardening — complete in 0.8.1
+
+- six-position fixed tactical benchmark suite;
+- wider bounded authoritative root discovery for real scoring moves;
+- safe-root guard against immediate hostile-house self-capture;
+- safe immediate-capture priority for Expert;
+- all three benchmark-discovered gaps promoted from known gaps to required regressions.
+
 ### Phase 6 — optional refinement and Android packaging
 
 Further AI refinement must be driven by concrete failing positions or measured regressions and remain bounded. Import/export may be added only if it stays simple and useful. Package the same web codebase with Capacitor only after sufficient real-device PWA validation.
@@ -279,10 +291,12 @@ Further AI refinement must be driven by concrete failing positions or measured r
 - AI must not import or depend on Canvas, DOM, viewport, service worker, storage, or network state.
 - AI difficulty and strategic heuristics may change only bounded search/evaluation policy, never game rules or authoritative persistence.
 - AI threat/setup probes are speculative evaluation only. They may not mutate the supplied `GameState`, session history, or persisted move log.
+- Hard/Expert root tactical discovery must remain bounded and use authoritative `placeStone()` outcomes.
+- Expert root safety/priority may use only actual immediate score changes produced by the core; it may not infer a parallel house or capture result.
 - AI search must remain bounded independently from world-coordinate distance and must reduce expensive strategic work as positions grow.
 - AI caches must be ephemeral and keyed by rule-relevant position state; they are never trusted or persisted as `GameState`.
 - Alpha-beta cutoff nodes must not be cached as exact transposition values.
-- AI-vs-AI regression games must feed every move through the authoritative core and remain deterministic, short, and hardware-independent.
+- AI-vs-AI regression games and fixed tactical positions must feed every tested move through the authoritative core and remain deterministic and hardware-independent.
 - Invalid or unsupported persisted move logs fail closed to a fresh game.
 - Game-mode/difficulty preference and viewport are presentation/session preferences stored separately from the move log.
 - Screen input is transformed to game space and snapped to an integer intersection before the core receives a move.

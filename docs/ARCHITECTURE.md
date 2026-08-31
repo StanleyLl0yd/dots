@@ -16,6 +16,7 @@ src/
 │   ├── session.test.ts
 │   ├── ai.test.ts
 │   ├── ai-match.test.ts
+│   ├── ai-tactical-benchmark.test.ts
 │   ├── topology.test.ts
 │   └── stress.test.ts
 ├── ui/                           Canvas input/rendering and viewport math
@@ -79,7 +80,9 @@ Frontier ranking uses:
 - bonuses for locally dense own/opponent contact;
 - a bounded distance penalty from the most recent focus point.
 
-Every shortlisted coordinate is subsequently passed through `placeStone()`. Occupied, captured-territory, or otherwise illegal points are therefore rejected by the authoritative core.
+Every retained coordinate is subsequently passed through `placeStone()`. Hard/Expert perform a wider but bounded root pre-scan so real score-changing moves cannot be excluded solely by heuristic seed order. Occupied, captured-territory, or otherwise illegal points are rejected by the authoritative core.
+
+At the Expert root, candidates that immediately increase the opponent's score are excluded when at least one safe candidate exists. Safe immediate captures take tactical priority before deeper minimax comparison. These are move-selection policies only; the score change used by the policy is still the result returned by `placeStone()`.
 
 ### Position evaluation
 
@@ -114,7 +117,7 @@ The engine uses one recursive deterministic minimax implementation. Per-difficul
 
 Small positions use the widest profiles. At 80+ and 250+ stones each level reduces candidate limits. Root budgets remain 4 / 7 / 9 / 10 on small positions for Easy / Normal / Hard / Expert; larger positions reduce them.
 
-Hard/Expert root ordering includes the bounded strategic threat forecast. Expert may also include the strategic forecast at the first searched reply layer.
+Hard/Expert root ordering includes the bounded strategic threat forecast. Expert may also include the strategic forecast at the first searched reply layer. In 0.8.1, the root also applies the bounded authoritative tactical pre-scan and Expert safety/immediate-capture policy before deeper minimax comparison.
 
 ### Alpha-beta pruning
 
@@ -154,7 +157,7 @@ All caches are discarded after the move is selected. They are never persisted, n
 
 `pairedMatchMargin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
 
-The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive aggregate captured-score margin across them. This is a regression guard, not an Elo claim.
+The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive aggregate captured-score margin across them. `ai-tactical-benchmark.test.ts` complements those matches with six fixed decisions covering immediate multi-capture, mandatory defense, false closure, hostile-house safety, counter-capture under double threat, and capture-of-capture release. These are regression guards, not Elo claims.
 
 ## Computer-mode orchestration
 
@@ -222,7 +225,7 @@ Grid lines are generated only from `visibleGridBounds()`. Off-screen stones are 
 
 Viewport persistence writes are debounced during navigation and flushed on `pagehide`, reducing synchronous localStorage churn without changing the independently versioned viewport format.
 
-Stress coverage includes a 500-move sparse reversible game, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, Expert AI legality search over a 300-stone sparse position, and short deterministic AI-vs-AI strength regressions. These are regression guards, not hardware benchmarks.
+Stress coverage includes a 500-move sparse reversible game, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, Expert AI legality search over a 300-stone sparse position, short deterministic AI-vs-AI strength regressions, and the six fixed Expert tactical positions. These are regression guards, not hardware benchmarks.
 
 ## Viewport persistence
 
@@ -262,9 +265,10 @@ Automated coverage includes:
 - reversible sessions, invalid moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;
 - deterministic AI legality at all four levels, progressive profile depth, immediate capture selection, threat blocking from Normal upward, wrong-turn rejection, non-mutation, adaptive large-position budgets, and Expert sparse-position behavior;
 - deterministic AI-vs-AI replay plus paired Expert-vs-Normal/Hard non-losing and aggregate-strength guards;
+- six fixed Expert tactical positions covering multi-capture, defense, false closure, house safety, counter-capture, and capture-of-capture release;
 - game↔screen coordinate round-trip, integer snapping, pan direction, anchor zoom, numeric clamps, visible-grid work bounds, and repeated-transform stress;
 - long sparse game history with deterministic partial Undo;
 - TypeScript validation and the complete Vite/PWA production build;
 - post-build verification of generated service-worker/manifest/install artifacts.
 
-Version **0.8.0** completes the strategic AI-quality phase: enclosure pressure, local danger, bounded short-horizon threat probes, stronger ordering, alpha-beta pruning, forcing horizon extensions, and strength-regression matches. Further AI work should start from concrete failing positions or measured match regressions rather than unbounded depth increases.
+Version **0.8.1** hardens the strategic AI-quality phase with fixed tactical positions, wider bounded root discovery, hostile-house safety, and explicit safe immediate-capture priority for Expert. Further AI work should continue from concrete failing positions or measured match regressions rather than unbounded depth increases.

@@ -2,6 +2,26 @@
 
 All notable project changes are recorded here.
 
+## [0.8.1] - 2026-08-31
+
+### Added
+
+- fixed-position Expert tactical benchmark suite covering a two-target capture, mandatory threat blocking, false-closure rejection, hostile-house avoidance, counter-capture under double threat, and capture-of-capture release;
+- all six tactical fixtures now run as required regressions instead of keeping the three discovered weaknesses as skipped known gaps.
+
+### Fixed
+
+- Expert now converts the available two-target immediate capture instead of allowing heuristic shortlist/search preference to choose a quiet move;
+- Expert avoids entering an opponent empty house when that move would activate the house and a safe legal frontier move exists;
+- Expert prefers its own safe immediate counter-capture when independent opponent threats cannot all be neutralized by one defensive move.
+
+### Changed
+
+- Hard/Expert root candidate discovery performs a wider but bounded authoritative `placeStone()` pre-scan so real score-changing moves cannot be hidden solely by heuristic seed ordering;
+- Expert gives safe immediate captures explicit root tactical priority before deeper minimax comparison while keeping legality, houses, captures, releases, and score authoritative to the game core;
+- repository AI/product/architecture documentation and both READMEs now describe the tactical benchmark contract and the 0.8.1 root-safety policy;
+- source version advanced to 0.8.1.
+
 ## [0.8.0] - 2026-08-31
 
 ### Added

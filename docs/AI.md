@@ -33,14 +33,16 @@ The search is intentionally bounded for browser responsiveness:
 1. Build a frontier from empty intersections neighboring active stones.
 2. Build active same-color connectivity components and identify frontier points that would close an existing connected path into a cycle. These points are useful for both capture/house construction and blocking an opponent closing point.
 3. Rank candidates using local connectivity, opponent contact, cycle-closing pressure, blocked opponent closures, and bounded distance from the latest move.
-4. Validate shortlisted moves by applying them through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
-5. Evaluate real score/capture state plus secondary structure, local stone danger, and near-cycle pressure.
-6. On Hard and Expert, probe a bounded set of authoritative immediate capture threats for both sides and short setup sequences that can create a capture opportunity on the attacker's next turn.
-7. Search alternating real turns with deterministic minimax and alpha-beta pruning over the depth enabled by the selected difficulty.
-8. At the nominal horizon, Hard/Expert may selectively continue only forcing score-changing capture/release moves instead of blindly increasing full-tree depth.
-9. Reuse equivalent searched positions through per-move evaluation/transposition caches.
+4. On Hard/Expert, use a wider but bounded root pre-scan through `placeStone()` before the expensive strategic search so real score-changing moves are not hidden solely by heuristic seed order.
+5. Validate retained moves through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
+6. Evaluate real score/capture state plus secondary structure, local stone danger, and near-cycle pressure.
+7. On Expert, discard immediately self-capturing root moves when at least one safe candidate exists and give safe immediate captures root tactical priority.
+8. On Hard and Expert, probe a bounded set of authoritative immediate capture threats for both sides and short setup sequences that can create a capture opportunity on the attacker's next turn.
+9. Search alternating real turns with deterministic minimax and alpha-beta pruning over the depth enabled by the selected difficulty.
+10. At the nominal horizon, Hard/Expert may selectively continue only forcing score-changing capture/release moves instead of blindly increasing full-tree depth.
+11. Reuse equivalent searched positions through per-move evaluation/transposition caches.
 
-Capture score changes still dominate evaluation. Strategic features never override actual score at comparable search depth; they improve move ordering and choose among non-scoring or pre-tactical positions.
+Capture score changes still dominate evaluation. Strategic features never override actual score at comparable search depth; they improve move ordering and choose among non-scoring or pre-tactical positions. Expert's root immediate-capture priority is deliberately stronger: a safe real capture discovered by the authoritative core is resolved as a tactical fact before deeper speculative comparison.
 
 ## Enclosure and house pressure
 
@@ -78,6 +80,12 @@ The implementation is deterministic: identical `GameState`, difficulty, options,
 
 The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions. Expert must not lose either paired comparison and must retain a positive aggregate margin across the suite. The suite is deliberately short and has no wall-clock assertion; it is a tactical regression guard, not an Elo rating or hardware benchmark.
 
+## Tactical benchmark suite
+
+`src/game/ai-tactical-benchmark.test.ts` contains six deterministic fixed Expert positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
+
+All six are required tests in 0.8.1. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
+
 ## Preference migration
 
 AI difficulty is stored in preference format version 2. Existing version-1 preferences from Dots 0.6.0 are migrated automatically: the saved local/computer mode is preserved and computer difficulty defaults to **Normal**. Invalid newer preference data fails closed without touching the saved game.
@@ -89,6 +97,8 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 - Captured stones are excluded from the AI's active-structure heuristic while their holding capture remains active.
 - Difficulty changes search policy only; they never modify game rules or persisted moves.
 - Threat/setup probes are speculative evaluation only and never mutate the supplied state or session history.
+- Hard/Expert root pre-scan remains bounded and uses only authoritative `placeStone()` outcomes.
+- Expert may reject a root move only from a real immediate opponent-score increase returned by the core and only when a safe candidate exists.
 - Search and transposition caches are ephemeral implementation details and never become trusted game state.
 - Alpha-beta cutoffs must not be cached as exact transposition values.
 - Search remains bounded as the board grows; expensive setup analysis and extensions are reduced on large positions.
@@ -98,6 +108,6 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Current strength
 
-Version **0.8.0** adds measured tactical quality rather than another blanket depth increase: cycle-closing/house pressure, local stone-danger evaluation, bounded immediate and setup threat probes, improved move ordering, alpha-beta pruning, forcing-capture horizon extensions, and deterministic AI-vs-AI strength regression matches.
+Version **0.8.1** keeps the bounded strategic model from 0.8.0 and closes the first concrete tactical gaps exposed by the fixed-position suite: missed multi-target immediate capture, self-capturing entry into an opponent house, and defensive blocking when a safe counter-capture is the stronger forced choice. Root tactical discovery/safety now handles these cases before deeper Expert minimax comparison.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
