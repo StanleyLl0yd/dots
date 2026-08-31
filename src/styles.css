@@ -12,8 +12,8 @@
 * { box-sizing: border-box; }
 html, body, #app { width: 100%; min-width: 320px; height: 100%; margin: 0; }
 body { overflow: hidden; overscroll-behavior: none; }
-button { font: inherit; }
-button, canvas { -webkit-tap-highlight-color: transparent; }
+button, select { font: inherit; }
+button, select, canvas { -webkit-tap-highlight-color: transparent; }
 
 .sr-only {
   position: absolute;
@@ -61,7 +61,30 @@ button, canvas { -webkit-tap-highlight-color: transparent; }
 .topbar h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1; letter-spacing: -.04em; }
 .topbar p { margin: 7px 0 0; color: #71695f; font-size: 14px; }
 
-.game-actions { display: flex; gap: 8px; align-items: center; }
+.game-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mode-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #71695f;
+  font-size: 13px;
+}
+
+.mode-control select {
+  min-height: 44px;
+  border: 1px solid #b9ae9e;
+  border-radius: 999px;
+  padding: 8px 34px 8px 14px;
+  background: #fffaf2;
+  color: #2b2925;
+  cursor: pointer;
+}
+
 .game-actions button,
 .update-prompt button {
   min-height: 44px;
@@ -72,9 +95,13 @@ button, canvas { -webkit-tap-highlight-color: transparent; }
   color: #2b2925;
   cursor: pointer;
 }
+
 .game-actions button:disabled,
+.mode-control select:disabled,
 .update-prompt button:disabled { opacity: .45; cursor: default; }
+
 button:focus-visible,
+select:focus-visible,
 .skip-link:focus-visible {
   outline: 3px solid #2563eb;
   outline-offset: 2px;
@@ -169,6 +196,7 @@ button:focus-visible,
 
 @media (max-width: 640px) {
   .topbar {
+    flex-wrap: wrap;
     padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 9px max(12px, env(safe-area-inset-left));
     gap: 10px;
   }
@@ -179,8 +207,19 @@ button:focus-visible,
     gap: 8px;
     font-size: 12px;
   }
-  .game-actions { gap: 6px; }
-  .game-actions button { min-height: 44px; padding: 8px 11px; font-size: 13px; }
+  .game-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .mode-control {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .mode-control span { min-width: max-content; }
+  .mode-control select { width: 100%; min-width: 0; }
+  .game-actions button { width: 100%; min-height: 44px; padding: 8px 11px; font-size: 13px; }
   .system-stack {
     top: 10px;
     left: max(10px, env(safe-area-inset-left));
@@ -206,6 +245,7 @@ button:focus-visible,
 
 @media (forced-colors: active) {
   button:focus-visible,
+  select:focus-visible,
   .skip-link:focus-visible,
   .board:focus-visible { outline-color: Highlight; }
   .status-toast,
@@ -221,8 +261,9 @@ button:focus-visible,
   }
   .shell { background: #1d1b18; }
   .topbar, .scorebar { border-color: #3b3731; }
-  .topbar p, .notice { color: #b5aca0; }
+  .topbar p, .notice, .mode-control { color: #b5aca0; }
   .game-actions button,
+  .mode-control select,
   .update-prompt button,
   .notice,
   .status-toast,
