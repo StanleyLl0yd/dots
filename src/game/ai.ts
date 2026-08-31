@@ -1,11 +1,23 @@
 import { otherPlayer, placeStone, pointKey } from "./board";
 import type { GameState, Player, Point, Stone } from "./types";
 
+export type AiDifficulty = "easy" | "normal" | "hard" | "expert";
+
 export interface AiMoveOptions {
   player?: Player;
   focus?: Point;
+  difficulty?: AiDifficulty;
   primaryLimit?: number;
   replyLimit?: number;
+  continuationLimit?: number;
+  finalReplyLimit?: number;
+}
+
+export interface AiSearchProfile {
+  primaryLimit: number;
+  replyLimit: number;
+  continuationLimit: number;
+  finalReplyLimit: number;
 }
 
 interface CandidateSeed {
@@ -16,6 +28,12 @@ interface CandidateSeed {
 interface RankedMove extends CandidateSeed {
   state: GameState;
   tacticalScore: number;
+}
+
+interface SearchContext {
+  evaluationCache: Map<string, number>;
+  searchCache: Map<string, number>;
+  signatureCache: WeakMap<GameState, string>;
 }
 
 const OFFSETS: Point[] = [
@@ -135,26 +153,47 @@ const structureScore = (state: GameState, player: Player): number => {
   return (ownLinks - opponentLinks) * 3 + (ownActive - opponentActive) * 0.2;
 };
 
-const evaluateState = (state: GameState, player: Player): number => {
+const stateSignature = (state: GameState, context: SearchContext): string => {
+  const cached = context.signatureCache.get(state);
+  if (cached) return cached;
+
+  const stones = [...state.stones.values()]
+    .map((stone) => `${stone.x},${stone.y},${stone.player === "red" ? "r" : "b"}`)
+    .sort()
+    .join(";");
+  const inactive = [...inactiveStoneKeys(state)].sort().join(";");
+  const signature = `${state.currentPlayer}|${state.score.red},${state.score.blue}|${stones}|${inactive}`;
+  context.signatureCache.set(state, signature);
+  return signature;
+};
+
+const evaluateState = (state: GameState, player: Player, context: SearchContext): number => {
+  const key = `${player}|${stateSignature(state, context)}`;
+  const cached = context.evaluationCache.get(key);
+  if (cached !== undefined) return cached;
+
   const opponent = otherPlayer(player);
   const scoreDifference = state.score[player] - state.score[opponent];
-  return scoreDifference * 100_000 + structureScore(state, player);
+  const value = scoreDifference * 100_000 + structureScore(state, player);
+  context.evaluationCache.set(key, value);
+  return value;
 };
 
 const rankedMoves = (
   state: GameState,
   player: Player,
   focus: Point | undefined,
-  limit: number
+  limit: number,
+  context: SearchContext
 ): RankedMove[] => {
   if (state.currentPlayer !== player || limit <= 0) return [];
-  const before = evaluateState(state, player);
+  const before = evaluateState(state, player, context);
   const ranked: RankedMove[] = [];
 
   for (const seed of generateSeeds(state, player, focus)) {
     const next = placeStone(state, seed.point);
     if (next === state) continue;
-    const tacticalScore = evaluateState(next, player) - before + seed.score * 4;
+    const tacticalScore = evaluateState(next, player, context) - before + seed.score * 4;
     ranked.push({ ...seed, state: next, tacticalScore });
     if (ranked.length >= limit) break;
   }
@@ -168,38 +207,85 @@ const rankedMoves = (
   );
 };
 
-const defaultBudgets = (stoneCount: number): { primary: number; replies: number } => {
-  if (stoneCount < 80) return { primary: 12, replies: 6 };
-  if (stoneCount < 250) return { primary: 9, replies: 4 };
-  return { primary: 6, replies: 3 };
+const tier = (stoneCount: number): 0 | 1 | 2 => (stoneCount < 80 ? 0 : stoneCount < 250 ? 1 : 2);
+
+const PROFILE_LIMITS: Record<AiDifficulty, readonly [number[], number[], number[], number[]]> = {
+  easy: [[4, 4, 3], [0, 0, 0], [0, 0, 0], [0, 0, 0]],
+  normal: [[7, 6, 5], [3, 3, 2], [0, 0, 0], [0, 0, 0]],
+  hard: [[9, 8, 6], [4, 3, 2], [2, 2, 1], [0, 0, 0]],
+  expert: [[10, 9, 7], [5, 4, 3], [3, 2, 2], [2, 1, 1]]
+};
+
+export const getAiSearchProfile = (difficulty: AiDifficulty, stoneCount: number): AiSearchProfile => {
+  const index = tier(stoneCount);
+  const profile = PROFILE_LIMITS[difficulty];
+  return {
+    primaryLimit: profile[0][index],
+    replyLimit: profile[1][index],
+    continuationLimit: profile[2][index],
+    finalReplyLimit: profile[3][index]
+  };
+};
+
+const minimaxValue = (
+  state: GameState,
+  perspective: Player,
+  focus: Point | undefined,
+  limits: readonly number[],
+  ply: number,
+  context: SearchContext
+): number => {
+  if (ply >= limits.length || limits[ply] <= 0) return evaluateState(state, perspective, context);
+
+  const cacheKey = `${perspective}|${ply}|${limits.slice(ply).join(",")}|${stateSignature(state, context)}`;
+  const cached = context.searchCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const player = state.currentPlayer;
+  const moves = rankedMoves(state, player, focus, limits[ply], context);
+  if (moves.length === 0) {
+    const value = evaluateState(state, perspective, context);
+    context.searchCache.set(cacheKey, value);
+    return value;
+  }
+
+  const values = moves.map((move) => minimaxValue(move.state, perspective, move.point, limits, ply + 1, context));
+  const value = player === perspective ? Math.max(...values) : Math.min(...values);
+  context.searchCache.set(cacheKey, value);
+  return value;
 };
 
 export const chooseAiMove = (state: GameState, options: AiMoveOptions = {}): Point | undefined => {
   const player = options.player ?? state.currentPlayer;
   if (state.currentPlayer !== player) return undefined;
 
-  const budgets = defaultBudgets(state.stones.size);
-  const primaryLimit = options.primaryLimit ?? budgets.primary;
-  const replyLimit = options.replyLimit ?? budgets.replies;
-  const candidates = rankedMoves(state, player, options.focus, primaryLimit);
+  const difficulty = options.difficulty ?? "normal";
+  const profile = getAiSearchProfile(difficulty, state.stones.size);
+  const limits = [
+    options.primaryLimit ?? profile.primaryLimit,
+    options.replyLimit ?? profile.replyLimit,
+    options.continuationLimit ?? profile.continuationLimit,
+    options.finalReplyLimit ?? profile.finalReplyLimit
+  ];
+  const context: SearchContext = {
+    evaluationCache: new Map(),
+    searchCache: new Map(),
+    signatureCache: new WeakMap()
+  };
+  const candidates = rankedMoves(state, player, options.focus, limits[0], context);
   if (candidates.length === 0) return undefined;
 
-  const opponent = otherPlayer(player);
   let best: { point: Point; value: number; tacticalScore: number } | undefined;
 
   for (const candidate of candidates) {
-    const replies = rankedMoves(candidate.state, opponent, candidate.point, replyLimit);
-    let worstReply = evaluateState(candidate.state, player);
-    if (replies.length > 0) {
-      worstReply = Math.min(...replies.map((reply) => evaluateState(reply.state, player)));
-    }
-
-    const value = worstReply + candidate.tacticalScore * 0.04 + candidate.score * 0.1;
+    const searchedValue = minimaxValue(candidate.state, player, candidate.point, limits, 1, context);
+    const value = searchedValue + candidate.tacticalScore * 0.04 + candidate.score * 0.1;
     if (
       !best ||
       value > best.value ||
       (value === best.value && candidate.tacticalScore > best.tacticalScore) ||
-      (value === best.value && candidate.tacticalScore === best.tacticalScore &&
+      (value === best.value &&
+        candidate.tacticalScore === best.tacticalScore &&
         (candidate.point.y < best.point.y ||
           (candidate.point.y === best.point.y && candidate.point.x < best.point.x)))
     ) {

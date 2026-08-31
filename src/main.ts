@@ -1,10 +1,10 @@
 import "./styles.css";
-import { chooseAiMove } from "./game/ai";
+import { chooseAiMove, type AiDifficulty } from "./game/ai";
 import { createSession, playMove, resetSession, undoMove } from "./game/session";
 import type { Player, Point } from "./game/types";
 import { resolveLocale, t } from "./i18n";
 import { clearSavedGame, loadSession, saveSession, type StorageLike } from "./persistence";
-import { loadGameMode, saveGameMode, type GameMode } from "./preferences";
+import { DEFAULT_PREFERENCES, loadPreferences, savePreferences, type GameMode } from "./preferences";
 import { setupPwaLifecycle } from "./pwa";
 import { CanvasBoard } from "./ui/canvas-board";
 import type { Viewport } from "./ui/viewport";
@@ -35,6 +35,15 @@ app.innerHTML = `
           <select data-game-mode aria-label="${copy.mode}">
             <option value="local">${copy.localGame}</option>
             <option value="computer">${copy.computerGame}</option>
+          </select>
+        </label>
+        <label class="mode-control difficulty-control" data-difficulty-control>
+          <span>${copy.difficulty}</span>
+          <select data-ai-difficulty aria-label="${copy.difficulty}">
+            <option value="easy">${copy.difficultyEasy}</option>
+            <option value="normal">${copy.difficultyNormal}</option>
+            <option value="hard">${copy.difficultyHard}</option>
+            <option value="expert">${copy.difficultyExpert}</option>
           </select>
         </label>
         <button class="undo" type="button">${copy.undo}</button>
@@ -77,6 +86,8 @@ const scoreBlue = app.querySelector<HTMLElement>("[data-score-blue]");
 const redLabel = app.querySelector<HTMLElement>("[data-red-label]");
 const blueLabel = app.querySelector<HTMLElement>("[data-blue-label]");
 const modeSelect = app.querySelector<HTMLSelectElement>("[data-game-mode]");
+const difficultyControl = app.querySelector<HTMLElement>("[data-difficulty-control]");
+const difficultySelect = app.querySelector<HTMLSelectElement>("[data-ai-difficulty]");
 const undo = app.querySelector<HTMLButtonElement>(".undo");
 const newGame = app.querySelector<HTMLButtonElement>(".new-game");
 const appStatus = app.querySelector<HTMLElement>("[data-app-status]");
@@ -91,6 +102,8 @@ if (
   !redLabel ||
   !blueLabel ||
   !modeSelect ||
+  !difficultyControl ||
+  !difficultySelect ||
   !undo ||
   !newGame ||
   !appStatus ||
@@ -109,8 +122,11 @@ try {
 }
 
 let session = storage ? loadSession(storage) ?? createSession() : createSession();
-let gameMode: GameMode = storage ? loadGameMode(storage) : "local";
+const initialPreferences = storage ? loadPreferences(storage) : DEFAULT_PREFERENCES;
+let gameMode: GameMode = initialPreferences.gameMode;
+let aiDifficulty: AiDifficulty = initialPreferences.aiDifficulty;
 modeSelect.value = gameMode;
+difficultySelect.value = aiDifficulty;
 const initialViewport = storage ? loadViewport(storage) : undefined;
 let statusTimer: number | undefined;
 let viewportSaveTimer: number | undefined;
@@ -143,6 +159,10 @@ const persist = (): void => {
   else saveSession(storage, session);
 };
 
+const persistPreferences = (): void => {
+  if (storage) savePreferences(storage, { gameMode, aiDifficulty });
+};
+
 const flushViewport = (): void => {
   if (viewportSaveTimer !== undefined) window.clearTimeout(viewportSaveTimer);
   viewportSaveTimer = undefined;
@@ -165,6 +185,13 @@ const playerName = (player: Player): string => {
   return player === "red" ? copy.red : copy.blue;
 };
 
+const difficultyName = (difficulty: AiDifficulty): string => {
+  if (difficulty === "easy") return copy.difficultyEasy;
+  if (difficulty === "hard") return copy.difficultyHard;
+  if (difficulty === "expert") return copy.difficultyExpert;
+  return copy.difficultyNormal;
+};
+
 const renderStatus = (): void => {
   const state = session.state;
   const current = playerName(state.currentPlayer);
@@ -175,9 +202,11 @@ const renderStatus = (): void => {
   blueLabel.textContent = gameMode === "computer" ? copy.computerBlue : copy.blue;
   scoreRed.textContent = String(state.score.red);
   scoreBlue.textContent = String(state.score.blue);
+  difficultyControl.hidden = gameMode !== "computer";
   undo.disabled = computerThinking || session.history.length === 0;
   newGame.disabled = computerThinking;
   modeSelect.disabled = computerThinking;
+  difficultySelect.disabled = computerThinking || gameMode !== "computer";
 };
 
 const pointMessage = (prefix: string, point: Point): string => `${prefix}: ${point.x}, ${point.y}`;
@@ -194,7 +223,7 @@ const cancelComputerMove = (): void => {
 const fallBackToLocalMode = (): void => {
   gameMode = "local";
   modeSelect.value = gameMode;
-  if (storage) saveGameMode(storage, gameMode);
+  persistPreferences();
   computerThinking = false;
   renderStatus();
   showStatus(copy.computerFallback, 5000);
@@ -217,7 +246,7 @@ const scheduleComputerMove = (): void => {
     }
 
     const focus = session.history.at(-1)?.placed;
-    const move = chooseAiMove(session.state, { player: COMPUTER_PLAYER, focus });
+    const move = chooseAiMove(session.state, { player: COMPUTER_PLAYER, focus, difficulty: aiDifficulty });
     if (!move) {
       fallBackToLocalMode();
       return;
@@ -293,9 +322,19 @@ newGame.addEventListener("click", () => {
 modeSelect.addEventListener("change", () => {
   if (computerThinking) return;
   gameMode = modeSelect.value === "computer" ? "computer" : "local";
-  if (storage) saveGameMode(storage, gameMode);
+  persistPreferences();
   renderStatus();
   announce(gameMode === "computer" ? copy.modeComputer : copy.modeLocal);
+  scheduleComputerMove();
+});
+
+difficultySelect.addEventListener("change", () => {
+  if (computerThinking) return;
+  const value = difficultySelect.value;
+  aiDifficulty = value === "easy" || value === "hard" || value === "expert" ? value : "normal";
+  difficultySelect.value = aiDifficulty;
+  persistPreferences();
+  announce(`${copy.difficultyChanged}: ${difficultyName(aiDifficulty)}`);
   scheduleComputerMove();
 });
 

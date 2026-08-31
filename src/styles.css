@@ -63,6 +63,8 @@ button, select, canvas { -webkit-tap-highlight-color: transparent; }
 
 .game-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   align-items: center;
 }
@@ -74,6 +76,8 @@ button, select, canvas { -webkit-tap-highlight-color: transparent; }
   color: #71695f;
   font-size: 13px;
 }
+
+.difficulty-control[hidden] { display: none; }
 
 .mode-control select {
   min-height: 44px;

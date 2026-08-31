@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { StorageLike } from "./persistence";
 import {
-  DEFAULT_GAME_MODE,
-  loadGameMode,
+  DEFAULT_PREFERENCES,
+  loadPreferences,
   PREFERENCES_KEY,
   PREFERENCES_VERSION,
-  saveGameMode
+  savePreferences
 } from "./preferences";
 
 class MemoryStorage implements StorageLike {
@@ -25,25 +25,43 @@ class MemoryStorage implements StorageLike {
 }
 
 describe("game preferences", () => {
-  it("defaults to local play and round-trips computer mode", () => {
+  it("defaults to local play at normal difficulty and round-trips all settings", () => {
     const storage = new MemoryStorage();
-    expect(loadGameMode(storage)).toBe(DEFAULT_GAME_MODE);
+    expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
 
-    saveGameMode(storage, "computer");
-    expect(loadGameMode(storage)).toBe("computer");
+    savePreferences(storage, { gameMode: "computer", aiDifficulty: "expert" });
+    expect(loadPreferences(storage)).toEqual({ gameMode: "computer", aiDifficulty: "expert" });
+  });
+
+  it("migrates version 1 computer-mode preferences to normal difficulty", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PREFERENCES_KEY, JSON.stringify({ version: 1, gameMode: "computer" }));
+
+    expect(loadPreferences(storage)).toEqual({ gameMode: "computer", aiDifficulty: "normal" });
+    expect(JSON.parse(storage.getItem(PREFERENCES_KEY)!)).toEqual({
+      version: PREFERENCES_VERSION,
+      gameMode: "computer",
+      aiDifficulty: "normal"
+    });
   });
 
   it("rejects unsupported or malformed preference data without touching game persistence", () => {
     const storage = new MemoryStorage();
     storage.setItem("dots.game", "keep-me");
-    storage.setItem(PREFERENCES_KEY, JSON.stringify({ version: PREFERENCES_VERSION + 1, gameMode: "computer" }));
+    storage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({ version: PREFERENCES_VERSION + 1, gameMode: "computer", aiDifficulty: "expert" })
+    );
 
-    expect(loadGameMode(storage)).toBe(DEFAULT_GAME_MODE);
+    expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
     expect(storage.getItem(PREFERENCES_KEY)).toBeNull();
     expect(storage.getItem("dots.game")).toBe("keep-me");
 
-    storage.setItem(PREFERENCES_KEY, JSON.stringify({ version: PREFERENCES_VERSION, gameMode: "unknown" }));
-    expect(loadGameMode(storage)).toBe(DEFAULT_GAME_MODE);
+    storage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({ version: PREFERENCES_VERSION, gameMode: "computer", aiDifficulty: "impossible" })
+    );
+    expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
     expect(storage.getItem(PREFERENCES_KEY)).toBeNull();
   });
 });
