@@ -10,10 +10,12 @@ src/
 │   ├── capture.ts
 │   ├── session.ts
 │   ├── ai.ts
+│   ├── ai-match.ts
 │   ├── board.test.ts
 │   ├── capture.test.ts
 │   ├── session.test.ts
 │   ├── ai.test.ts
+│   ├── ai-match.test.ts
 │   ├── topology.test.ts
 │   └── stress.test.ts
 ├── ui/                           Canvas input/rendering and viewport math
@@ -37,7 +39,7 @@ scripts/
 └── verify-build.mjs              post-build PWA/offline artifact verification
 ```
 
-The game layer imports no DOM, Canvas, viewport, service-worker, storage, or network APIs. Rendering consumes confirmed game state; it never decides whether a capture exists. Game persistence replays moves through the game core. The AI is another consumer of the same core and may propose coordinates but does not own legality or capture resolution. Viewport, preferences, and PWA lifecycle remain separate platform/presentation state.
+The game layer imports no DOM, Canvas, viewport, service-worker, storage, or network APIs. Rendering consumes confirmed game state; it never decides whether a capture exists. Game persistence replays moves through the game core. The AI and AI-match harness are consumers of the same core and may propose/apply coordinates but do not own legality or capture resolution. Viewport, preferences, and PWA lifecycle remain separate platform/presentation state.
 
 ## Capture and move engine
 
@@ -61,50 +63,98 @@ Pointer, touch, keyboard, and computer moves all converge on this same placement
 
 `src/game/ai.ts` is a deterministic bounded-search module. It accepts `GameState` plus optional search options, including `AiDifficulty`, and returns a proposed integer `Point` or `undefined`. It imports only game-core modules.
 
-### Candidate frontier
+### Candidate frontier and cycle pressure
 
-The AI first builds a finite frontier from empty intersections one grid step away from active stones. Captured stones are removed from the AI's active-structure view while their holding capture remains active.
+The AI builds a finite frontier from empty intersections one grid step away from active stones. Captured stones are removed from its active-structure view while their holding capture remains active.
 
-Frontier points receive a cheap local score based on:
+For both colors, the engine builds connected components over active 8-neighbor stones. A frontier point receives cycle-closing pressure when at least two adjacent stones of one color already belong to the same connected component. Adding a stone at that point would close an existing graph path into a cycle.
 
-- adjacent same-color stones;
-- adjacent opponent stones;
-- bonuses for two-or-more same-color neighbors, which often marks a possible closing point;
-- bonuses for two-or-more opponent neighbors, which often marks a useful blocking point;
-- a small bounded distance penalty from the latest move when a focus point is supplied.
+This is only a move-ordering/evaluation heuristic. The cycle may become a house, a scoring capture, a capture-of-capture, or no valid capture at all; only `placeStone()` and the capture engine decide that.
 
-This ranking is not authoritative legality. Ranked candidates are subsequently passed to `placeStone()`. Occupied/captured/otherwise illegal points are rejected by the real game core.
+Frontier ranking uses:
+
+- adjacent same-color and opponent stones;
+- same-color cycle-closing pairs;
+- opponent cycle-closing pairs that can be occupied defensively;
+- bonuses for locally dense own/opponent contact;
+- a bounded distance penalty from the most recent focus point.
+
+Every shortlisted coordinate is subsequently passed through `placeStone()`. Occupied, captured-territory, or otherwise illegal points are therefore rejected by the authoritative core.
 
 ### Position evaluation
 
-For each shortlisted legal move, the resulting state is evaluated from the computer side. Actual score difference is weighted overwhelmingly above structural heuristics, so real captures/releases dominate shape preferences.
+Actual score difference is weighted overwhelmingly above every heuristic so real captures/releases dominate evaluation.
 
-The secondary structural score counts active same-color adjacency links and active-stone balance. It exists only to choose among otherwise similar non-scoring moves.
+Secondary evaluation includes:
+
+- active same-color adjacency links and active-stone balance;
+- local stone danger: concentrated opponent contact, reduced escape space, and local own support;
+- cycle-closing pressure available to each side.
+
+Easy uses the lightest evaluation. Normal adds local danger. Hard and Expert also compare enclosure/cycle pressure, with Expert applying the strongest danger weighting.
+
+### Strategic threat probes
+
+Hard and Expert add bounded speculative analysis that still uses the real move engine.
+
+`immediateCaptureThreat()` temporarily evaluates a chosen side as the mover, tests a small ranked set through `placeStone()`, and measures actual score-changing capture/release outcomes plus newly threatened stones.
+
+`setupPotential()` tries a small non-scoring setup move and then probes whether another move by the same side could create a real capture opportunity. This recognizes short two-own-move plans across an intervening opponent turn. It is evaluation-only: it does not enter session history, persist state, or replace the alternating-turn minimax tree.
+
+On positions with 250 or more stones the expensive setup probe is disabled and immediate-threat budgets are reduced.
 
 ### Difficulty profiles and minimax
 
-The engine uses one recursive deterministic minimax path with a per-difficulty array of bounded candidate limits. The four user-facing levels differ only in how many plies are enabled and how wide each ply is searched:
+The engine uses one recursive deterministic minimax implementation. Per-difficulty arrays bound the number of candidates considered at each ply:
 
-- **Easy** — computer move only; no opponent-reply search;
+- **Easy** — computer move only;
 - **Normal** — computer move → bounded opponent reply;
 - **Hard** — computer move → opponent reply → selective computer continuation;
 - **Expert** — computer move → opponent reply → computer continuation → final bounded opponent reply.
 
-Small positions use the widest profile. At 80+ and 250+ stones each level reduces its limits. The current small-position root budgets are 4 / 7 / 9 / 10 candidates for Easy / Normal / Hard / Expert respectively; deeper plies use smaller limits. Large positions reduce those values further.
+Small positions use the widest profiles. At 80+ and 250+ stones each level reduces candidate limits. Root budgets remain 4 / 7 / 9 / 10 on small positions for Easy / Normal / Hard / Expert; larger positions reduce them.
 
-The root candidate still receives small deterministic tactical/seed tie-break weights after minimax evaluation. Coordinate ordering is the final tie-break, so identical state/difficulty/options produce the same move.
+Hard/Expert root ordering includes the bounded strategic threat forecast. Expert may also include the strategic forecast at the first searched reply layer.
+
+### Alpha-beta pruning
+
+Minimax consumes candidates in strongest-first tactical order and maintains alpha/beta bounds. Once a branch cannot improve the already established bound it is skipped.
+
+The transposition cache stores only nodes that were fully searched. Nodes that ended via alpha-beta cutoff are not recorded as exact values.
+
+### Forcing horizon extensions
+
+At the nominal minimax horizon, Hard and Expert may enter a small quiescence-style extension. Only moves that immediately change score balance through capture/release are eligible.
+
+- Hard uses at most one forcing extension on ordinary-size positions.
+- Expert uses at most two forcing extensions on ordinary-size positions.
+- At 250+ stones Expert is reduced to one extension and Hard to none.
+
+This handles short capture/release sequences near the horizon without increasing full-width search depth everywhere.
 
 ### Search caches
 
 Every `chooseAiMove()` call creates fresh in-memory caches:
 
-- an evaluation cache for equivalent state/perspective pairs;
-- a minimax/transposition cache for equivalent state/depth/perspective combinations;
-- a `WeakMap` that avoids rebuilding the canonical signature for the same `GameState` object.
+- evaluation values;
+- exact minimax/transposition results;
+- canonical state signatures;
+- active connected components;
+- closure-pressure values;
+- immediate-capture threat probes;
+- setup-potential probes.
 
-The canonical signature contains rule-relevant data: player-to-move, current score, all stones, inactive captured stones, and active capture owner/boundary/captured geometry. Including capture geometry is required because two positions with the same stones and score may still have different blocked territory or future capture behavior.
+The canonical signature contains player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Capture geometry is required because identical stones and score can still produce different blocked territory and future capture behavior.
 
-These caches are ephemeral and are discarded after the AI chooses one move. They are not game persistence, are never exposed as `GameState`, and cannot become a parallel rules authority.
+All caches are discarded after the move is selected. They are never persisted, never exposed as `GameState`, and cannot become a parallel rules authority.
+
+## AI-vs-AI regression harness
+
+`src/game/ai-match.ts` provides a pure deterministic test/analysis harness. It starts from `createGameState()`, optionally applies a legal opening, then alternates `chooseAiMove()` for Red/Blue and feeds every proposal back through `placeStone()`.
+
+`pairedMatchMargin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
+
+The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive aggregate captured-score margin across them. This is a regression guard, not an Elo claim.
 
 ## Computer-mode orchestration
 
@@ -118,11 +168,11 @@ These caches are ephemeral and are discarded after the AI chooses one move. They
 - Enabling computer mode while Blue is to move schedules a Blue AI move against the existing state.
 - The selected difficulty is passed to `chooseAiMove()` for each newly scheduled computer turn.
 - The computer move is accepted with `playMove()` and persisted as an ordinary move. Save replay needs no special AI metadata.
-- During the short pending-computer state, mode/difficulty/Undo/New game controls are disabled and accessible status announces that the computer is thinking.
+- During pending computer work, mode/difficulty/Undo/New game controls are disabled and accessible status announces that the computer is thinking.
 - A pending computer timer is cancelled on `pagehide`. If the document returns visible while Blue still owns the turn, scheduling resumes through `visibilitychange`/`pageshow`.
-- If the AI unexpectedly produces no legal move or a proposed point is rejected, the UI switches to two-player mode rather than fabricating a move or leaving Blue permanently inaccessible.
+- If AI unexpectedly produces no legal move or a proposed point is rejected, the UI switches to two-player mode rather than fabricating a move or leaving Blue permanently inaccessible.
 
-In computer mode, Undo first removes the latest move. If that returns the session to Blue with an earlier human move still present, Undo is applied once more so the user returns to the previous Red decision point. The underlying `undoMove()` behavior itself remains unchanged and rule-authoritative.
+In computer mode, Undo first removes the latest move. If that returns the session to Blue with an earlier human move still present, Undo is applied once more so the user returns to the previous Red decision point. The underlying `undoMove()` primitive remains unchanged and authoritative.
 
 ## Session history and game persistence
 
@@ -162,7 +212,7 @@ The base cell is 32 CSS pixels. Zoom is clamped to `0.4…3.5`; viewport centers
 - Keyboard cursor movement may recenter only the viewport to keep the selected intersection visible; it never moves stones or changes rule coordinates.
 - Pointer input clears the keyboard cursor so the two interaction modes do not leave ambiguous visual selection state.
 
-In computer mode `main.ts` rejects attempted human placement while Blue is to move before calling `playMove()`. The board itself remains a presentation/input adapter and does not know which player is automated or which AI difficulty is selected.
+In computer mode `main.ts` rejects attempted human placement while Blue is to move before calling `playMove()`. The board remains a presentation/input adapter and does not know which player is automated or which AI difficulty is selected.
 
 ## Rendering and performance bounds
 
@@ -172,7 +222,7 @@ Grid lines are generated only from `visibleGridBounds()`. Off-screen stones are 
 
 Viewport persistence writes are debounced during navigation and flushed on `pagehide`, reducing synchronous localStorage churn without changing the independently versioned viewport format.
 
-Stress coverage includes a 500-move sparse reversible game, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, and Expert AI legality search over a 300-stone sparse position. These are deterministic regression guards, not hardware benchmarks.
+Stress coverage includes a 500-move sparse reversible game, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, Expert AI legality search over a 300-stone sparse position, and short deterministic AI-vs-AI strength regressions. These are regression guards, not hardware benchmarks.
 
 ## Viewport persistence
 
@@ -211,9 +261,10 @@ Automated coverage includes:
 - enclosure topology, houses, capture-of-capture, release, multiple/minimum captures, and large coordinates;
 - reversible sessions, invalid moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;
 - deterministic AI legality at all four levels, progressive profile depth, immediate capture selection, threat blocking from Normal upward, wrong-turn rejection, non-mutation, adaptive large-position budgets, and Expert sparse-position behavior;
+- deterministic AI-vs-AI replay plus paired Expert-vs-Normal/Hard non-losing and aggregate-strength guards;
 - game↔screen coordinate round-trip, integer snapping, pan direction, anchor zoom, numeric clamps, visible-grid work bounds, and repeated-transform stress;
 - long sparse game history with deterministic partial Undo;
 - TypeScript validation and the complete Vite/PWA production build;
 - post-build verification of generated service-worker/manifest/install artifacts.
 
-Version **0.7.0** completes the four-level AI-strength phase. Remaining product work is measured AI quality/performance refinement, continued empirical real-device/topology validation, import/export if justified, and possible Android packaging—not a second rules architecture.
+Version **0.8.0** completes the strategic AI-quality phase: enclosure pressure, local danger, bounded short-horizon threat probes, stronger ordering, alpha-beta pruning, forcing horizon extensions, and strength-regression matches. Further AI work should start from concrete failing positions or measured match regressions rather than unbounded depth increases.
