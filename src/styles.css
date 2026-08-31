@@ -57,13 +57,14 @@ button { font: inherit; }
 
 .board-wrap { position: relative; min-height: 0; }
 .board { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: #f8f3e9; }
+.board.is-panning { cursor: grabbing; }
 
 .notice {
   position: absolute;
   left: 50%;
   bottom: 18px;
   transform: translateX(-50%);
-  width: min(680px, calc(100% - 32px));
+  width: min(760px, calc(100% - 32px));
   padding: 10px 14px;
   border: 1px solid #d9cfbf;
   border-radius: 12px;

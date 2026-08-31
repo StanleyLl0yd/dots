@@ -3,6 +3,7 @@ import { createSession, playMove, resetSession, undoMove } from "./game/session"
 import { resolveLocale, t } from "./i18n";
 import { clearSavedGame, loadSession, saveSession, type StorageLike } from "./persistence";
 import { CanvasBoard } from "./ui/canvas-board";
+import { loadViewport, saveViewport } from "./viewport-persistence";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("App root is missing");
@@ -52,6 +53,7 @@ try {
 }
 
 let session = storage ? loadSession(storage) ?? createSession() : createSession();
+const initialViewport = storage ? loadViewport(storage) : undefined;
 
 const persist = (): void => {
   if (!storage) return;
@@ -68,6 +70,10 @@ const renderStatus = (): void => {
 };
 
 const board = new CanvasBoard(canvas, session.state, {
+  initialViewport,
+  onViewportChange: (viewport) => {
+    if (storage) saveViewport(storage, viewport);
+  },
   onPoint: (point) => {
     const next = playMove(session, point);
     if (next === session) return;
@@ -92,6 +98,7 @@ newGame.addEventListener("click", () => {
   session = resetSession();
   persist();
   board.setState(session.state);
+  board.resetViewport();
   renderStatus();
 });
 

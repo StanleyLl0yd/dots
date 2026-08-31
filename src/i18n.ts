@@ -10,7 +10,7 @@ const messages = {
     undo: "Отменить",
     newGame: "Новая игра",
     resetConfirm: "Начать новую игру? Текущая партия будет удалена.",
-    hint: "Замкните соседними точками контур вокруг точки соперника."
+    hint: "Замыкайте соседние точки вокруг соперника. Перетаскивание — поле, колесо или щипок — масштаб."
   },
   en: {
     title: "Dots",
@@ -21,7 +21,7 @@ const messages = {
     undo: "Undo",
     newGame: "New game",
     resetConfirm: "Start a new game? The current game will be cleared.",
-    hint: "Close a boundary of neighboring dots around an opponent dot."
+    hint: "Close neighboring dots around the opponent. Drag to pan; wheel or pinch to zoom."
   }
 } as const;
 

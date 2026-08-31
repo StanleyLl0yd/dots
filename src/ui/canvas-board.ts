@@ -1,13 +1,52 @@
 import type { Capture, GameState, Point } from "../game/types";
+import {
+  DEFAULT_VIEWPORT,
+  gameToScreen,
+  panViewport,
+  screenToGame,
+  screenToGrid,
+  viewportForAnchor,
+  zoomViewportAt,
+  type ScreenPoint,
+  type Viewport,
+  type ViewportSize
+} from "./viewport";
 
 interface CanvasBoardOptions {
   onPoint: (point: Point) => void;
+  initialViewport?: Viewport;
+  onViewportChange?: (viewport: Viewport) => void;
 }
+
+interface DragGesture {
+  pointerId: number;
+  start: ScreenPoint;
+  startViewport: Viewport;
+  moved: boolean;
+  allowTap: boolean;
+}
+
+interface PinchGesture {
+  pointerIds: [number, number];
+  startDistance: number;
+  startZoom: number;
+  anchorGame: ScreenPoint;
+}
+
+const DRAG_THRESHOLD = 6;
+
+const distance = (a: ScreenPoint, b: ScreenPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
+const midpoint = (a: ScreenPoint, b: ScreenPoint): ScreenPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const copyViewport = (viewport: Viewport): Viewport => ({ ...viewport });
 
 export class CanvasBoard {
   private readonly context: CanvasRenderingContext2D;
   private state: GameState;
-  private readonly cell = 32;
+  private viewport: Viewport;
+  private readonly pointers = new Map<number, ScreenPoint>();
+  private drag?: DragGesture;
+  private pinch?: PinchGesture;
+  private viewportDirty = false;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -18,7 +57,12 @@ export class CanvasBoard {
     if (!context) throw new Error("Canvas 2D is unavailable");
     this.context = context;
     this.state = state;
-    this.canvas.addEventListener("pointerup", this.handlePointer);
+    this.viewport = copyViewport(options.initialViewport ?? DEFAULT_VIEWPORT);
+    this.canvas.addEventListener("pointerdown", this.handlePointerDown);
+    this.canvas.addEventListener("pointermove", this.handlePointerMove);
+    this.canvas.addEventListener("pointerup", this.handlePointerUp);
+    this.canvas.addEventListener("pointercancel", this.handlePointerCancel);
+    this.canvas.addEventListener("wheel", this.handleWheel, { passive: false });
     window.addEventListener("resize", this.resize);
     this.resize();
   }
@@ -28,9 +72,33 @@ export class CanvasBoard {
     this.draw();
   }
 
+  getViewport(): Viewport {
+    return copyViewport(this.viewport);
+  }
+
+  resetViewport(): void {
+    this.viewport = copyViewport(DEFAULT_VIEWPORT);
+    this.viewportDirty = true;
+    this.draw();
+    this.commitViewport();
+  }
+
   destroy(): void {
-    this.canvas.removeEventListener("pointerup", this.handlePointer);
+    this.canvas.removeEventListener("pointerdown", this.handlePointerDown);
+    this.canvas.removeEventListener("pointermove", this.handlePointerMove);
+    this.canvas.removeEventListener("pointerup", this.handlePointerUp);
+    this.canvas.removeEventListener("pointercancel", this.handlePointerCancel);
+    this.canvas.removeEventListener("wheel", this.handleWheel);
     window.removeEventListener("resize", this.resize);
+  }
+
+  private size(): ViewportSize {
+    return { width: this.canvas.clientWidth, height: this.canvas.clientHeight };
+  }
+
+  private localPoint(event: PointerEvent | WheelEvent): ScreenPoint {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
   private readonly resize = (): void => {
@@ -42,21 +110,147 @@ export class CanvasBoard {
     this.draw();
   };
 
-  private readonly handlePointer = (event: PointerEvent): void => {
-    const rect = this.canvas.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const x = Math.round((event.clientX - rect.left - centerX) / this.cell);
-    const y = Math.round((event.clientY - rect.top - centerY) / this.cell);
-    this.options.onPoint({ x, y });
-  };
-
-  private screenPoint(point: Point, centerX: number, centerY: number): Point {
-    return { x: centerX + point.x * this.cell, y: centerY + point.y * this.cell };
+  private beginPinch(): void {
+    if (this.pointers.size < 2) return;
+    const entries = [...this.pointers.entries()].slice(0, 2);
+    const firstId = entries[0][0];
+    const secondId = entries[1][0];
+    const first = entries[0][1];
+    const second = entries[1][1];
+    const anchorScreen = midpoint(first, second);
+    this.pinch = {
+      pointerIds: [firstId, secondId],
+      startDistance: Math.max(1, distance(first, second)),
+      startZoom: this.viewport.zoom,
+      anchorGame: screenToGame(anchorScreen, this.viewport, this.size())
+    };
+    this.drag = undefined;
   }
 
-  private drawCapture(capture: Capture, centerX: number, centerY: number): void {
-    const points = capture.boundary.map((point) => this.screenPoint(point, centerX, centerY));
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const point = this.localPoint(event);
+    this.pointers.set(event.pointerId, point);
+    this.canvas.setPointerCapture(event.pointerId);
+
+    if (this.pointers.size === 1) {
+      this.drag = {
+        pointerId: event.pointerId,
+        start: point,
+        startViewport: copyViewport(this.viewport),
+        moved: false,
+        allowTap: true
+      };
+    } else if (this.pointers.size === 2) {
+      this.beginPinch();
+    }
+  };
+
+  private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (!this.pointers.has(event.pointerId)) return;
+    const point = this.localPoint(event);
+    this.pointers.set(event.pointerId, point);
+
+    if (this.pinch) {
+      const first = this.pointers.get(this.pinch.pointerIds[0]);
+      const second = this.pointers.get(this.pinch.pointerIds[1]);
+      if (!first || !second) return;
+      const currentMidpoint = midpoint(first, second);
+      const zoom = this.pinch.startZoom * (distance(first, second) / this.pinch.startDistance);
+      this.viewport = viewportForAnchor(this.pinch.anchorGame, currentMidpoint, this.size(), zoom);
+      this.viewportDirty = true;
+      this.canvas.classList.add("is-panning");
+      this.draw();
+      return;
+    }
+
+    if (!this.drag || this.drag.pointerId !== event.pointerId) return;
+    const deltaX = point.x - this.drag.start.x;
+    const deltaY = point.y - this.drag.start.y;
+    if (!this.drag.moved && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return;
+
+    this.drag.moved = true;
+    this.viewport = panViewport(this.drag.startViewport, deltaX, deltaY);
+    this.viewportDirty = true;
+    this.canvas.classList.add("is-panning");
+    this.draw();
+  };
+
+  private finishPointer(event: PointerEvent, allowPlacement: boolean): void {
+    const point = this.localPoint(event);
+    if (this.pointers.has(event.pointerId)) this.pointers.set(event.pointerId, point);
+
+    const endedPinch = this.pinch?.pointerIds.includes(event.pointerId) ?? false;
+    const drag = this.drag;
+    if (
+      allowPlacement &&
+      !endedPinch &&
+      drag?.pointerId === event.pointerId &&
+      drag.allowTap &&
+      !drag.moved
+    ) {
+      this.options.onPoint(screenToGrid(point, this.viewport, this.size()));
+    }
+
+    this.pointers.delete(event.pointerId);
+    if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
+
+    if (endedPinch) {
+      this.pinch = undefined;
+      if (this.pointers.size >= 2) {
+        this.beginPinch();
+      } else if (this.pointers.size === 1) {
+        const [remainingId, remainingPoint] = [...this.pointers.entries()][0];
+        this.drag = {
+          pointerId: remainingId,
+          start: remainingPoint,
+          startViewport: copyViewport(this.viewport),
+          moved: false,
+          allowTap: false
+        };
+      } else {
+        this.drag = undefined;
+      }
+    } else if (drag?.pointerId === event.pointerId) {
+      this.drag = undefined;
+    }
+
+    if (this.pointers.size === 0) this.canvas.classList.remove("is-panning");
+    this.commitViewport();
+  }
+
+  private readonly handlePointerUp = (event: PointerEvent): void => {
+    this.finishPointer(event, true);
+  };
+
+  private readonly handlePointerCancel = (event: PointerEvent): void => {
+    this.finishPointer(event, false);
+  };
+
+  private readonly handleWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? this.size().height : 1;
+    const factor = Math.exp(-event.deltaY * multiplier * 0.0015);
+    const next = zoomViewportAt(this.viewport, this.localPoint(event), this.size(), factor);
+    if (next.zoom === this.viewport.zoom && next.centerX === this.viewport.centerX && next.centerY === this.viewport.centerY) return;
+    this.viewport = next;
+    this.viewportDirty = true;
+    this.draw();
+    this.commitViewport();
+  };
+
+  private commitViewport(): void {
+    if (!this.viewportDirty) return;
+    this.viewportDirty = false;
+    this.options.onViewportChange?.(copyViewport(this.viewport));
+  }
+
+  private screenPoint(point: Point): ScreenPoint {
+    return gameToScreen(point, this.viewport, this.size());
+  }
+
+  private drawCapture(capture: Capture): void {
+    const points = capture.boundary.map((point) => this.screenPoint(point));
     if (points.length < 3) return;
 
     const color = capture.owner === "red" ? "220, 38, 38" : "37, 99, 235";
@@ -64,7 +258,9 @@ export class CanvasBoard {
     const maxX = Math.max(...points.map((point) => point.x));
     const minY = Math.min(...points.map((point) => point.y));
     const maxY = Math.max(...points.map((point) => point.y));
-    const height = maxY - minY;
+    const size = this.size();
+    if (maxX < 0 || minX > size.width || maxY < 0 || minY > size.height) return;
+    const visualScale = Math.sqrt(this.viewport.zoom);
 
     this.context.save();
     this.context.beginPath();
@@ -77,10 +273,11 @@ export class CanvasBoard {
 
     this.context.strokeStyle = `rgba(${color}, 0.16)`;
     this.context.lineWidth = 1;
-    for (let x = minX - height; x <= maxX; x += 10) {
+    const hatchStep = Math.min(16, Math.max(7, 10 * visualScale));
+    for (let x = -size.height; x <= size.width; x += hatchStep) {
       this.context.beginPath();
-      this.context.moveTo(x, minY);
-      this.context.lineTo(x + height, maxY);
+      this.context.moveTo(x, 0);
+      this.context.lineTo(x + size.height, size.height);
       this.context.stroke();
     }
     this.context.restore();
@@ -90,44 +287,48 @@ export class CanvasBoard {
     for (const point of points.slice(1)) this.context.lineTo(point.x, point.y);
     this.context.closePath();
     this.context.strokeStyle = `rgb(${color})`;
-    this.context.lineWidth = 2.5;
+    this.context.lineWidth = Math.min(4, Math.max(1.5, 2.5 * visualScale));
     this.context.lineJoin = "round";
     this.context.stroke();
   }
 
   private draw(): void {
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const size = this.size();
+    const topLeft = screenToGame({ x: 0, y: 0 }, this.viewport, size);
+    const bottomRight = screenToGame({ x: size.width, y: size.height }, this.viewport, size);
+    const minGridX = Math.floor(Math.min(topLeft.x, bottomRight.x)) - 1;
+    const maxGridX = Math.ceil(Math.max(topLeft.x, bottomRight.x)) + 1;
+    const minGridY = Math.floor(Math.min(topLeft.y, bottomRight.y)) - 1;
+    const maxGridY = Math.ceil(Math.max(topLeft.y, bottomRight.y)) + 1;
 
-    this.context.clearRect(0, 0, width, height);
+    this.context.clearRect(0, 0, size.width, size.height);
     this.context.strokeStyle = "#c9bfae";
     this.context.lineWidth = 1;
 
-    const offsetX = ((centerX % this.cell) + this.cell) % this.cell;
-    const offsetY = ((centerY % this.cell) + this.cell) % this.cell;
-
-    for (let x = offsetX; x <= width; x += this.cell) {
+    for (let gridX = minGridX; gridX <= maxGridX; gridX += 1) {
+      const x = gameToScreen({ x: gridX, y: 0 }, this.viewport, size).x;
       this.context.beginPath();
       this.context.moveTo(x, 0);
-      this.context.lineTo(x, height);
+      this.context.lineTo(x, size.height);
       this.context.stroke();
     }
 
-    for (let y = offsetY; y <= height; y += this.cell) {
+    for (let gridY = minGridY; gridY <= maxGridY; gridY += 1) {
+      const y = gameToScreen({ x: 0, y: gridY }, this.viewport, size).y;
       this.context.beginPath();
       this.context.moveTo(0, y);
-      this.context.lineTo(width, y);
+      this.context.lineTo(size.width, y);
       this.context.stroke();
     }
 
-    for (const capture of this.state.captures) this.drawCapture(capture, centerX, centerY);
+    for (const capture of this.state.captures) this.drawCapture(capture);
 
+    const radius = Math.min(10, Math.max(3.5, 6.5 * Math.sqrt(this.viewport.zoom)));
     for (const stone of this.state.stones.values()) {
-      const { x, y } = this.screenPoint(stone, centerX, centerY);
+      const { x, y } = this.screenPoint(stone);
+      if (x < -radius || x > size.width + radius || y < -radius || y > size.height + radius) continue;
       this.context.beginPath();
-      this.context.arc(x, y, 6.5, 0, Math.PI * 2);
+      this.context.arc(x, y, radius, 0, Math.PI * 2);
       this.context.fillStyle = stone.player === "red" ? "#dc2626" : "#2563eb";
       this.context.fill();
     }
