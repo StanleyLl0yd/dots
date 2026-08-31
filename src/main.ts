@@ -14,7 +14,6 @@ import { loadViewport, saveViewport } from "./viewport-persistence";
 
 const COMPUTER_PLAYER: Player = "blue";
 const COMPUTER_DELAY_MS = 120;
-const PLAYERS: readonly Player[] = ["red", "blue"];
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("App root is missing");
