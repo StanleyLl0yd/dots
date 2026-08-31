@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.1.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.2.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players alternate placing dots on grid intersections. When a valid neighboring-dot boundary is actually closed around opponent dots, the captured area is outlined and lightly hatched.
 
-Current source version: **0.1.0** · local capture MVP · Web + PWA · GitHub Pages live
+Current source version: **0.2.0** · advanced capture rules · Web + PWA · GitHub Pages live
 
 ## 🎯 Rules
 
@@ -34,8 +34,8 @@ Current source version: **0.1.0** · local capture MVP · Web + PWA · GitHub Pa
 4. The last boundary dot must also be adjacent to the first, forming a closed chain.
 5. A closed chain captures when it encloses at least one opponent dot.
 6. Captured opponent dots count toward the surrounding player's score.
-7. A closed empty area is a **house**, not a scored capture.
-8. Captured areas can themselves be surrounded under the classic rules, allowing previously captured dots to be released.
+7. A closed empty area is a **house** and does not score while empty. If the opponent enters it without completing a direct capture on that move, the house activates as a capture.
+8. Active opponent captures can themselves be surrounded. A fully surrounded opponent capture is deactivated, its previously captured dots are released, and score is recalculated from the active capture state.
 9. The player with more currently captured opponent dots has the higher score.
 
 The authoritative rules and implementation status are tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
@@ -46,16 +46,20 @@ The authoritative rules and implementation status are tracked in [`docs/PRODUCT.
 - local two-player placement on grid intersections;
 - real closed-enclosure detection using neighboring dots in 8 directions;
 - rejection of open contours and empty houses as scored captures;
-- capture score derived from active captured dots;
+- house activation when an opponent enters an empty house without completing a direct capture;
+- multiple independent captures completed by one move;
+- deterministic minimum-face selection when several valid boundaries compete;
+- capture-of-capture with deactivation of fully surrounded opponent captures and release of previously captured own dots;
+- score derived from active captured dots rather than an irreversible counter;
 - captured areas blocked from further placement;
 - capture outline, translucent fill, and light diagonal hatching;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - responsive desktop/mobile layout with light and dark presentation;
 - installable PWA and offline-ready build pipeline;
-- Vitest regression tests, CI, and automatic GitHub Pages deployment;
+- Vitest topology/regression tests, CI, and automatic GitHub Pages deployment;
 - proprietary All Rights Reserved license.
 
-The ordinary capture flow is implemented. Advanced classic-rule cases — house entry, nested capture resolution, capture-of-capture, and release of previously captured dots — are still in development.
+Version **0.2.0** establishes the advanced local capture rules. Remaining rule-engine work is focused on adversarial self-touching/crossing topologies and broader stress coverage rather than the main house/release flow.
 
 ## 🧱 Technology
 
@@ -76,8 +80,9 @@ The ordinary capture flow is implemented. Advanced classic-rule cases — house 
 src/
 ├── game/
 │   ├── board.ts           game state and legal placement
-│   ├── board.test.ts      game-core integration tests
-│   ├── capture.ts         enclosure detection and scoring helpers
+│   ├── board.test.ts      move/capture integration tests
+│   ├── capture.ts         topology, house, release, and scoring logic
+│   ├── capture.test.ts    capture-geometry regression tests
 │   └── types.ts           domain types
 ├── ui/
 │   └── canvas-board.ts    Canvas rendering and pointer input
@@ -87,7 +92,7 @@ src/
 └── styles.css             notebook-inspired visual layer
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current capture-engine architecture and remaining topology work.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current capture-engine architecture and [`CHANGELOG.md`](CHANGELOG.md) for release changes.
 
 ## 🛠 Development
 
@@ -109,11 +114,11 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Complete advanced classic capture semantics: house entry, nested captures, capture release, and difficult competing-boundary cases.
-2. Expand topology regression tests and harden minimum-area resolution.
-3. Add board panning/zooming, persistence, undo, and polished touch controls.
-4. Stabilize PWA/offline behavior and publish the first complete web release.
-5. Consider AI only after the rules engine is proven.
+1. Harden rare self-touching, crossing-edge, and competing-boundary topologies with additional regression and stress tests.
+2. Add new game, confirmation flow, undo, and versioned local persistence.
+3. Add board panning/zooming and polished mouse/touch gestures for a practically unbounded play area.
+4. Stabilize PWA/offline behavior across desktop and mobile browsers.
+5. Consider AI only after the local rules engine and game-state history are proven.
 6. Optionally package the same codebase for Android through Capacitor later.
 
 ## 📄 License
