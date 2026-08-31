@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
       - run: npm ci
