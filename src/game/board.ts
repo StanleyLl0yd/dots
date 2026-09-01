@@ -13,6 +13,8 @@ export const createGameState = (): GameState => ({
 export const otherPlayer = (player: Player): Player => (player === "red" ? "blue" : "red");
 
 export const placeStone = (state: GameState, point: Point): GameState => {
+  if (!Number.isSafeInteger(point.x) || !Number.isSafeInteger(point.y)) return state;
+
   const key = pointKey(point);
   if (state.stones.has(key) || pointInsideAnyCapture(point, state.captures)) return state;
 
