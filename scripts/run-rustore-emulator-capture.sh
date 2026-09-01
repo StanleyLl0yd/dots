@@ -8,6 +8,7 @@ adb shell wm density 420
 adb shell cmd uimode night no
 adb install -r "$apk"
 adb shell pm clear com.sl.dots >/dev/null
+adb shell settings put global policy_control immersive.full=com.sl.dots || true
 adb shell monkey -p com.sl.dots -c android.intent.category.LAUNCHER 1 >/dev/null
 
 pid=""
