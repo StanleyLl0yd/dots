@@ -84,34 +84,51 @@ jobs:
           from PIL import Image, ImageDraw, ImageFont
 
           out = Path('store/rustore/generated')
-          icon = Image.open('public/pwa-192.png').convert('RGB').resize((512, 512), Image.Resampling.LANCZOS)
+          out.mkdir(parents=True, exist_ok=True)
+
+          icon = Image.new('RGB', (512, 512), '#f4efe5')
+          draw = ImageDraw.Draw(icon)
+          grid = '#d2c8b8'
+          for value in range(64, 449, 64):
+              draw.line((value, 64, value, 448), fill=grid, width=8)
+              draw.line((64, value, 448, value), fill=grid, width=8)
+          red = '#dc2626'
+          blue = '#2563eb'
+          ring = [(256, 128), (192, 192), (192, 256), (192, 320), (256, 384), (320, 320), (320, 256), (320, 192)]
+          draw.polygon(ring, fill='#f2dddd')
+          draw.line(ring + [ring[0]], fill=red, width=12, joint='curve')
+          for x, y in ring:
+              draw.ellipse((x-18, y-18, x+18, y+18), fill=red)
+          for x, y in [(256, 256), (256, 320)]:
+              draw.ellipse((x-20, y-20, x+20, y+20), fill=blue)
           icon.save(out / 'icon-512.png', optimize=True)
 
           width, height = 1080, 607
           banner = Image.new('RGB', (width, height), '#f4efe5')
           draw = ImageDraw.Draw(banner)
-          grid = '#d7d0c4'
+          banner_grid = '#d7d0c4'
           for x in range(0, width, 54):
-              draw.line((x, 0, x, height), fill=grid, width=1)
+              draw.line((x, 0, x, height), fill=banner_grid, width=1)
           for y in range(0, height, 54):
-              draw.line((0, y, width, y), fill=grid, width=1)
+              draw.line((0, y, width, y), fill=banner_grid, width=1)
 
-          red = '#d94444'
-          blue = '#367bd6'
+          banner_red = '#d94444'
+          banner_blue = '#367bd6'
           for x, y in [(135, 142), (216, 223), (135, 304), (54, 223)]:
-              draw.ellipse((x-16, y-16, x+16, y+16), fill=red)
-          draw.ellipse((135-16, 223-16, 135+16, 223+16), fill=blue)
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=banner_red)
+          draw.ellipse((119, 207, 151, 239), fill=banner_blue)
           for x, y in [(350, 170), (431, 251), (350, 332), (269, 251)]:
-              draw.ellipse((x-16, y-16, x+16, y+16), fill=blue)
-          draw.ellipse((350-16, 251-16, 350+16, 251+16), fill=red)
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=banner_blue)
+          draw.ellipse((334, 235, 366, 267), fill=banner_red)
 
           font_root = Path('/usr/share/fonts/truetype/dejavu')
-          title = ImageFont.truetype(str(font_root / 'DejaVuSans-Bold.ttf'), 96)
+          title = ImageFont.truetype(str(font_root / 'DejaVuSans-Bold.ttf'), 92)
           subtitle = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 30)
           small = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 24)
-          draw.text((535, 155), 'DOTS', font=title, fill='#2b2925')
-          draw.text((539, 282), 'Окружай · Захватывай · Контролируй', font=subtitle, fill='#2b2925')
-          draw.text((541, 343), 'Классическая игра «Точки»', font=small, fill='#625e57')
+          draw.text((535, 145), 'DOTS', font=title, fill='#2b2925')
+          draw.text((539, 270), 'Окружай · Захватывай', font=subtitle, fill='#2b2925')
+          draw.text((539, 314), 'Контролируй', font=subtitle, fill='#2b2925')
+          draw.text((541, 372), 'Классическая игра «Точки»', font=small, fill='#625e57')
           banner.save(out / 'promo-banner-1080x607.png', optimize=True)
           PY
 
