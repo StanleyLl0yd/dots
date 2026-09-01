@@ -1,0 +1,1 @@
+Generated store images are derived from the actual Dots UI and are not synthetic mockups.
