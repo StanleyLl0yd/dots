@@ -33,6 +33,7 @@ src/
 ├── viewport-persistence.ts       independent presentation-state adapter
 ├── viewport-persistence.test.ts
 ├── pwa.ts                        service-worker update/offline lifecycle
+├── pwa.test.ts                   service-worker lifecycle regression tests
 ├── i18n.ts                       locale and user/a11y copy
 ├── i18n.test.ts
 ├── main.ts                       application composition and browser/AI orchestration
@@ -54,7 +55,7 @@ Boundary adjacency is a hard invariant: each consecutive boundary vertex, includ
 Move resolution remains:
 
 1. reject an occupied point or point strictly inside an active capture;
-2. place the current side's integer-coordinate dot;
+2. place the current side's safe-integer-coordinate dot;
 3. find direct captures affected by that move;
 4. if no direct capture resolves, test opponent-house activation;
 5. remove fully surrounded opponent captures and release their held dots;
@@ -174,7 +175,7 @@ The CI suite deliberately uses short deterministic matches rather than a wall-cl
 - Enabling computer mode while Blue is to move schedules a Blue AI move against the existing state.
 - The selected difficulty is passed to `chooseAiMove()` for each newly scheduled computer turn.
 - The computer move is accepted with `playMove()` and persisted as an ordinary move. Save replay needs no special AI metadata.
-- During pending computer work, mode/difficulty/Undo/New game controls are disabled and accessible status announces that the computer is thinking.
+- During pending computer work, primary controls remain responsive so mode/difficulty/Undo/New game can cancel or redirect the request; accessible status announces that the computer is thinking.
 - A pending computer timer is cancelled on `pagehide`. If the document returns visible while Blue still owns the turn, scheduling resumes through `visibilitychange`/`pageshow`.
 - If AI unexpectedly produces no legal move or a proposed point is rejected, the UI switches to two-player mode rather than fabricating a move or leaving Blue permanently inaccessible.
 
@@ -184,7 +185,7 @@ In computer mode, Undo first removes the latest move. If that returns the sessio
 
 `src/game/session.ts` wraps `GameState` with reversible history. A legal move records the placed point, previous active captures, and previous player. Undo removes that stone, restores the previous capture set/player, and derives score again. Illegal placement attempts create no history entry.
 
-`src/persistence.ts` stores save format version 1 as an ordered list of integer move coordinates. Loading starts from a fresh session and replays every move through `playMove()`. Score, captures, player, rendering geometry, AI difficulty, and AI intent are never trusted from storage. Computer moves are indistinguishable from human moves in the persisted log.
+`src/persistence.ts` stores save format version 1 as an ordered list of safe-integer move coordinates. Loading starts from a fresh session and replays every move through `playMove()`. Score, captures, player, rendering geometry, AI difficulty, and AI intent are never trusted from storage. Computer moves are indistinguishable from human moves in the persisted log.
 
 Invalid JSON/version/coordinates or a move that is no longer legal invalidates only the game save.
 
@@ -201,7 +202,7 @@ Version-1 preferences from 0.6.0 contain only game mode. They are migrated in pl
 
 ### Browser Worker and UX orchestration
 
-Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses.
+Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses. Version 0.9.1 further hardens generation isolation so callbacks from cancelled/stale timers or Workers cannot clear the thinking state owned by a newer request.
 
 `CanvasBoard` owns presentation-only latest-move, desktop snap-preview, invalid-point, and confirmed-capture emphasis. `fitViewportToPoints()` remains a pure viewport helper with bounded automatic zoom. Move count comes from session history, Help/New game use native accessible dialogs, and mobile primary actions stay visible as compact controls.
 
@@ -252,7 +253,8 @@ Starting a new game resets the viewport to `(0, 0, 1)` and persists that present
 2. report `onOfflineReady` without altering game/session state;
 3. when a waiting worker signals `onNeedRefresh`, show a non-destructive update prompt;
 4. apply the waiting worker only after the user chooses Update;
-5. request update checks when connectivity returns, when the visible app returns to the foreground, and hourly while the app stays open.
+5. if explicit activation fails, report the error and leave the update action retryable;
+6. request update checks when connectivity returns, when the visible app returns to the foreground, and hourly while the app stays open.
 
 Network and worker failures remain status UI only. The persisted move log, viewport, preferences, and AI are independent of service-worker caches.
 
@@ -277,7 +279,7 @@ CI runs `npm audit --audit-level=high` before tests and production build; high o
 Automated coverage includes:
 
 - enclosure topology, houses, capture-of-capture, release, multiple/minimum captures, and large coordinates;
-- reversible sessions, invalid moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;
+- reversible sessions, invalid/non-safe-integer moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;
 - deterministic AI legality at all four levels, progressive profile depth, immediate capture selection, threat blocking from Normal upward, wrong-turn rejection, non-mutation, adaptive large-position budgets, and Expert sparse-position behavior;
 - deterministic AI-vs-AI replay plus paired Expert-vs-Normal/Hard non-losing and aggregate-strength guards;
 - six fixed Expert tactical positions covering multi-capture, defense, false closure, house safety, counter-capture, and capture-of-capture release;
@@ -285,6 +287,9 @@ Automated coverage includes:
 - long sparse game history with deterministic partial Undo;
 - reproducible `npm ci` dependency installation plus a high/critical `npm audit` gate;
 - TypeScript validation and the complete Vite/PWA production build;
-- post-build verification of generated service-worker/manifest/install artifacts.
+- post-build verification of generated service-worker/manifest/install artifacts;
+- PWA reconnect/foreground/periodic/update/cleanup lifecycle regression coverage.
 
 Version **0.8.2** is a toolchain/security hardening release: patched Vite/Vitest advisories, reproducible lockfile-based installs, an enforced high/critical audit gate, and maintained GitHub Actions runtimes. Game rules, persistence formats, UI behavior, PWA lifecycle, accessibility, and AI search/benchmark contracts are unchanged from 0.8.1.
+
+Version **0.9.1** is the current stabilized pre-1.0 release-candidate baseline. It adds safe-integer input/replay boundaries, stronger browser AI generation ownership, recoverable explicit PWA update failure, and direct PWA lifecycle regression coverage without changing game rules, save schemas, AI search policy, or user-facing features.

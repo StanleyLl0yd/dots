@@ -115,6 +115,8 @@ These are deterministic tactical regression guards, not an Elo system or a wall-
 
 The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.
 
+Version **0.9.1** further hardens generation ownership so callbacks from cancelled or stale timers/Workers cannot clear the thinking state owned by a newer computer request. Search depth, evaluation, difficulty semantics, and deterministic move selection are unchanged.
+
 ## Game-state ergonomics
 
 - **Undo** in two-player mode reverses one legal move and restores the player to move, active captures, released/captured status, and score to the exact previous rule state.
@@ -125,7 +127,7 @@ The browser sends a structured-cloned `GameState` plus AI options to a dedicated
 - Persistence stores a versioned ordered move log rather than trusting serialized derived capture/score state.
 - Loading a save replays every stored move through the same game core used for live play, rebuilding captures, score, current player, and Undo history deterministically.
 - Computer-generated moves are persisted as ordinary legal moves and require no AI-specific save format.
-- Malformed, illegal, corrupted, or unsupported save data is discarded instead of being accepted as game state.
+- Malformed, illegal, corrupted, unsupported, or non-safe-integer move data is discarded instead of being accepted as game state.
 - Starting a new game clears the saved unfinished game.
 - Game mode and AI difficulty are versioned preferences stored separately from both the game move log and viewport state.
 - Preference format version 2 migrates valid 0.6.0 version-1 mode data and assigns **Normal** difficulty.
@@ -152,7 +154,7 @@ Latest-move rings, move counters, desktop snap previews, invalid-placement marke
 ## Browser, accessibility, and PWA behavior
 
 - The browser UI must remain fully usable without a network connection once the PWA shell has been cached; game-state persistence and AI never depend on the service worker or network.
-- A waiting service-worker update is presented to the user and applied only after explicit activation from the running UI. The application must not silently reload an active local game merely because a new build exists.
+- A waiting service-worker update is presented to the user and applied only after explicit activation from the running UI. The application must not silently reload an active local game merely because a new build exists. If explicit activation fails, the update action remains recoverable and the failure is reported as presentation status only.
 - Update checks may occur on reconnect, foreground return, and a bounded periodic cadence.
 - Offline/online/update status is presentation state only and must never alter game rules or persisted moves.
 - A pending computer turn should not continue consuming work while the page is hidden; if Blue is still to move, scheduling resumes when the app returns to the foreground.
@@ -165,7 +167,7 @@ Latest-move rings, move counters, desktop snap previews, invalid-placement marke
 
 ## Current implementation status
 
-Version **0.9.0** supports the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, responsive Worker-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:
+Version **0.9.1** is the stabilized pre-1.0 release-candidate baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -178,17 +180,17 @@ Version **0.9.0** supports the complete classic local game, strategically refine
 - deterministic AI-vs-AI regression harness with paired Expert-vs-Normal/Hard strength guards plus six fixed Expert tactical benchmark positions;
 - exact Undo semantics for local mode and full human decision rollback in computer mode;
 - confirmed New game;
-- versioned move-log persistence with replay restoration of rules and Undo history;
+- versioned move-log persistence with replay restoration of rules and Undo history plus fail-closed safe-integer coordinate validation;
 - separately versioned game-mode/difficulty preferences and viewport persistence;
 - pan/zoom viewport independent from rules, pointer/touch/pinch interaction, anchor-preserving transforms, and keyboard board control;
 - safe-area/dynamic-viewport mobile layout, practical touch targets, focus-visible, dark, forced-colors, and reduced-motion handling;
-- installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, and status feedback;
+- installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, retryable activation failure, and lifecycle regression coverage;
 - build-time verification of generated manifest, service worker, and required install/mobile assets;
 - bounded visible-grid rendering, DPR cap, debounced viewport persistence, and stress tests for long histories and repeated/extreme viewport transforms;
 - AI regression tests covering all four search profiles and a 300-stone Expert position;
 - committed npm lockfile, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm plus GitHub Actions.
 
-Remaining work is mainly empirical real-device/browser testing, continued adversarial topology coverage, and AI refinement driven by concrete failing positions rather than a missing principal game layer.
+Remaining pre-1.0 work is empirical real-device/browser and installed-PWA validation, keyboard/accessibility/forced-colors/reduced-motion checks, long-game responsiveness, continued adversarial topology coverage, and AI refinement only when driven by concrete failing positions. No principal software layer is missing.
 
 ## Delivery phases
 
@@ -290,9 +292,16 @@ Remaining work is mainly empirical real-device/browser testing, continued advers
 - accessible in-app New game confirmation;
 - production verification that the AI Worker bundle is generated.
 
+### Phase 6.1 — stabilization patch / release-candidate baseline — complete in 0.9.1
+
+- safe-integer authoritative and persisted move validation;
+- stale Worker/timer generation isolation from current thinking state;
+- recoverable explicit PWA update activation failure;
+- regression coverage for coordinate boundaries and PWA lifecycle behavior.
+
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
-Treat 0.9.x as a release-candidate line for empirical browser/device/PWA testing and concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export and Capacitor/Android packaging remain optional post-1.0 work rather than prerequisites for the stable web release.
+Use 0.9.1 as the release-candidate baseline for empirical browser/device/PWA testing and concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export and Capacitor/Android packaging remain optional post-1.0 work rather than prerequisites for the stable web release.
 
 ## Visual direction
 
@@ -306,7 +315,7 @@ Treat 0.9.x as a release-candidate line for empirical browser/device/PWA testing
 
 ## Technical invariants
 
-- Game coordinates are integers and are never derived from viewport pixels after input conversion.
+- Game coordinates are safe integers and are never derived from viewport pixels after input conversion.
 - Rendering cannot be the source of truth for rules.
 - Capture boundaries are ordered game-coordinate paths and every consecutive pair, including last-to-first, has Chebyshev distance exactly `1`.
 - Captured stones do not participate in boundary construction until their holding capture is deactivated.
@@ -328,11 +337,11 @@ Treat 0.9.x as a release-candidate line for empirical browser/device/PWA testing
 - AI-vs-AI regression games and fixed tactical positions must feed every tested move through the authoritative core and remain deterministic and hardware-independent.
 - Invalid or unsupported persisted move logs fail closed to a fresh game.
 - Game-mode/difficulty preference and viewport are presentation/session preferences stored separately from the move log.
-- Screen input is transformed to game space and snapped to an integer intersection before the core receives a move.
+- Screen input is transformed to game space and snapped to a safe-integer intersection before the core receives a move.
 - Pan/zoom, Fit game, desktop snap preview, latest-move/invalid markers, and accessibility camera-follow may change only presentation.
 - Rendering loops operate on visible/bounded work rather than arbitrary world extents.
 - Offline/online/service-worker state cannot alter or replace `GameState` or its persistence.
-- A waiting service-worker update must not silently reload an active game; the user controls activation from the update prompt.
+- A waiting service-worker update must not silently reload an active game; the user controls activation from the update prompt, and activation failure must leave a retryable user action.
 - Keyboard placement must call the same game-core path as pointer placement; accessibility is not a parallel rules implementation.
 - Essential state must remain perceivable with reduced motion and forced colors; focus must remain visible for keyboard interaction.
 - Production builds must fail if required PWA/offline install artifacts or the browser AI Worker bundle are missing.
