@@ -9,6 +9,7 @@ on:
       - src-tauri/**
       - public/**
       - scripts/capture-rustore-android.mjs
+      - scripts/run-rustore-emulator-capture.sh
       - scripts/tauri-android-build.gradle.kts
       - store/rustore/**
       - .github/workflows/rustore-assets.yml
@@ -23,6 +24,7 @@ on:
       - src-tauri/**
       - public/**
       - scripts/capture-rustore-android.mjs
+      - scripts/run-rustore-emulator-capture.sh
       - scripts/tauri-android-build.gradle.kts
       - store/rustore/**
       - .github/workflows/rustore-assets.yml
@@ -97,28 +99,8 @@ jobs:
           profile: pixel_5
           emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -prop persist.sys.locale=ru-RU
-          script: |
-            adb shell wm size 1080x1920
-            adb shell wm density 420
-            adb shell cmd uimode night no
-            adb shell settings put system system_locales ru-RU || true
-            adb install -r "$EMULATOR_APK"
-            adb shell am force-stop com.sl.dots
-            adb shell monkey -p com.sl.dots -c android.intent.category.LAUNCHER 1 >/dev/null
-            sleep 4
-            adb shell dumpsys window | grep -F 'com.sl.dots' >/dev/null
-            SOCKET="$(adb shell cat /proc/net/unix | tr -d '\r' | sed -n 's/.*@\(webview_devtools_remote_[^ ]*\).*/\1/p' | head -n 1)"
-            test -n "$SOCKET"
-            adb forward tcp:9222 "localabstract:$SOCKET"
-            for attempt in {1..30}; do
-              if curl -fsS http://127.0.0.1:9222/json >/dev/null; then
-                break
-              fi
-              sleep 1
-            done
-            curl -fsS http://127.0.0.1:9222/json >/dev/null
-            node scripts/capture-rustore-android.mjs store/rustore/generated
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -prop qemu.locale=ru-RU
+          script: bash scripts/run-rustore-emulator-capture.sh "$EMULATOR_APK"
 
       - name: Generate store icon and promo banner
         run: |
