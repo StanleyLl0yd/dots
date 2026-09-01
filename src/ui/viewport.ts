@@ -16,7 +16,7 @@ export interface Viewport {
   zoom: number;
 }
 
-export interface GridBounds {
+interface GridBounds {
   minX: number;
   maxX: number;
   minY: number;
@@ -99,7 +99,8 @@ export const fitViewportToPoints = (
   let maxX = list[0].x;
   let minY = list[0].y;
   let maxY = list[0].y;
-  for (const point of list.slice(1)) {
+  for (let index = 1; index < list.length; index += 1) {
+    const point = list[index];
     minX = Math.min(minX, point.x);
     maxX = Math.max(maxX, point.x);
     minY = Math.min(minY, point.y);
