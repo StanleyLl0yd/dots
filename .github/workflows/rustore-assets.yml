@@ -77,6 +77,22 @@ jobs:
       - name: Build emulator APK
         run: |
           npx tauri android init --ci
+          MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
+          test -f "$MAIN_ACTIVITY"
+          cat > "$MAIN_ACTIVITY" <<'KOTLIN'
+          package com.sl.dots
+
+          import android.os.Bundle
+          import android.webkit.WebView
+          import app.tauri.TauriActivity
+
+          class MainActivity : TauriActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  WebView.setWebContentsDebuggingEnabled(true)
+                  super.onCreate(savedInstanceState)
+              }
+          }
+          KOTLIN
           npx tauri icon public/pwa-192.png
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           npx tauri android build --apk --debug --target x86_64
@@ -99,7 +115,7 @@ jobs:
           profile: pixel_5
           emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -prop qemu.locale=ru-RU
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash scripts/run-rustore-emulator-capture.sh "$EMULATOR_APK"
 
       - name: Generate store icon and promo banner
@@ -184,7 +200,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: Dots-v${{ env.VERSION }}-RuStore-assets
-          path: release/Dots-v${{ env.VERSION }}-RuStore-assets.zip
+          path: release/Dots-v${VERSION}-RuStore-assets.zip
           if-no-files-found: error
 
       - name: Attach assets to GitHub Release
