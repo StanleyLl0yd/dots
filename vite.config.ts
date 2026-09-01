@@ -1,10 +1,13 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM);
+
 export default defineConfig(({ command }) => ({
-  base: command === "build" ? "/dots/" : "/",
+  base: isTauriBuild ? "./" : command === "build" ? "/dots/" : "/",
   plugins: [
     VitePWA({
+      disable: isTauriBuild,
       registerType: "prompt",
       includeAssets: ["icon.svg", "pwa-192.png", "apple-touch-icon.png"],
       manifest: {
