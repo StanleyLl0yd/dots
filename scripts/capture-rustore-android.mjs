@@ -120,13 +120,10 @@ const visible = (selector) => `(() => {
 
 const screenshot = async (cdp, name) => {
   await cdp.evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
-  const result = await cdp.send("Page.captureScreenshot", {
-    format: "png",
-    fromSurface: true,
-    captureBeyondViewport: false
-  });
-  assert(result.data, `Android WebView did not return screenshot data for ${name}`);
-  await writeFile(resolve(outputDir, name), Buffer.from(result.data, "base64"));
+  await sleep(100);
+  const png = execFileSync("adb", ["exec-out", "screencap", "-p"]);
+  assert(png.length > 1000, `Android framebuffer screenshot failed for ${name}`);
+  await writeFile(resolve(outputDir, name), png);
 };
 
 await mkdir(outputDir, { recursive: true });
