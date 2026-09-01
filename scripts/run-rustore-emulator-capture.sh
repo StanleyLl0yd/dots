@@ -8,11 +8,14 @@ adb shell wm density 420
 adb shell cmd uimode night no
 adb install -r "$apk"
 adb shell pm clear com.sl.dots >/dev/null
+adb shell settings put global hide_error_dialogs 1 || true
 adb shell settings put secure immersive_mode_confirmations confirmed || true
 adb shell settings put global policy_control immersive.full=com.sl.dots || true
+adb shell am force-stop com.google.android.apps.nexuslauncher || true
 adb shell am start -W -n com.sl.dots/.MainActivity >/dev/null
 sleep 1
 adb shell input tap 920 500 || true
+adb shell input tap 360 990 || true
 sleep 0.5
 adb shell settings put secure immersive_mode_confirmations confirmed || true
 
