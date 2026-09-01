@@ -4,6 +4,19 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-01
+
+### Added
+
+- RuStore publication package with privacy policy, user agreement, Russian store metadata, and reproducible 512×512 icon, 1080×607 promo banner, and four 1080×1920 screenshots;
+- dedicated local signing helpers that keep the RuStore app-signing private key offline and store only the separate AAB upload key in GitHub Actions secrets;
+- AAB verification through JAR signature validation, Bundletool manifest inspection, and universal-APK generation before release upload.
+
+### Changed
+
+- Android native releases now produce an upload-key-signed Android App Bundle (`.aab`) instead of an APK while macOS continues to publish a universal DMG;
+- source version advanced to 0.9.3 with no gameplay, rules, save-format, AI, scoring, or web/PWA behavior changes.
+
 ## [0.9.2] - 2026-09-01
 
 ### Added

@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Версия](https://img.shields.io/badge/source-0.9.1-16A34A?labelColor=2b2925)](package.json)
+[![Версия](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
 [![Лицензия](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@
 
 **Точки** переносят лист бумаги в клетку и две цветные ручки в браузер. Игроки ставят точки на пересечения сетки и строят замкнутые цепочки из соседних точек вокруг соперника. Завершённые захваты обводятся и получают лёгкую штриховку.
 
-Текущая версия исходников: **0.9.1** · стабилизированный release-candidate перед 1.0 + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
+Текущая версия исходников: **0.9.3** · готовый для RuStore AAB + нативная оболочка Tauri + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
 
 ## 🎯 Правила
 
@@ -130,7 +130,7 @@
 - русский интерфейс при наличии русского языка в браузере/системе, иначе английский;
 - CI, автоматическая публикация GitHub Pages, автоматические GitHub Releases и proprietary-лицензия All Rights Reserved.
 
-Версия **0.9.1** — стабилизированный release-candidate patch перед 1.0. Усилена проверка авторитетных и сохранённых координат, устаревшие поколения браузерного ИИ изолированы от актуального состояния, а неудачное явное PWA-обновление корректно возвращает действие обновления; правила, схема сохранений, политика поиска ИИ и пользовательские возможности не меняются.
+Версия **0.9.3** подготовлена для нативной публикации в RuStore. Android-сборка теперь выпускается как подписанный AAB с отдельным upload key, воспроизводимыми материалами магазина и опубликованными страницами политики конфиденциальности/пользовательского соглашения. Игровые правила, формат сохранений, политика поиска ИИ, счёт и поведение web/PWA не изменены.
 
 ## 🧱 Технологии
 
@@ -140,6 +140,7 @@
 | Отрисовка | HTML5 Canvas |
 | Сборка | Vite 7.3.6 |
 | PWA | vite-plugin-pwa / Workbox |
+| Нативная оболочка | Tauri 2 |
 | Тесты | Vitest 3.2.7 + проверка артефактов сборки |
 | Хранение | версионированный журнал ходов + viewport + настройки режима/сложности в localStorage |
 | ИИ | детерминированный ограниченный стратегический minimax поверх game core, выполняемый в browser Web Worker |
@@ -176,7 +177,10 @@ src/
 └── styles.css             notebook/mobile/accessibility оформление
 
 scripts/
-└── verify-build.mjs       проверка production PWA/AI-worker артефактов
+├── verify-build.mjs              проверка production PWA/AI-worker артефактов
+├── capture-rustore-assets.mjs    детерминированные скриншоты RuStore
+├── setup-rustore-signing.ps1     подготовка app/upload ключей подписи
+└── prepare-rustore-pepk.ps1      подготовка PEPK-архива RuStore
 ```
 
 Подробнее — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md) и [`CHANGELOG.md`](CHANGELOG.md).
@@ -204,10 +208,10 @@ npm run build
 
 ## 🗺 План
 
-1. Использовать 0.9.1 как release-candidate baseline и продолжать проверку на реальных устройствах/браузерах и сложных топологических позициях, включая отзывчивость «Эксперта» на мобильных устройствах.
-2. Усиливать ИИ только на основе конкретных слабых позиций или результатов регрессионных матчей, сохраняя детерминированные ограничения поиска.
-3. После стабильного 1.0 рассмотреть импорт/экспорт, только если он останется простым и действительно полезным.
-4. После стабильного 1.0 при необходимости упаковать ту же кодовую базу для Android через Capacitor.
+1. Опубликовать и проверить Android AAB 0.9.3 в RuStore через отдельные app-signing и upload keys.
+2. Продолжать проверку Android/macOS и установленной PWA на реальных устройствах и исправлять только конкретные регрессии.
+3. Усиливать топологические и тактические проверки ИИ без спекулятивного расширения возможностей до 1.0.
+4. Выпустить **1.0.0** после чистой проверки реальных устройств, сохранений, offline/update, отмены Worker, доступности и длинных партий.
 
 ## 📄 Лицензия
 
