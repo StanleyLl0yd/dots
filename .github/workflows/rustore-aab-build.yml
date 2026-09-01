@@ -131,7 +131,7 @@ jobs:
           jarsigner -verify -strict "$AAB"
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
-          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package)"
+          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath='/manifest/@package' | tr -d '"\r\n')"
           test "$PACKAGE" = "com.sl.dots"
           test "$(stat -c%s "$AAB")" -lt 5368709120
           keytool -printcert -file release/uploadcert.pem >/dev/null
