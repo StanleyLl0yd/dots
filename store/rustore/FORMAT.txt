@@ -1,0 +1,1 @@
+RuStore image formats: PNG, RGB/RGBA, generated at exact required dimensions.
