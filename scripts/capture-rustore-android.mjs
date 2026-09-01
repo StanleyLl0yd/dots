@@ -110,9 +110,23 @@ const seed = async (cdp, moves, preferences) => {
   await sleep(300);
 };
 
-const screenshot = async (name) => {
-  const png = execFileSync("adb", ["exec-out", "screencap", "-p"]);
-  await writeFile(resolve(outputDir, name), png);
+const visible = (selector) => `(() => {
+  const element = document.querySelector(${JSON.stringify(selector)});
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  return rect.width > 100 && rect.height > 100 && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth && style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0;
+})()`;
+
+const screenshot = async (cdp, name) => {
+  await cdp.evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  const result = await cdp.send("Page.captureScreenshot", {
+    format: "png",
+    fromSurface: true,
+    captureBeyondViewport: false
+  });
+  assert(result.data, `Android WebView did not return screenshot data for ${name}`);
+  await writeFile(resolve(outputDir, name), Buffer.from(result.data, "base64"));
 };
 
 await mkdir(outputDir, { recursive: true });
@@ -132,22 +146,22 @@ await seed(cdp, captureMoves, { gameMode: "local", aiDifficulty: "normal" });
 assert(await cdp.evaluate(`document.documentElement.lang === "ru"`), "Russian locale was not applied");
 assert(await cdp.evaluate(`document.querySelector('[data-red-label]')?.textContent === "Красные"`), "Russian game labels are missing");
 assert(Number(await cdp.evaluate(`document.querySelector('[data-score-red]')?.textContent ?? "0"`)) > 0, "Expected real capture was not produced by the game engine");
-await screenshot("01-game-capture.png");
+await screenshot(cdp, "01-game-capture.png");
 
 await seed(cdp, computerMoves, { gameMode: "computer", aiDifficulty: "expert" });
 assert(await cdp.evaluate(`document.querySelector('[data-game-mode]')?.value === "computer"`), "Computer mode was not applied");
 assert(await cdp.evaluate(`document.querySelector('[data-ai-difficulty]')?.value === "expert"`), "Expert difficulty was not applied");
-await screenshot("02-vs-computer.png");
+await screenshot(cdp, "02-vs-computer.png");
 
 await seed(cdp, captureMoves, { gameMode: "local", aiDifficulty: "normal" });
 await cdp.evaluate(`document.querySelector('.help')?.click()`);
-await waitFor(cdp, `document.querySelector('[data-help-dialog]')?.open === true`, "Help dialog did not open");
+await waitFor(cdp, `document.querySelector('[data-help-dialog]')?.open === true && ${visible("[data-help-dialog]")}`, "Help dialog is not visibly rendered");
 await sleep(200);
-await screenshot("03-help.png");
+await screenshot(cdp, "03-help.png");
 
 await cdp.evaluate(`document.querySelector('[data-help-dialog]')?.close(); document.querySelector('.about-button')?.click()`);
-await waitFor(cdp, `document.querySelector('.about-dialog')?.open === true`, "About dialog did not open");
+await waitFor(cdp, `document.querySelector('.about-dialog')?.open === true && ${visible(".about-dialog")}`, "About dialog is not visibly rendered");
 await sleep(200);
-await screenshot("04-about.png");
+await screenshot(cdp, "04-about.png");
 
 cdp.close();
