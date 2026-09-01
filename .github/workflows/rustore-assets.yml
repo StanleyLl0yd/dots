@@ -88,7 +88,7 @@ jobs:
           if "import android.webkit.WebView" not in text:
               text = text.replace(
                   "import android.os.Bundle\n",
-                  "import android.os.Bundle\nimport android.webkit.WebView\n",
+                  "import android.os.Bundle\nimport android.view.WindowInsets\nimport android.view.WindowInsetsController\nimport android.webkit.WebView\n",
                   1,
               )
           needle = "  override fun onCreate(savedInstanceState: Bundle?) {\n"
@@ -99,6 +99,16 @@ jobs:
               text = text.replace(
                   needle,
                   needle + "    WebView.setWebContentsDebuggingEnabled(true)\n",
+                  1,
+              )
+          super_call = "    super.onCreate(savedInstanceState)\n"
+          if super_call not in text:
+              print(text)
+              raise SystemExit("Generated MainActivity has no super.onCreate call")
+          if "WindowInsets.Type.systemBars()" not in text:
+              text = text.replace(
+                  super_call,
+                  super_call + "    window.insetsController?.apply {\n      hide(WindowInsets.Type.systemBars())\n      systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE\n    }\n",
                   1,
               )
           path.write_text(text)
