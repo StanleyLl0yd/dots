@@ -84,6 +84,17 @@ describe("game persistence", () => {
     expect(storage.getItem(SAVE_KEY)).toBeNull();
   });
 
+  it("rejects unsafe saved coordinates", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SAVE_KEY,
+      JSON.stringify({ version: SAVE_VERSION, moves: [{ x: Number.MAX_SAFE_INTEGER + 1, y: 0 }] })
+    );
+
+    expect(loadSession(storage)).toBeUndefined();
+    expect(storage.getItem(SAVE_KEY)).toBeNull();
+  });
+
   it("clears a saved game", () => {
     const storage = new MemoryStorage();
     saveSession(storage, playMove(createSession(), { x: 0, y: 0 }));

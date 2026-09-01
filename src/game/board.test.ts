@@ -49,6 +49,18 @@ describe("board", () => {
     expect(twice).toBe(once);
   });
 
+  it("rejects non-integer and unsafe coordinates", () => {
+    const initial = createGameState();
+
+    for (const point of [
+      { x: 0.5, y: 0 },
+      { x: 0, y: Number.POSITIVE_INFINITY },
+      { x: Number.MAX_SAFE_INTEGER + 1, y: 0 }
+    ]) {
+      expect(placeStone(initial, point)).toBe(initial);
+    }
+  });
+
   it("captures only after the neighboring-dot boundary is really closed", () => {
     const initial = stateWith([
       stone(0, -1, "red"),
