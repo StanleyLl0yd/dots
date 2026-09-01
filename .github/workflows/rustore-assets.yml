@@ -6,8 +6,10 @@ on:
       - package.json
       - index.html
       - src/**
+      - src-tauri/**
       - public/**
-      - scripts/capture-rustore-assets.mjs
+      - scripts/capture-rustore-android.mjs
+      - scripts/tauri-android-build.gradle.kts
       - store/rustore/**
       - .github/workflows/rustore-assets.yml
   push:
@@ -18,8 +20,10 @@ on:
       - package.json
       - index.html
       - src/**
+      - src-tauri/**
       - public/**
-      - scripts/capture-rustore-assets.mjs
+      - scripts/capture-rustore-android.mjs
+      - scripts/tauri-android-build.gradle.kts
       - store/rustore/**
       - .github/workflows/rustore-assets.yml
   workflow_dispatch:
@@ -30,7 +34,7 @@ permissions:
 jobs:
   assets:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,37 +51,78 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Install and verify web dependencies
+      - name: Install and verify dependencies
         run: |
           npm ci
           npm audit --audit-level=high
           npm test
-
-      - name: Build native frontend
-        env:
-          TAURI_ENV_PLATFORM: android
-        run: npm run build:native
-
-      - name: Install screenshot tooling
-        run: |
-          npm install --no-save --package-lock=false playwright@1.55.0
-          npx playwright install --with-deps chromium
           python3 -m pip install --disable-pip-version-check pillow==11.3.0
 
-      - name: Capture RuStore screenshots
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Configure Android toolchain
         run: |
-          python3 -m http.server 4173 --directory dist > "$RUNNER_TEMP/dots-http.log" 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID" >/dev/null 2>&1 || true' EXIT
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add x86_64-linux-android
+
+      - name: Build emulator APK
+        run: |
+          cargo tauri android init --ci
+          cargo tauri icon public/pwa-192.png
+          cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
+          cargo tauri android build --apk --debug --target x86_64
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+          test -f "$APK"
+          echo "EMULATOR_APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Start Android emulator
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
+          echo no | avdmanager create avd --force --name dots-api35 --package "system-images;android-35;google_apis;x86_64"
+          sudo chmod 666 /dev/kvm || true
+          nohup emulator -avd dots-api35 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader_indirect -prop persist.sys.locale=ru-RU > "$RUNNER_TEMP/dots-emulator.log" 2>&1 &
+          adb wait-for-device
+          for attempt in {1..120}; do
+            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
+          adb shell wm size 1080x1920
+          adb shell wm density 420
+          adb shell cmd uimode night no
+          adb shell settings put system system_locales ru-RU || true
+          adb shell settings put global animator_duration_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global window_animation_scale 0
+
+      - name: Install and launch Dots
+        run: |
+          adb install -r "$EMULATOR_APK"
+          adb shell am force-stop com.sl.dots
+          adb shell monkey -p com.sl.dots -c android.intent.category.LAUNCHER 1 >/dev/null
+          sleep 4
+          adb shell dumpsys window | grep -F 'com.sl.dots' >/dev/null
+          SOCKET="$(adb shell cat /proc/net/unix | tr -d '\r' | sed -n 's/.*@\(webview_devtools_remote_[^ ]*\).*/\1/p' | head -n 1)"
+          test -n "$SOCKET"
+          adb forward tcp:9222 "localabstract:$SOCKET"
           for attempt in {1..30}; do
-            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+            if curl -fsS http://127.0.0.1:9222/json >/dev/null; then
               break
             fi
             sleep 1
           done
-          DOTS_BASE_URL=http://127.0.0.1:4173 node scripts/capture-rustore-assets.mjs store/rustore/generated
+          curl -fsS http://127.0.0.1:9222/json >/dev/null
 
-      - name: Generate icon and promo banner
+      - name: Capture Android emulator screenshots
+        run: node scripts/capture-rustore-android.mjs store/rustore/generated
+
+      - name: Generate store icon and promo banner
         run: |
           python3 - <<'PY'
           from pathlib import Path
