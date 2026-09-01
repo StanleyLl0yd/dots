@@ -1,0 +1,157 @@
+name: RuStore Assets
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - index.html
+      - src/**
+      - public/**
+      - scripts/capture-rustore-assets.mjs
+      - store/rustore/**
+      - .github/workflows/rustore-assets.yml
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - index.html
+      - src/**
+      - public/**
+      - scripts/capture-rustore-assets.mjs
+      - store/rustore/**
+      - .github/workflows/rustore-assets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Resolve version
+        run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+
+      - name: Install and verify web dependencies
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          npm test
+
+      - name: Build native frontend
+        env:
+          TAURI_ENV_PLATFORM: android
+        run: npm run build:native
+
+      - name: Install screenshot tooling
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+          python3 -m pip install --disable-pip-version-check pillow==11.3.0
+
+      - name: Capture RuStore screenshots
+        run: |
+          python3 -m http.server 4173 --directory dist > "$RUNNER_TEMP/dots-http.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          DOTS_BASE_URL=http://127.0.0.1:4173 node scripts/capture-rustore-assets.mjs store/rustore/generated
+
+      - name: Generate icon and promo banner
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          out = Path('store/rustore/generated')
+          icon = Image.open('public/pwa-192.png').convert('RGB').resize((512, 512), Image.Resampling.LANCZOS)
+          icon.save(out / 'icon-512.png', optimize=True)
+
+          width, height = 1080, 607
+          banner = Image.new('RGB', (width, height), '#f4efe5')
+          draw = ImageDraw.Draw(banner)
+          grid = '#d7d0c4'
+          for x in range(0, width, 54):
+              draw.line((x, 0, x, height), fill=grid, width=1)
+          for y in range(0, height, 54):
+              draw.line((0, y, width, y), fill=grid, width=1)
+
+          red = '#d94444'
+          blue = '#367bd6'
+          for x, y in [(135, 142), (216, 223), (135, 304), (54, 223)]:
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=red)
+          draw.ellipse((135-16, 223-16, 135+16, 223+16), fill=blue)
+          for x, y in [(350, 170), (431, 251), (350, 332), (269, 251)]:
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=blue)
+          draw.ellipse((350-16, 251-16, 350+16, 251+16), fill=red)
+
+          font_root = Path('/usr/share/fonts/truetype/dejavu')
+          title = ImageFont.truetype(str(font_root / 'DejaVuSans-Bold.ttf'), 96)
+          subtitle = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 30)
+          small = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 24)
+          draw.text((535, 155), 'DOTS', font=title, fill='#2b2925')
+          draw.text((539, 282), 'Окружай · Захватывай · Контролируй', font=subtitle, fill='#2b2925')
+          draw.text((541, 343), 'Классическая игра «Точки»', font=small, fill='#625e57')
+          banner.save(out / 'promo-banner-1080x607.png', optimize=True)
+          PY
+
+      - name: Verify RuStore assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          expected = {
+              'icon-512.png': (512, 512),
+              'promo-banner-1080x607.png': (1080, 607),
+              '01-game-capture.png': (1080, 1920),
+              '02-vs-computer.png': (1080, 1920),
+              '03-help.png': (1080, 1920),
+              '04-about.png': (1080, 1920),
+          }
+          root = Path('store/rustore/generated')
+          for name, size in expected.items():
+              image = Image.open(root / name)
+              if image.size != size:
+                  raise SystemExit(f'{name}: expected {size}, got {image.size}')
+          PY
+          mkdir -p release
+          (cd store/rustore/generated && zip -9 "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" ./*.png)
+
+      - name: Upload RuStore assets artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-RuStore-assets
+          path: release/Dots-v${{ env.VERSION }}-RuStore-assets.zip
+          if-no-files-found: error
+
+      - name: Attach assets to GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VERSION}"
+          for attempt in {1..30}; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "release/Dots-v${VERSION}-RuStore-assets.zip" --clobber
