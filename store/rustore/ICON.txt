@@ -1,0 +1,1 @@
+Store icon is generated from the canonical Dots PWA icon at 512×512.
