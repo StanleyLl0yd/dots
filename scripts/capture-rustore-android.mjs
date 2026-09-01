@@ -51,7 +51,7 @@ class Cdp {
     await this.opened;
     const id = this.nextId++;
     const result = new Promise((resolveResult, rejectResult) => {
-      this.pending.set(id, { resolve: resolveResult, rejectResult, reject: rejectResult });
+      this.pending.set(id, { resolve: resolveResult, reject: rejectResult });
     });
     this.socket.send(JSON.stringify({ id, method, params }));
     return result;
