@@ -1,4 +1,0 @@
-01 game capture
-02 versus computer
-03 help dialog
-04 about dialog

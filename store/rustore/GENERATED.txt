@@ -1,1 +1,0 @@
-Do not edit generated images manually; regenerate them with the RuStore Assets workflow.

@@ -1,6 +1,0 @@
-icon-512.png
-promo-banner-1080x607.png
-01-game-capture.png
-02-vs-computer.png
-03-help.png
-04-about.png
