@@ -4,6 +4,11 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- GitHub Pages deployment now runs the same high/critical npm audit gate before tests and production build;
+- GitHub Release publication now independently runs reproducible install, dependency audit, the full test suite, TypeScript validation, production/PWA build, and artifact verification before creating a new tag/release.
+
 ## [0.9.1] - 2026-09-01
 
 ### Added
