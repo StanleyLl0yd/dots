@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.9.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.9.1-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.9.0** · classic advanced rules + four-level local computer play + responsive Worker-based AI turns + polished board feedback/navigation + hardened PWA/accessibility + reproducible audited toolchain
+Current source version: **0.9.1** · stabilized pre-1.0 release candidate + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -102,7 +102,7 @@ Computer search runs off the UI thread. Pending Worker computation can be cancel
 
 The application shell is precached for offline use. Saved games, viewport state, game mode, and AI difficulty are local browser data and do not depend on the network or service worker.
 
-When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage.
+When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. If explicit activation fails, the update action becomes available again and the existing PWA error status is shown so the user can retry. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage.
 
 ## ✨ Current build
 
@@ -115,13 +115,13 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - tactical move ordering, alpha-beta pruning, and selective forcing capture/release horizon extensions;
 - deterministic AI-vs-AI paired strength regression tests plus six fixed Expert tactical benchmark positions;
 - versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
-- exact Undo, accessible confirmed New game, versioned move-log persistence, and deterministic replay restore;
-- cancellable AI Web Worker orchestration with stale-response guards and authoritative `playMove()` acceptance;
+- exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;
+- cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;
 - latest-move marker, move counter, capture/invalid-placement feedback, desktop snap preview, first-run Help, Fit game, and responsive mobile action toolbar;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
 - accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
-- explicit offline/update PWA lifecycle with user-confirmed refresh;
+- explicit offline/update PWA lifecycle with user-confirmed refresh, retryable activation failure, and lifecycle regression coverage;
 - build-time verification of generated PWA/offline artifacts;
 - committed npm lockfile with reproducible `npm ci` installs in CI and Pages;
 - CI security gate rejecting high/critical npm advisories, currently reporting zero vulnerabilities;
@@ -130,7 +130,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.9.0** is the pre-1.0 game-UX polish release. Game rules, saved-game format, and AI search decisions are unchanged; browser AI computation is isolated from the UI thread and the principal game interactions now provide clearer visual, mobile, and assistive feedback.
+Version **0.9.1** is the stabilized pre-1.0 release-candidate patch. It hardens authoritative/persisted coordinate validation, isolates stale browser AI generations, and recovers failed explicit PWA updates without changing game rules, save schemas, AI search policy, or user-facing features.
 
 ## 🧱 Technology
 
@@ -172,6 +172,7 @@ src/
 ├── preferences.ts         versioned game-mode + AI-difficulty preference
 ├── viewport-persistence.ts  separate viewport save/restore adapter
 ├── pwa.ts                 service-worker update/offline lifecycle
+├── pwa.test.ts            service-worker lifecycle regression tests
 ├── i18n.ts                Russian / English interface and a11y copy
 ├── main.ts                application composition, computer-turn scheduling, status UI
 └── styles.css             notebook/mobile/accessibility visual layer
@@ -205,7 +206,7 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Treat 0.9.x as the release-candidate line: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only.
+1. Use 0.9.1 as the release-candidate baseline: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only.
 2. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
 3. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
 4. Consider import/export or Android/Capacitor packaging only after the stable 1.0 web/PWA release.

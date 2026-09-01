@@ -92,6 +92,8 @@ Version **0.9.0** changes browser orchestration, not AI policy. `main.ts` starts
 
 The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.
 
+Version **0.9.1** hardens generation ownership so stale or cancelled timer/Worker callbacks cannot clear the thinking state of a newer computer request. Search depth, evaluation, deterministic tie-breaking, difficulty behavior, and tactical benchmark expectations remain unchanged.
+
 This keeps long Hard/Expert calculations off the UI thread without changing search depth, evaluation, deterministic tie-breaking, tactical benchmarks, or game rules. Production verification requires the generated `ai-worker-*.js` asset.
 
 ## Preference migration
@@ -100,7 +102,7 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Safety and invariants
 
-- The AI may suggest only a coordinate; `playMove()` remains responsible for accepting the move into session history.
+- The AI may suggest only a safe-integer coordinate; `playMove()` remains responsible for accepting the move into session history.
 - The AI cannot invent captures, scores, houses, releases, or legal moves.
 - Captured stones are excluded from the AI's active-structure heuristic while their holding capture remains active.
 - Difficulty changes search policy only; they never modify game rules or persisted moves.
