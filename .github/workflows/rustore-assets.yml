@@ -56,10 +56,8 @@ jobs:
           npm ci
           npm audit --audit-level=high
           npm test
+          npm install --no-save --package-lock=false @tauri-apps/cli@2.11.4
           python3 -m pip install --disable-pip-version-check pillow==11.3.0
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Configure Android toolchain
         run: |
@@ -70,10 +68,10 @@ jobs:
 
       - name: Build emulator APK
         run: |
-          cargo tauri android init --ci
-          cargo tauri icon public/pwa-192.png
+          npx tauri android init --ci
+          npx tauri icon public/pwa-192.png
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
-          cargo tauri android build --apk --debug --target x86_64
+          npx tauri android build --apk --debug --target x86_64
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           test -f "$APK"
           echo "EMULATOR_APK=$APK" >> "$GITHUB_ENV"
