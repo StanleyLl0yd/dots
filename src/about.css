@@ -1,0 +1,62 @@
+.brand {
+  position: relative;
+  padding-right: 42px;
+}
+
+.about-button {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #b9ae9e;
+  border-radius: 999px;
+  background: #fffaf2;
+  color: #71695f;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgb(43 41 37 / .08);
+}
+
+.about-button:hover {
+  border-color: #8e8374;
+  color: #2b2925;
+}
+
+.about-dialog .about-meta,
+.about-dialog .about-rights {
+  font-size: 13px;
+}
+
+.about-link {
+  width: fit-content;
+  color: #1d4ed8;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.about-link:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (forced-colors: active) {
+  .about-button { border-color: CanvasText; }
+  .about-link:focus-visible { outline-color: Highlight; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .about-button {
+    background: rgb(42 39 34 / .96);
+    color: #b5aca0;
+    border-color: #514b42;
+  }
+  .about-button:hover { color: #eee8de; border-color: #746b5f; }
+  .about-link { color: #60a5fa; }
+}

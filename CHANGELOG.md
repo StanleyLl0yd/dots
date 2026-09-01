@@ -4,6 +4,10 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- compact localized About dialog with current package version, copyright notice, and project link.
+
 ### Changed
 
 - GitHub Pages deployment now runs the same high/critical npm audit gate before tests and production build;
