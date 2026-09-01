@@ -2,9 +2,9 @@ name: Refactor audit
 
 on:
   push:
-    branches: [main]
-    paths:
-      - .github/workflows/refactor-audit.yml
+    branches:
+      - refactor/full-audit-0.9.3
+  workflow_dispatch:
 
 permissions:
   contents: read
