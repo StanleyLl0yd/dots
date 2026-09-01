@@ -1,5 +1,5 @@
 import type { StorageLike } from "./persistence";
-import { DEFAULT_VIEWPORT, MAX_VIEWPORT_CENTER, MAX_ZOOM, MIN_ZOOM, type Viewport } from "./ui/viewport";
+import { MAX_VIEWPORT_CENTER, MAX_ZOOM, MIN_ZOOM, type Viewport } from "./ui/viewport";
 
 export const VIEWPORT_SAVE_VERSION = 1;
 export const VIEWPORT_SAVE_KEY = "dots.viewport";
@@ -64,8 +64,4 @@ export const saveViewport = (storage: StorageLike, viewport: Viewport): void => 
     const payload: StoredViewport = { version: VIEWPORT_SAVE_VERSION, ...viewport };
     storage.setItem(VIEWPORT_SAVE_KEY, JSON.stringify(payload));
   } catch {}
-};
-
-export const resetSavedViewport = (storage: StorageLike): void => {
-  saveViewport(storage, DEFAULT_VIEWPORT);
 };
