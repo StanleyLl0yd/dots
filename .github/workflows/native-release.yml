@@ -1,0 +1,228 @@
+name: Native Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - src-tauri/**
+      - scripts/tauri-android-build.gradle.kts
+      - .github/workflows/native-release.yml
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild and attach native artifacts to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Signed Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Resolve release version
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Configure Android toolchain
+        run: |
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Restore Android signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          KEYSTORE_PATH="$RUNNER_TEMP/dots.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Initialize Android wrapper
+        run: |
+          cargo tauri android init --ci
+          cargo tauri icon public/pwa-192.png
+          cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
+
+      - name: Build signed APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          cargo tauri android build --apk
+          mkdir -p release
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          test -f "$APK"
+          cp "$APK" "release/Dots-v${VERSION}-Android.apk"
+
+      - name: Verify signed APK
+        run: |
+          APK="release/Dots-v${VERSION}-Android.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.sl.dots'"
+          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
+
+      - name: Attach APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..30}; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "release/Dots-v${VERSION}-Android.apk" --clobber
+
+  macos:
+    name: Universal macOS DMG
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Resolve release version
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Configure macOS Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Generate native icons
+        run: cargo tauri icon public/pwa-192.png
+
+      - name: Build universal DMG
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: cargo tauri build --bundles dmg --target universal-apple-darwin
+
+      - name: Verify and stage DMG
+        run: |
+          DMG="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -type f -name '*.dmg' -print -quit)"
+          test -f "$DMG"
+          MOUNT_POINT="$RUNNER_TEMP/dots-dmg"
+          mkdir -p "$MOUNT_POINT"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_POINT"
+          trap 'hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true' EXIT
+          APP="$(find "$MOUNT_POINT" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -d "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=4 "$APP" 2>&1 | grep -F 'Identifier=com.sl.dots'
+          hdiutil detach "$MOUNT_POINT"
+          trap - EXIT
+          mkdir -p release
+          cp "$DMG" "release/Dots-v${VERSION}-macOS-universal.dmg"
+
+      - name: Attach DMG to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..30}; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "release/Dots-v${VERSION}-macOS-universal.dmg" --clobber

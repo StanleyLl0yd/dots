@@ -4,14 +4,21 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-01
+
 ### Added
 
-- compact localized About dialog with current package version, copyright notice, and project link.
+- compact localized About dialog with current package version, copyright notice, and project link;
+- minimal Tauri 2 native shell sharing the existing TypeScript/Canvas UI across Android and macOS;
+- native release workflow producing a signed universal Android APK and a universal Intel/Apple Silicon macOS DMG and attaching both artifacts to the matching GitHub Release.
 
 ### Changed
 
+- native builds use relative frontend assets and disable the browser PWA/service-worker layer while the GitHub Pages PWA remains unchanged;
+- the About project link opens through the platform default browser in native builds with a GitHub-only opener permission scope;
 - GitHub Pages deployment now runs the same high/critical npm audit gate before tests and production build;
-- GitHub Release publication now independently runs reproducible install, dependency audit, the full test suite, TypeScript validation, production/PWA build, and artifact verification before creating a new tag/release.
+- GitHub Release publication now independently runs reproducible install, dependency audit, the full test suite, TypeScript validation, production/PWA build, and artifact verification before creating a new tag/release;
+- source version advanced to 0.9.2 with no gameplay, rules, save-format, AI, scoring, or web/PWA behavior changes.
 
 ## [0.9.1] - 2026-09-01
 
