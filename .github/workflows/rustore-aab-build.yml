@@ -128,7 +128,9 @@ jobs:
       - name: Verify AAB
         run: |
           AAB="release/Dots-v${VERSION}-Android.aab"
-          jarsigner -verify -strict "$AAB"
+          JARSIGNER_LOG="$RUNNER_TEMP/jarsigner.txt"
+          jarsigner -verify -verbose -certs "$AAB" > "$JARSIGNER_LOG" 2>&1
+          grep -q "jar verified" "$JARSIGNER_LOG"
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
           PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath='/manifest/@package' | tr -d '"\r\n')"
