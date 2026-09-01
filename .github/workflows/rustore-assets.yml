@@ -43,7 +43,9 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Resolve version
-        run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install and verify web dependencies
         run: |
