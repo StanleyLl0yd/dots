@@ -11,7 +11,9 @@ on:
       - store/rustore/**
       - .github/workflows/rustore-assets.yml
   push:
-    branches: [main]
+    branches:
+      - main
+      - release/dots-0.9.3-rustore-aab
     paths:
       - package.json
       - index.html
@@ -142,7 +144,7 @@ jobs:
           if-no-files-found: error
 
       - name: Attach assets to GitHub Release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
