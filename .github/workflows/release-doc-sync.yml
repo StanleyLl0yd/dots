@@ -1,0 +1,230 @@
+name: Release documentation sync
+
+on:
+  push:
+    branches: [release/0.9.1]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: release/0.9.1
+      - name: Synchronize 0.9.1 release text
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          changed = set()
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  if new in text:
+                      return
+                  raise SystemExit(f"missing expected text in {path}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+              changed.add(path)
+
+          def regex_replace(path, pattern, replacement):
+              p = Path(path)
+              text = p.read_text()
+              new_text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+              if count == 0:
+                  if replacement in text:
+                      return
+                  raise SystemExit(f"missing expected pattern in {path}: {pattern}")
+              p.write_text(new_text)
+              changed.add(path)
+
+          replace("CHANGELOG.md", "## [Unreleased]\n\n### Added", "## [Unreleased]\n\n## [0.9.1] - 2026-09-01\n\n### Added")
+          replace(
+              "CHANGELOG.md",
+              "- failed explicit PWA update activation restores the update action and reports the existing PWA error status instead of leaving the action disabled.\n\n## [0.9.0]",
+              "- failed explicit PWA update activation restores the update action and reports the existing PWA error status instead of leaving the action disabled.\n\n### Changed\n\n- source version advanced to 0.9.1 as the stabilized pre-1.0 release-candidate baseline;\n- game rules, save schema, AI search policy/difficulty semantics, scoring, and user-facing feature set are unchanged from 0.9.0.\n\n## [0.9.0]"
+          )
+
+          replace("README.md", "source-0.9.0-16A34A", "source-0.9.1-16A34A")
+          regex_replace(
+              "README.md",
+              r"Current source version: \*\*0\.9\.0\*\* · [^\n]+",
+              "Current source version: **0.9.1** · stabilized pre-1.0 release candidate + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain"
+          )
+          replace(
+              "README.md",
+              "Version **0.9.0** is the pre-1.0 game-UX polish release. Game rules, saved-game format, and AI search decisions are unchanged; browser AI computation is isolated from the UI thread and the principal game interactions now provide clearer visual, mobile, and assistive feedback.",
+              "Version **0.9.1** is the stabilized pre-1.0 release-candidate patch. It hardens authoritative/persisted coordinate validation, isolates stale browser AI generations, and recovers failed explicit PWA updates without changing game rules, save schemas, AI search policy, or user-facing features."
+          )
+          replace("README.md", "├── pwa.ts                 service-worker update/offline lifecycle\n├── i18n.ts", "├── pwa.ts                 service-worker update/offline lifecycle\n├── pwa.test.ts            service-worker lifecycle regression tests\n├── i18n.ts")
+          replace(
+              "README.md",
+              "When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage.",
+              "When a newer application version is waiting, Dots prompts before applying it instead of silently replacing an active game. Update checks occur after reconnecting, on foreground return, and periodically while the app remains open. If explicit activation fails, the update action becomes available again and the existing PWA error status is shown so the user can retry. The production build verifies the generated manifest, service worker, install icons, and mobile icon linkage."
+          )
+          replace(
+              "README.md",
+              "- exact Undo, accessible confirmed New game, versioned move-log persistence, and deterministic replay restore;",
+              "- exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;"
+          )
+          replace(
+              "README.md",
+              "- cancellable AI Web Worker orchestration with stale-response guards and authoritative `playMove()` acceptance;",
+              "- cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;"
+          )
+          replace(
+              "README.md",
+              "- explicit offline/update PWA lifecycle with user-confirmed refresh;",
+              "- explicit offline/update PWA lifecycle with user-confirmed refresh, retryable activation failure, and lifecycle regression coverage;"
+          )
+          replace(
+              "README.md",
+              "1. Treat 0.9.x as the release-candidate line: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only.",
+              "1. Use 0.9.1 as the release-candidate baseline: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only."
+          )
+
+          replace("README_RU.md", "source-0.9.0-16A34A", "source-0.9.1-16A34A")
+          regex_replace(
+              "README_RU.md",
+              r"Текущая версия исходников: \*\*0\.9\.0\*\* · [^\n]+",
+              "Текущая версия исходников: **0.9.1** · стабилизированный release-candidate перед 1.0 + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain"
+          )
+          replace(
+              "README_RU.md",
+              "Версия **0.9.0** — UX-релиз перед 1.0. Правила, формат сохранения и решения ИИ не меняются; расчёт компьютера вынесен с UI-thread, а ключевые действия получили более понятную визуальную, мобильную и assistive-обратную связь.",
+              "Версия **0.9.1** — стабилизированный release-candidate patch перед 1.0. Усилена проверка авторитетных и сохранённых координат, устаревшие поколения браузерного ИИ изолированы от актуального состояния, а неудачное явное PWA-обновление корректно возвращает действие обновления; правила, схема сохранений, политика поиска ИИ и пользовательские возможности не меняются."
+          )
+          replace("README_RU.md", "├── pwa.ts                 lifecycle service worker / offline / update\n├── i18n.ts", "├── pwa.ts                 lifecycle service worker / offline / update\n├── pwa.test.ts            регрессионные тесты PWA lifecycle\n├── i18n.ts")
+          replace(
+              "README_RU.md",
+              "Когда готова новая версия, «Точки» предлагают применить обновление, а не молча перезагружают активную партию. Проверка обновлений выполняется после восстановления сети, при возвращении приложения на передний план и периодически во время работы. Production build проверяет наличие manifest, service worker, иконок установки и mobile icon linkage.",
+              "Когда готова новая версия, «Точки» предлагают применить обновление, а не молча перезагружают активную партию. Проверка обновлений выполняется после восстановления сети, при возвращении приложения на передний план и периодически во время работы. Если явное применение обновления завершается ошибкой, действие обновления снова становится доступным и показывается штатный PWA-статус ошибки. Production build проверяет наличие manifest, service worker, иконок установки и mobile icon linkage."
+          )
+          replace(
+              "README_RU.md",
+              "1. Продолжать проверку на реальных устройствах/браузерах и сложных топологических позициях, включая отзывчивость «Эксперта» на мобильных устройствах.",
+              "1. Использовать 0.9.1 как release-candidate baseline и продолжать проверку на реальных устройствах/браузерах и сложных топологических позициях, включая отзывчивость «Эксперта» на мобильных устройствах."
+          )
+          replace(
+              "README_RU.md",
+              "3. Добавить импорт/экспорт только если он останется простым и действительно полезным.\n4. Позже при необходимости упаковать ту же кодовую базу для Android через Capacitor.",
+              "3. После стабильного 1.0 рассмотреть импорт/экспорт, только если он останется простым и действительно полезным.\n4. После стабильного 1.0 при необходимости упаковать ту же кодовую базу для Android через Capacitor."
+          )
+
+          replace(
+              "docs/PRODUCT.md",
+              "The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.",
+              "The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.\n\nVersion **0.9.1** further hardens generation ownership so callbacks from cancelled or stale timers/Workers cannot clear the thinking state owned by a newer computer request. Search depth, evaluation, difficulty semantics, and deterministic move selection are unchanged."
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "- Malformed, illegal, corrupted, or unsupported save data is discarded instead of being accepted as game state.",
+              "- Malformed, illegal, corrupted, unsupported, or non-safe-integer move data is discarded instead of being accepted as game state."
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "- A waiting service-worker update is presented to the user and applied only after explicit activation from the running UI. The application must not silently reload an active local game merely because a new build exists.",
+              "- A waiting service-worker update is presented to the user and applied only after explicit activation from the running UI. The application must not silently reload an active local game merely because a new build exists. If explicit activation fails, the update action remains recoverable and the failure is reported as presentation status only."
+          )
+          regex_replace(
+              "docs/PRODUCT.md",
+              r"Version \*\*0\.9\.0\*\* supports the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, responsive Worker-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:",
+              "Version **0.9.1** is the stabilized pre-1.0 release-candidate baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:"
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "- versioned move-log persistence with replay restoration of rules and Undo history;",
+              "- versioned move-log persistence with replay restoration of rules and Undo history plus fail-closed safe-integer coordinate validation;"
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "- installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, and status feedback;",
+              "- installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, retryable activation failure, and lifecycle regression coverage;"
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "Remaining work is mainly empirical real-device/browser testing, continued adversarial topology coverage, and AI refinement driven by concrete failing positions rather than a missing principal game layer.",
+              "Remaining pre-1.0 work is empirical real-device/browser and installed-PWA validation, keyboard/accessibility/forced-colors/reduced-motion checks, long-game responsiveness, continued adversarial topology coverage, and AI refinement only when driven by concrete failing positions. No principal software layer is missing."
+          )
+          replace(
+              "docs/PRODUCT.md",
+              "### Phase 7 — 1.0 validation and optional post-1.0 work\n\nTreat 0.9.x as a release-candidate line for empirical browser/device/PWA testing and concrete bug fixes.",
+              "### Phase 6.1 — stabilization patch / release-candidate baseline — complete in 0.9.1\n\n- safe-integer authoritative and persisted move validation;\n- stale Worker/timer generation isolation from current thinking state;\n- recoverable explicit PWA update activation failure;\n- regression coverage for coordinate boundaries and PWA lifecycle behavior.\n\n### Phase 7 — 1.0 validation and optional post-1.0 work\n\nUse 0.9.1 as the release-candidate baseline for empirical browser/device/PWA testing and concrete bug fixes."
+          )
+          replace("docs/PRODUCT.md", "- Game coordinates are integers and are never derived from viewport pixels after input conversion.", "- Game coordinates are safe integers and are never derived from viewport pixels after input conversion.")
+          replace("docs/PRODUCT.md", "- Screen input is transformed to game space and snapped to an integer intersection before the core receives a move.", "- Screen input is transformed to game space and snapped to a safe-integer intersection before the core receives a move.")
+          replace(
+              "docs/PRODUCT.md",
+              "- A waiting service-worker update must not silently reload an active game; the user controls activation from the update prompt.",
+              "- A waiting service-worker update must not silently reload an active game; the user controls activation from the update prompt, and activation failure must leave a retryable user action."
+          )
+
+          replace("docs/ARCHITECTURE.md", "├── pwa.ts                        service-worker update/offline lifecycle\n├── i18n.ts", "├── pwa.ts                        service-worker update/offline lifecycle\n├── pwa.test.ts                   service-worker lifecycle regression tests\n├── i18n.ts")
+          replace("docs/ARCHITECTURE.md", "2. place the current side's integer-coordinate dot;", "2. place the current side's safe-integer-coordinate dot;")
+          replace(
+              "docs/ARCHITECTURE.md",
+              "- During pending computer work, mode/difficulty/Undo/New game controls are disabled and accessible status announces that the computer is thinking.",
+              "- During pending computer work, primary controls remain responsive so mode/difficulty/Undo/New game can cancel or redirect the request; accessible status announces that the computer is thinking."
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "`src/persistence.ts` stores save format version 1 as an ordered list of integer move coordinates.",
+              "`src/persistence.ts` stores save format version 1 as an ordered list of safe-integer move coordinates."
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses.",
+              "Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses. Version 0.9.1 further hardens generation isolation so callbacks from cancelled/stale timers or Workers cannot clear the thinking state owned by a newer request."
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "4. apply the waiting worker only after the user chooses Update;\n5. request update checks when connectivity returns, when the visible app returns to the foreground, and hourly while the app stays open.",
+              "4. apply the waiting worker only after the user chooses Update;\n5. if explicit activation fails, report the error and leave the update action retryable;\n6. request update checks when connectivity returns, when the visible app returns to the foreground, and hourly while the app stays open."
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "- reversible sessions, invalid moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;",
+              "- reversible sessions, invalid/non-safe-integer moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;"
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "- post-build verification of generated service-worker/manifest/install artifacts.\n\nVersion **0.8.2** is a toolchain/security hardening release:",
+              "- post-build verification of generated service-worker/manifest/install artifacts;\n- PWA reconnect/foreground/periodic/update/cleanup lifecycle regression coverage.\n\nVersion **0.8.2** is a toolchain/security hardening release:"
+          )
+          replace(
+              "docs/ARCHITECTURE.md",
+              "Version **0.8.2** is a toolchain/security hardening release: patched Vite/Vitest advisories, reproducible lockfile-based installs, an enforced high/critical audit gate, and maintained GitHub Actions runtimes. Game rules, persistence formats, UI behavior, PWA lifecycle, accessibility, and AI search/benchmark contracts are unchanged from 0.8.1.",
+              "Version **0.8.2** is a toolchain/security hardening release: patched Vite/Vitest advisories, reproducible lockfile-based installs, an enforced high/critical audit gate, and maintained GitHub Actions runtimes. Game rules, persistence formats, UI behavior, PWA lifecycle, accessibility, and AI search/benchmark contracts are unchanged from 0.8.1.\n\nVersion **0.9.1** is the current stabilized pre-1.0 release-candidate baseline. It adds safe-integer input/replay boundaries, stronger browser AI generation ownership, recoverable explicit PWA update failure, and direct PWA lifecycle regression coverage without changing game rules, save schemas, AI search policy, or user-facing features."
+          )
+
+          replace(
+              "docs/AI.md",
+              "The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.",
+              "The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.\n\nVersion **0.9.1** hardens generation ownership so stale or cancelled timer/Worker callbacks cannot clear the thinking state of a newer computer request. Search depth, evaluation, deterministic tie-breaking, difficulty behavior, and tactical benchmark expectations remain unchanged."
+          )
+          replace(
+              "docs/AI.md",
+              "- The AI may suggest only a coordinate; `playMove()` remains responsible for accepting the move into session history.",
+              "- The AI may suggest only a safe-integer coordinate; `playMove()` remains responsible for accepting the move into session history."
+          )
+
+          if changed:
+              print("updated:", ", ".join(sorted(changed)))
+          PY
+      - name: Commit synchronized release documentation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md README.md README_RU.md docs/PRODUCT.md docs/ARCHITECTURE.md docs/AI.md
+          git commit -m "docs: prepare 0.9.1 release"
+          git push origin HEAD:release/0.9.1
