@@ -80,28 +80,27 @@ jobs:
           MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
           test -f "$MAIN_ACTIVITY"
           python3 - "$MAIN_ACTIVITY" <<'PY'
-          import re
           import sys
           from pathlib import Path
 
           path = Path(sys.argv[1])
           text = path.read_text()
-          original = text
-          package = re.search(r'^package\s+[^\n]+\n', text, re.MULTILINE)
-          activity = re.search(r'class\s+MainActivity\s*:\s*([A-Za-z0-9_.]+)\(\)\s*(?:\{\s*\})?', text)
-          if not package or not activity:
-              print(original)
-              raise SystemExit('Unexpected generated MainActivity.kt')
-          base = activity.group(1)
-          imports = '\nimport android.os.Bundle\nimport android.webkit.WebView\n'
-          text = text[:package.end()] + imports + text[package.end():]
-          replacement = f'''class MainActivity : {base}() {{
-              override fun onCreate(savedInstanceState: Bundle?) {{
-                  WebView.setWebContentsDebuggingEnabled(true)
-                  super.onCreate(savedInstanceState)
-              }}
-          }}'''
-          text = re.sub(r'class\s+MainActivity\s*:\s*[A-Za-z0-9_.]+\(\)\s*(?:\{\s*\})?', replacement, text, count=1)
+          if "import android.webkit.WebView" not in text:
+              text = text.replace(
+                  "import android.os.Bundle\n",
+                  "import android.os.Bundle\nimport android.webkit.WebView\n",
+                  1,
+              )
+          needle = "  override fun onCreate(savedInstanceState: Bundle?) {\n"
+          if needle not in text:
+              print(text)
+              raise SystemExit("Unexpected generated MainActivity.kt")
+          if "WebView.setWebContentsDebuggingEnabled(true)" not in text:
+              text = text.replace(
+                  needle,
+                  needle + "    WebView.setWebContentsDebuggingEnabled(true)\n",
+                  1,
+              )
           path.write_text(text)
           print(text)
           PY
