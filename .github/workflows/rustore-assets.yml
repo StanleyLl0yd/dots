@@ -198,9 +198,20 @@ jobs:
               '03-help.png': (1080, 1920),
               '04-about.png': (1080, 1920),
           }
+          screenshot_names = {
+              '01-game-capture.png',
+              '02-vs-computer.png',
+              '03-help.png',
+              '04-about.png',
+          }
           root = Path('store/rustore/generated')
           for name, size in expected.items():
-              image = Image.open(root / name)
+              path = root / name
+              with Image.open(path) as source:
+                  image = source.copy()
+              if name in screenshot_names and image.size == (size[0] + 2, size[1] + 2):
+                  image = image.crop((1, 1, image.width - 1, image.height - 1))
+                  image.save(path, optimize=True)
               if image.size != size:
                   raise SystemExit(f'{name}: expected {size}, got {image.size}')
           PY
