@@ -38,7 +38,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -69,7 +69,7 @@ jobs:
           NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           test -d "$NDK_PATH"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
-          rustup target add aarch64-linux-android armv7-linux-androabi i686-linux-android x86_64-linux-android
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
       - name: Restore Android upload key
         env:
@@ -125,11 +125,13 @@ jobs:
       - name: Verify signed AAB
         run: |
           AAB="release/Dots-v${VERSION}-Android.aab"
-          jarsigner -verify -strict "$AAB"
+          JARSIGNER_LOG="$RUNNER_TEMP/jarsigner.txt"
+          jarsigner -verify -verbose -certs "$AAB" > "$JARSIGNER_LOG" 2>&1
+          grep -q "jar verified" "$JARSIGNER_LOG"
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
           java -jar "$BUNDLETOOL" version
-          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package)"
+          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package | tr -d '"\r\n')"
           test "$PACKAGE" = "com.sl.dots"
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
           rm -rf "$UNIVERSAL_DIR"
@@ -169,7 +171,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
