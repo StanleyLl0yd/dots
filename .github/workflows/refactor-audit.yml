@@ -1,0 +1,55 @@
+name: Refactor audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/refactor-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm ci
+      - name: Baseline repository statistics
+        shell: bash
+        run: |
+          echo "tracked_files=$(git ls-files | wc -l)"
+          echo "source_files=$(find src -type f \( -name '*.ts' -o -name '*.css' \) | wc -l)"
+          echo "source_lines=$(find src -type f \( -name '*.ts' -o -name '*.css' \) -print0 | xargs -0 cat | wc -l)"
+          echo "typescript_lines=$(find src -type f -name '*.ts' -print0 | xargs -0 cat | wc -l)"
+          echo "css_lines=$(find src -type f -name '*.css' -print0 | xargs -0 cat | wc -l)"
+          echo "test_files=$(find src -type f -name '*.test.ts' | wc -l)"
+          echo "direct_dependencies=$(node -e \"const p=require('./package.json'); console.log(Object.keys(p.dependencies||{}).length + Object.keys(p.devDependencies||{}).length)\")"
+      - name: Repository markers
+        shell: bash
+        run: |
+          echo '--- TODO/FIXME/HACK/XXX ---'
+          grep -RInE 'TODO|FIXME|HACK|XXX' --exclude=package-lock.json --exclude-dir=.git . || true
+          echo '--- console calls ---'
+          grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
+          echo '--- package tree ---'
+          npm ls --depth=0
+      - name: Unused-code candidate scan
+        shell: bash
+        run: |
+          set +e
+          npx --yes knip
+          echo "knip_exit=$?"
+          exit 0
+      - run: npm audit --audit-level=high
+      - run: npm test
+      - run: npm run build
+      - name: Production statistics
+        shell: bash
+        run: |
+          echo "dist_bytes=$(du -sb dist | cut -f1)"
+          find dist -type f -printf '%s %p\n' | sort -nr
