@@ -151,6 +151,8 @@ Viewport state is independently persisted and may be discarded without affecting
 
 Latest-move rings, move counters, desktop snap previews, invalid-placement markers, capture emphasis, first-run Help, and the mobile action toolbar are presentation only. **Fit game** derives a bounded viewport from placed-stone coordinates and cannot alter rule-space coordinates or history. Capture feedback is derived from confirmed before/after active capture state; reduced-motion mode may suppress transient emphasis but not essential textual/assistive feedback.
 
+A compact localized **About** control sits beside the product title and opens version, copyright, and project-link information without touching game/session state.
+
 ## Browser, accessibility, and PWA behavior
 
 - The browser UI must remain fully usable without a network connection once the PWA shell has been cached; game-state persistence and AI never depend on the service worker or network.
