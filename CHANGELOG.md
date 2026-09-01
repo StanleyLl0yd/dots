@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## [Unreleased]
+
+### Added
+
+- regression coverage for invalid and unsafe authoritative game coordinates, unsafe persisted move logs, and PWA reconnect/foreground/periodic/update/cleanup lifecycle behavior.
+
+### Fixed
+
+- authoritative placement and persisted move replay now reject coordinates outside JavaScript's safe-integer range instead of accepting ambiguous grid positions;
+- stale cancelled browser AI generations no longer clear the thinking state of a newer computer request;
+- failed explicit PWA update activation restores the update action and reports the existing PWA error status instead of leaving the action disabled.
+
 ## [0.9.0] - 2026-09-01
 
 ### Added
