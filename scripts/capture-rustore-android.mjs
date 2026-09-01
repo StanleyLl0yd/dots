@@ -118,9 +118,23 @@ const visible = (selector) => `(() => {
   return rect.width > 100 && rect.height > 100 && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth && style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0;
 })()`;
 
+const assertNoSystemOverlay = (name) => {
+  adb("shell", "uiautomator", "dump", "/sdcard/dots-window.xml");
+  const ui = adb("shell", "cat", "/sdcard/dots-window.xml");
+  const forbidden = [
+    "isn't responding",
+    "Close app",
+    "Viewing full screen",
+    "Got it"
+  ];
+  const found = forbidden.find((text) => ui.includes(text));
+  assert(!found, `Android system overlay detected before ${name}: ${found}`);
+};
+
 const screenshot = async (cdp, name) => {
   await cdp.evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
   await sleep(100);
+  assertNoSystemOverlay(name);
   const png = execFileSync("adb", ["exec-out", "screencap", "-p"]);
   assert(png.length > 1000, `Android framebuffer screenshot failed for ${name}`);
   await writeFile(resolve(outputDir, name), png);
@@ -153,11 +167,13 @@ await screenshot(cdp, "02-vs-computer.png");
 await seed(cdp, captureMoves, { gameMode: "local", aiDifficulty: "normal" });
 await cdp.evaluate(`document.querySelector('.help')?.click()`);
 await waitFor(cdp, `document.querySelector('[data-help-dialog]')?.open === true && ${visible("[data-help-dialog]")}`, "Help dialog is not visibly rendered");
+await cdp.evaluate(`document.activeElement?.blur()`);
 await sleep(200);
 await screenshot(cdp, "03-help.png");
 
 await cdp.evaluate(`document.querySelector('[data-help-dialog]')?.close(); document.querySelector('.about-button')?.click()`);
 await waitFor(cdp, `document.querySelector('.about-dialog')?.open === true && ${visible(".about-dialog")}`, "About dialog is not visibly rendered");
+await cdp.evaluate(`document.activeElement?.blur()`);
 await sleep(200);
 await screenshot(cdp, "04-about.png");
 
