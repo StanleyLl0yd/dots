@@ -107,54 +107,34 @@ app.innerHTML = `
   </dialog>
 `;
 
-const canvas = app.querySelector<HTMLCanvasElement>("canvas");
-const turn = app.querySelector<HTMLElement>("[data-turn]");
-const moveCount = app.querySelector<HTMLElement>("[data-move-count]");
-const scoreRed = app.querySelector<HTMLElement>("[data-score-red]");
-const scoreBlue = app.querySelector<HTMLElement>("[data-score-blue]");
-const redLabel = app.querySelector<HTMLElement>("[data-red-label]");
-const blueLabel = app.querySelector<HTMLElement>("[data-blue-label]");
-const modeSelect = app.querySelector<HTMLSelectElement>("[data-game-mode]");
-const difficultyControl = app.querySelector<HTMLElement>("[data-difficulty-control]");
-const difficultySelect = app.querySelector<HTMLSelectElement>("[data-ai-difficulty]");
-const undo = app.querySelector<HTMLButtonElement>(".undo");
-const fitGame = app.querySelector<HTMLButtonElement>(".fit-game");
-const help = app.querySelector<HTMLButtonElement>(".help");
-const newGame = app.querySelector<HTMLButtonElement>(".new-game");
-const appStatus = app.querySelector<HTMLElement>("[data-app-status]");
-const gameFeedback = app.querySelector<HTMLElement>("[data-game-feedback]");
-const hint = app.querySelector<HTMLElement>("[data-hint]");
-const updatePrompt = app.querySelector<HTMLElement>("[data-update-prompt]");
-const updateNow = app.querySelector<HTMLButtonElement>("[data-update-now]");
-const a11yStatus = app.querySelector<HTMLElement>("[data-a11y-status]");
-const helpDialog = app.querySelector<HTMLDialogElement>("[data-help-dialog]");
-const newGameDialog = app.querySelector<HTMLDialogElement>("[data-new-game-dialog]");
-if (
-  !canvas ||
-  !turn ||
-  !moveCount ||
-  !scoreRed ||
-  !scoreBlue ||
-  !redLabel ||
-  !blueLabel ||
-  !modeSelect ||
-  !difficultyControl ||
-  !difficultySelect ||
-  !undo ||
-  !fitGame ||
-  !help ||
-  !newGame ||
-  !appStatus ||
-  !gameFeedback ||
-  !hint ||
-  !updatePrompt ||
-  !updateNow ||
-  !a11yStatus ||
-  !helpDialog ||
-  !newGameDialog
-) {
-  throw new Error("UI initialization failed");
-}
+const requiredElement = <T extends Element>(selector: string): T => {
+  const element = app.querySelector<T>(selector);
+  if (!element) throw new Error("UI initialization failed");
+  return element;
+};
+
+const canvas = requiredElement<HTMLCanvasElement>("canvas");
+const turn = requiredElement<HTMLElement>("[data-turn]");
+const moveCount = requiredElement<HTMLElement>("[data-move-count]");
+const scoreRed = requiredElement<HTMLElement>("[data-score-red]");
+const scoreBlue = requiredElement<HTMLElement>("[data-score-blue]");
+const redLabel = requiredElement<HTMLElement>("[data-red-label]");
+const blueLabel = requiredElement<HTMLElement>("[data-blue-label]");
+const modeSelect = requiredElement<HTMLSelectElement>("[data-game-mode]");
+const difficultyControl = requiredElement<HTMLElement>("[data-difficulty-control]");
+const difficultySelect = requiredElement<HTMLSelectElement>("[data-ai-difficulty]");
+const undo = requiredElement<HTMLButtonElement>(".undo");
+const fitGame = requiredElement<HTMLButtonElement>(".fit-game");
+const help = requiredElement<HTMLButtonElement>(".help");
+const newGame = requiredElement<HTMLButtonElement>(".new-game");
+const appStatus = requiredElement<HTMLElement>("[data-app-status]");
+const gameFeedback = requiredElement<HTMLElement>("[data-game-feedback]");
+const hint = requiredElement<HTMLElement>("[data-hint]");
+const updatePrompt = requiredElement<HTMLElement>("[data-update-prompt]");
+const updateNow = requiredElement<HTMLButtonElement>("[data-update-now]");
+const a11yStatus = requiredElement<HTMLElement>("[data-a11y-status]");
+const helpDialog = requiredElement<HTMLDialogElement>("[data-help-dialog]");
+const newGameDialog = requiredElement<HTMLDialogElement>("[data-new-game-dialog]");
 
 let storage: StorageLike | undefined;
 try {
