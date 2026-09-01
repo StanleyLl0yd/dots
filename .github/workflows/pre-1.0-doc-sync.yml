@@ -1,0 +1,53 @@
+name: Pre-1.0 gate documentation sync
+
+on:
+  push:
+    branches: [hardening/pre-1.0-release-gates]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: hardening/pre-1.0-release-gates
+      - name: Synchronize release-gate documentation
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text()
+          marker = "## [Unreleased]\n"
+          addition = "\n### Changed\n\n- GitHub Pages deployment now runs the same high/critical npm audit gate before tests and production build;\n- GitHub Release publication now independently runs reproducible install, dependency audit, the full test suite, TypeScript validation, production/PWA build, and artifact verification before creating a new tag/release.\n"
+          if addition.strip() not in text:
+              if marker not in text:
+                  raise SystemExit("missing Unreleased changelog section")
+              text = text.replace(marker, marker + addition, 1)
+              changelog.write_text(text)
+
+          architecture = Path("docs/ARCHITECTURE.md")
+          text = architecture.read_text()
+          old = "CI runs `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail the job. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state."
+          new = "CI and GitHub Pages run `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification and cannot reach a Pages deployment. GitHub Release publication independently performs `npm ci`, the same audit gate, the complete test suite, and the production/PWA build before creating a new tag/release. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state."
+          if new not in text:
+              if old not in text:
+                  raise SystemExit("missing architecture toolchain paragraph")
+              text = text.replace(old, new, 1)
+              architecture.write_text(text)
+          PY
+      - name: Commit synchronized documentation
+        shell: bash
+        run: |
+          if git diff --quiet -- CHANGELOG.md docs/ARCHITECTURE.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md docs/ARCHITECTURE.md
+          git commit -m "docs: record pre-1.0 release gate hardening"
+          git push origin HEAD:hardening/pre-1.0-release-gates
