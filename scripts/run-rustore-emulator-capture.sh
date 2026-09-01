@@ -2,6 +2,12 @@
 set -euo pipefail
 
 apk="${1:?APK path is required}"
+out="store/rustore/generated"
+mkdir -p "$out"
+
+capture() {
+  adb exec-out screencap -p > "$out/$1"
+}
 
 adb shell wm size 1080x1920
 adb shell wm density 420
@@ -10,20 +16,30 @@ adb install -r "$apk"
 adb shell am force-stop com.sl.dots
 adb shell monkey -p com.sl.dots -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 4
-adb shell dumpsys window | grep -F 'com.sl.dots' >/dev/null
 
-socket="$(adb shell cat /proc/net/unix | tr -d '\r' | sed -n 's/.*@\(webview_devtools_remote_[^ ]*\).*/\1/p' | head -n 1)"
-if [[ -z "$socket" ]]; then
-  adb shell cat /proc/net/unix | grep -E 'webview|devtools' || true
-  exit 1
-fi
-
-adb forward tcp:9222 "localabstract:$socket"
-for _ in {1..30}; do
-  if curl -fsS http://127.0.0.1:9222/json >/dev/null; then
-    break
-  fi
-  sleep 1
+for point in \
+  "420 820" "540 820" "420 940" "540 940" \
+  "420 1060" "540 1060" "660 1060" "660 940" \
+  "660 820" "540 700" "420 700" "660 700"; do
+  adb shell input tap $point
+  sleep 0.12
 done
-curl -fsS http://127.0.0.1:9222/json >/dev/null
-node scripts/capture-rustore-android.mjs store/rustore/generated
+sleep 1
+capture "01-game-capture.png"
+
+adb shell input tap 270 240
+sleep 0.4
+adb shell input keyevent KEYCODE_DPAD_DOWN
+adb shell input keyevent KEYCODE_ENTER
+sleep 2
+capture "02-vs-computer.png"
+
+adb shell input tap 670 370
+sleep 1
+capture "03-help.png"
+
+adb shell input keyevent KEYCODE_BACK
+sleep 0.6
+adb shell input tap 1010 130
+sleep 1
+capture "04-about.png"
