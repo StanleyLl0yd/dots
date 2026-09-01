@@ -335,7 +335,8 @@ const scheduleComputerMove = (): void => {
 
   computerTimer = window.setTimeout(() => {
     computerTimer = undefined;
-    if (generation !== computerGeneration || !isComputerTurn()) {
+    if (generation !== computerGeneration) return;
+    if (!isComputerTurn()) {
       computerThinking = false;
       renderStatus();
       return;
@@ -357,7 +358,8 @@ const scheduleComputerMove = (): void => {
 
     worker.onmessage = (event: MessageEvent<AiWorkerResponse>) => {
       finishWorker();
-      if (generation !== computerGeneration || !isComputerTurn()) {
+      if (generation !== computerGeneration) return;
+      if (!isComputerTurn()) {
         computerThinking = false;
         renderStatus();
         return;
@@ -531,7 +533,10 @@ const pwa = setupPwaLifecycle({
 
 updateNow.addEventListener("click", () => {
   updateNow.disabled = true;
-  void pwa.applyUpdate();
+  void pwa.applyUpdate().catch(() => {
+    updateNow.disabled = false;
+    showStatus(copy.pwaError, 5000);
+  });
 });
 
 renderStatus();
