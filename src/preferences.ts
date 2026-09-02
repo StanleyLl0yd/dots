@@ -1,5 +1,5 @@
 import type { AiDifficulty } from "./game/ai";
-import { readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
+import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 
 export type GameMode = "local" | "computer";
 
@@ -25,28 +25,27 @@ const copyDefaults = (): GamePreferences => ({ ...DEFAULT_PREFERENCES });
 export const loadPreferences = (storage: StorageLike): GamePreferences => {
   const parsed = readStoredJson(storage, PREFERENCES_KEY);
   if (parsed === undefined) return copyDefaults();
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || !("version" in parsed)) {
+  if (!isRecord(parsed)) {
     removeStoredValue(storage, PREFERENCES_KEY);
     return copyDefaults();
   }
 
-  const candidate = parsed as Record<string, unknown>;
-  if (candidate.version === 1 && isGameMode(candidate.gameMode)) {
-    const migrated: GamePreferences = { gameMode: candidate.gameMode, aiDifficulty: "normal" };
+  if (parsed.version === 1 && isGameMode(parsed.gameMode)) {
+    const migrated: GamePreferences = { gameMode: parsed.gameMode, aiDifficulty: "normal" };
     savePreferences(storage, migrated);
     return migrated;
   }
 
   if (
-    candidate.version !== PREFERENCES_VERSION ||
-    !isGameMode(candidate.gameMode) ||
-    !isAiDifficulty(candidate.aiDifficulty)
+    parsed.version !== PREFERENCES_VERSION ||
+    !isGameMode(parsed.gameMode) ||
+    !isAiDifficulty(parsed.aiDifficulty)
   ) {
     removeStoredValue(storage, PREFERENCES_KEY);
     return copyDefaults();
   }
 
-  return { gameMode: candidate.gameMode, aiDifficulty: candidate.aiDifficulty };
+  return { gameMode: parsed.gameMode, aiDifficulty: parsed.aiDifficulty };
 };
 
 export const savePreferences = (storage: StorageLike, preferences: GamePreferences): void => {
