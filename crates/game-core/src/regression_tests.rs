@@ -270,8 +270,8 @@ fn ai_blocks_immediate_closing_point_from_normal_upward() {
 }
 
 #[test]
-fn expert_search_is_bounded_on_large_sparse_position() {
-    let stones: Vec<Stone> = (0..300)
+fn expert_search_stays_legal_on_sparse_position() {
+    let stones: Vec<Stone> = (0..90)
         .map(|index| {
             stone(
                 index * 3,

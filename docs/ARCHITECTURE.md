@@ -3,61 +3,18 @@
 ## Layers
 
 ```text
-src/
-├── game/                         pure rules, AI, and reversible session state
-│   ├── types.ts
-│   ├── board.ts
-│   ├── capture.ts
-│   ├── session.ts
-│   ├── ai.ts
-│   ├── ai-worker.ts
-│   ├── ai-worker-protocol.ts
-│   ├── ai-worker-protocol.test.ts
-│   ├── ai-match.ts
-│   ├── board.test.ts
-│   ├── capture.test.ts
-│   ├── session.test.ts
-│   ├── ai.test.ts
-│   ├── ai-match.test.ts
-│   ├── ai-tactical-benchmark.test.ts
-│   ├── topology.test.ts
-│   └── stress.test.ts
-├── ui/                           Canvas input/rendering and viewport math
-│   ├── canvas-board.ts
-│   ├── viewport.ts
-│   └── viewport.test.ts
-├── storage.ts                    guarded JSON-storage transport helpers
-├── storage.test.ts
-├── persistence.ts                versioned authoritative move-log adapter
-├── persistence.test.ts
-├── preferences.ts                versioned mode + AI-difficulty preference
-├── preferences.test.ts
-├── viewport-persistence.ts       independent presentation-state adapter
-├── viewport-persistence.test.ts
-├── pwa.ts                        service-worker update/offline lifecycle
-├── pwa.test.ts                   service-worker lifecycle regression tests
-├── i18n.ts                       locale and user/a11y copy
-├── i18n.test.ts
-├── about.ts                      localized About dialog composition
-├── about.css
-├── main.ts                       application composition and browser/AI orchestration
-├── styles.css                    notebook/mobile/accessibility visual system
-└── vite-env.d.ts                 Vite/PWA virtual-module types
-
-scripts/
-├── verify-build.mjs              post-build PWA/offline artifact verification
-├── tauri-android-build.gradle.kts Android generated-wrapper build policy
-└── RuStore helpers               emulator screenshots and local signing/export tooling
-
-src-tauri/
-├── Cargo.toml                    direct native dependencies
-├── Cargo.lock                    resolved native dependency graph
-├── tauri.conf.json               native shell/security/bundle configuration
-├── capabilities/                 Tauri permission scope
-└── src/                          minimal Rust shell bootstrap
+crates/game-core/                 authoritative Rust rules, captures, replay, and AI
+src/game/core.ts                  DTO conversion and common frontend API
+src/game/core-web.ts              lazy WASM transport
+src/game/core-native.ts           four coarse Tauri IPC calls
+src/game/ai-worker.ts             cancellable browser-only AI orchestration
+src/game/session.ts               move-log history over Rust replay/apply
+src/ui/                           Canvas input/rendering and viewport math
+src/persistence.ts                versioned move-log storage adapter
+src-tauri/                        native shell linking crates/game-core
 ```
 
-The game layer imports no DOM, Canvas, viewport, service-worker, storage, or network APIs. Rendering consumes confirmed game state; it never decides whether a capture exists. Game persistence replays moves through the game core. The AI and AI-match harness are consumers of the same core and may propose/apply coordinates but do not own legality or capture resolution. The storage helper owns only guarded JSON transport; game, preference, and viewport schemas remain separate adapters. Viewport, preferences, PWA lifecycle, and native shell configuration remain platform/presentation state.
+`crates/game-core` is the only production authority for move legality, capture/house topology, release/scoring, replay validation, and AI search. Rendering consumes confirmed state and never decides captures. TypeScript owns DTO conversion, session history, persistence transport, preferences, Worker scheduling, and UI only. Native Tauri links the crate directly; web/PWA uses the same crate through optimized WASM. See `docs/HARDENING.md` for the release boundary and artifact checks.
 
 ## Capture and move engine
 
@@ -79,7 +36,7 @@ Pointer, touch, keyboard, and computer moves all converge on this same placement
 
 ## Computer opponent
 
-`src/game/ai.ts` is a deterministic bounded-search module. It accepts `GameState` plus optional search options, including `AiDifficulty`, and returns a proposed integer `Point` or `undefined`. It imports only game-core modules.
+`crates/game-core/src/ai.rs` is the deterministic bounded-search implementation. It accepts authoritative `GameState` plus bounded options and returns only a proposed integer `Point`; every simulation uses the same Rust move/capture engine.
 
 ### Candidate frontier and cycle pressure
 
@@ -154,7 +111,7 @@ This handles short capture/release sequences near the horizon without increasing
 
 ### Search caches
 
-Every `chooseAiMove()` call creates fresh in-memory caches:
+Every `choose_ai_move()` call creates fresh in-memory caches:
 
 - evaluation values;
 - exact minimax/transposition results;
@@ -171,7 +128,7 @@ All caches are discarded after the move is selected. They are never persisted, n
 
 ## AI-vs-AI regression harness
 
-`src/game/ai-match.ts` provides a pure deterministic test/analysis harness. It starts from `createGameState()`, optionally applies a legal opening, then alternates `chooseAiMove()` for Red/Blue and feeds every proposal back through `placeStone()`.
+`crates/game-core/src/regression_tests.rs` contains the deterministic AI-vs-AI harness. It alternates Rust `choose_ai_move()` for Red/Blue and feeds every proposal back through Rust `place_stone()`.
 
 `pairedMatchMargin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
 
@@ -197,7 +154,7 @@ In computer mode, Undo first removes the latest move. If that returns the sessio
 
 ## Session history and persistence adapters
 
-`src/game/session.ts` wraps `GameState` with reversible history. A legal move records the placed point, previous active captures, and previous player. Undo removes that stone, restores the previous capture set/player, and derives score again. Illegal placement attempts create no history entry.
+`src/game/session.ts` keeps only the ordered placed-point history around authoritative Rust state. Legal moves call Rust apply; Undo removes one move from the log and rebuilds state through Rust replay, so player, active captures, releases, and derived score are restored by the same core instead of by a parallel TypeScript rollback implementation.
 
 `src/storage.ts` centralizes only failure-tolerant JSON read/write/remove behavior and record-shape detection. It has no knowledge of game rules, preference values, viewport bounds, keys, or schema versions. Each adapter continues to validate its own payload and removes only its own malformed value.
 
@@ -218,7 +175,7 @@ Version-1 preferences from 0.6.0 contain only game mode. They are migrated in pl
 
 ### Browser Worker and UX orchestration
 
-Version 0.9.0 keeps `src/game/ai.ts` pure and runs browser AI computation through `src/game/ai-worker.ts`. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses. Version 0.9.1 further hardens generation isolation so callbacks from cancelled/stale timers or Workers cannot clear the thinking state owned by a newer request.
+Browser builds run the shared Rust/WASM AI through `src/game/ai-worker.ts`; native Tauri calls the linked Rust core directly without a browser Worker. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses. Version 0.9.1 further hardens generation isolation so callbacks from cancelled/stale timers or Workers cannot clear the thinking state owned by a newer request.
 
 `CanvasBoard` owns presentation-only latest-move, desktop snap-preview, invalid-point, and confirmed-capture emphasis. `fitViewportToPoints()` remains a pure viewport helper with bounded automatic zoom. Move count comes from session history, Help/New game use native accessible dialogs, and mobile primary actions stay visible as compact controls.
 
@@ -251,7 +208,7 @@ Grid lines are generated only from `visibleGridBounds()`. Off-screen stones are 
 
 Viewport persistence writes are debounced during navigation and flushed on `pagehide`, reducing synchronous localStorage churn without changing the independently versioned viewport format.
 
-Stress coverage includes a 500-move sparse reversible game, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, Expert AI legality search over a 300-stone sparse position, short deterministic AI-vs-AI strength regressions, and the six fixed Expert tactical positions. These are regression guards, not hardware benchmarks.
+Stress coverage includes a 100-move WASM-backed sparse reversible session, an 8K/minimum-zoom visible-grid bound, 2,000 repeated pan/zoom transforms, bounded sparse-position Expert search plus explicit 300-stone search-profile checks, short deterministic AI-vs-AI strength regressions, and six fixed Expert tactical positions. These are regression guards, not hardware benchmarks.
 
 ## Viewport persistence
 

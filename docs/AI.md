@@ -26,7 +26,7 @@ All profiles shrink their candidate budgets as the number of stones grows. At 25
 
 ## Search model
 
-`src/game/ai.ts` is pure TypeScript and imports no DOM, Canvas, storage, network, or service-worker APIs.
+`crates/game-core/src/ai.rs` is the sole production AI implementation. It is Rust, shares the authoritative move/capture engine, and has no DOM, Canvas, storage, network, or service-worker dependency.
 
 The search is intentionally bounded for browser responsiveness:
 
@@ -68,7 +68,7 @@ Hard and Expert also use a small quiescence-style extension at the nominal horiz
 
 ## Search caches
 
-Every `chooseAiMove()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
+Every `choose_ai_move()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
 
 The transposition signature includes player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Cache entries exist only for the current AI move and are discarded afterward, so they cannot become persistent or authoritative state.
 
@@ -76,19 +76,19 @@ The implementation is deterministic: identical `GameState`, difficulty, options,
 
 ## Strength regression matches
 
-`src/game/ai-match.ts` provides a pure deterministic AI-vs-AI harness used only for tests and analysis. It applies every generated move back through `placeStone()` and can run paired matches with the stronger level once as Red and once as Blue.
+`crates/game-core/src/regression_tests.rs` contains the deterministic AI-vs-AI harness used by Rust regression tests. It applies every generated move back through `place_stone()` and runs paired matches with the stronger level once as Red and once as Blue.
 
 The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions. Expert must not lose either paired comparison and must retain a positive aggregate margin across the suite. The suite is deliberately short and has no wall-clock assertion; it is a tactical regression guard, not an Elo rating or hardware benchmark.
 
 ## Tactical benchmark suite
 
-`src/game/ai-tactical-benchmark.test.ts` contains six deterministic fixed Expert positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
+`crates/game-core/src/regression_tests.rs` contains six deterministic fixed Expert tactical positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
 
 All six are required tests in 0.8.1. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
 
 ## Browser Worker isolation
 
-Version **0.9.0** changes browser orchestration, not AI policy. `main.ts` starts `src/game/ai-worker.ts` as a dedicated Web Worker and sends a structured-cloned `GameState`, focus point, player, difficulty, and request generation through `ai-worker-protocol.ts`. Structured clone preserves the state's `Map`; a regression test locks down that transport assumption.
+Browser orchestration runs `src/game/ai-worker.ts` as a dedicated Web Worker. The Worker receives a structured-cloned rendering-facing `GameState` plus focus/player/difficulty and delegates the full search to the shared Rust/WASM core; native Tauri calls the same Rust core directly. The Worker remains transport/orchestration only.
 
 The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.
 
