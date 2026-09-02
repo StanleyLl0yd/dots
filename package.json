@@ -8,11 +8,15 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/verify-build.mjs",
-    "build:native": "tsc --noEmit && vite build",
+    "wasm:build": "node scripts/build-game-core-wasm.mjs",
+    "build": "npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
+    "build:native": "tsc --noEmit && vite build && node scripts/verify-build.mjs --native",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1"
   },
   "devDependencies": {
     "typescript": "5.9.2",
