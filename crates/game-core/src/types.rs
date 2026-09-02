@@ -126,19 +126,14 @@ impl Default for GameState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AiDifficulty {
     Easy,
+    #[default]
     Normal,
     Hard,
     Expert,
-}
-
-impl Default for AiDifficulty {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
