@@ -1,4 +1,4 @@
-import { readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
+import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 import { MAX_VIEWPORT_CENTER, MAX_ZOOM, MIN_ZOOM, type Viewport } from "./ui/viewport";
 
 export const VIEWPORT_SAVE_VERSION = 1;
@@ -17,37 +17,24 @@ export const loadViewport = (storage: StorageLike): Viewport | undefined => {
   const parsed = readStoredJson(storage, VIEWPORT_SAVE_KEY);
   if (parsed === undefined) return undefined;
   if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    Array.isArray(parsed) ||
-    !("version" in parsed) ||
-    !("centerX" in parsed) ||
-    !("centerY" in parsed) ||
-    !("zoom" in parsed)
-  ) {
-    removeStoredValue(storage, VIEWPORT_SAVE_KEY);
-    return undefined;
-  }
-
-  const candidate = parsed as Record<string, unknown>;
-  if (
-    candidate.version !== VIEWPORT_SAVE_VERSION ||
-    !validNumber(candidate.centerX) ||
-    !validNumber(candidate.centerY) ||
-    !validNumber(candidate.zoom) ||
-    Math.abs(candidate.centerX) > MAX_VIEWPORT_CENTER ||
-    Math.abs(candidate.centerY) > MAX_VIEWPORT_CENTER ||
-    candidate.zoom < MIN_ZOOM ||
-    candidate.zoom > MAX_ZOOM
+    !isRecord(parsed) ||
+    parsed.version !== VIEWPORT_SAVE_VERSION ||
+    !validNumber(parsed.centerX) ||
+    !validNumber(parsed.centerY) ||
+    !validNumber(parsed.zoom) ||
+    Math.abs(parsed.centerX) > MAX_VIEWPORT_CENTER ||
+    Math.abs(parsed.centerY) > MAX_VIEWPORT_CENTER ||
+    parsed.zoom < MIN_ZOOM ||
+    parsed.zoom > MAX_ZOOM
   ) {
     removeStoredValue(storage, VIEWPORT_SAVE_KEY);
     return undefined;
   }
 
   return {
-    centerX: candidate.centerX,
-    centerY: candidate.centerY,
-    zoom: candidate.zoom
+    centerX: parsed.centerX,
+    centerY: parsed.centerY,
+    zoom: parsed.zoom
   };
 };
 
