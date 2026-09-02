@@ -728,8 +728,6 @@ fn tier(stone_count: usize) -> usize {
     }
 }
 
-const PROFILE_LIMITS: [[[[usize; 3]; 4]; 1]; 0] = [];
-
 pub fn get_ai_search_profile(difficulty: AiDifficulty, stone_count: usize) -> AiSearchProfile {
     let index = tier(stone_count);
     let profile: [[usize; 3]; 4] = match difficulty {
@@ -809,6 +807,7 @@ fn quiescence_value(
     value
 }
 
+#[allow(clippy::too_many_arguments)]
 fn minimax_value(
     state: &GameState,
     perspective: Player,
