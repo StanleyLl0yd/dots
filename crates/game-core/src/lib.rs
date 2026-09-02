@@ -67,3 +67,6 @@ mod tests;
 
 #[cfg(test)]
 mod regression_tests;
+
+#[cfg(test)]
+mod topology_tests;
