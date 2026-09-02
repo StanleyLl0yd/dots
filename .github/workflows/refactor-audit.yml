@@ -2,9 +2,9 @@ name: Refactor audit
 
 on:
   push:
-    branches: [main]
-    paths:
-      - .github/workflows/refactor-audit.yml
+    branches:
+      - refactor/full-audit-0.9.3
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,12 +13,16 @@ jobs:
   audit:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           package-manager-cache: false
       - run: npm ci
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Validate workflow YAML
+        run: npx --yes prettier@3.6.2 .github/workflows/*.yml >/dev/null
       - name: Baseline repository statistics
         shell: bash
         run: |
@@ -38,18 +42,75 @@ jobs:
           grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
-      - name: Unused-code candidate scan
-        shell: bash
-        run: |
-          set +e
-          npx --yes knip
-          echo "knip_exit=$?"
-          exit 0
+      - name: TypeScript unused exports
+        run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
       - run: npm test
       - run: npm run build
+      - name: Diff hygiene
+        run: git diff --check
       - name: Production statistics
         shell: bash
         run: |
           echo "dist_bytes=$(du -sb dist | cut -f1)"
           find dist -type f -printf '%s %p\n' | sort -nr
+
+  knip-files:
+    name: Knip / unused files
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - name: Declare non-standard entry points
+        run: |
+          cat > .knip-audit.json <<'JSON'
+          {
+            "entry": [
+              "src/main.ts",
+              "src/about.ts",
+              "scripts/capture-rustore-android.mjs",
+              "scripts/verify-build.mjs"
+            ]
+          }
+          JSON
+      - run: npx --yes knip@5.82.1 --config .knip-audit.json --no-progress --include files
+
+  knip-dependencies:
+    name: Knip / unused dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include dependencies
+
+  knip-dev-dependencies:
+    name: Knip / unused devDependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
+
+  knip-binaries:
+    name: Knip / unused binaries
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include binaries

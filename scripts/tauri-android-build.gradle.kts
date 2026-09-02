@@ -1,4 +1,3 @@
-import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
@@ -17,7 +16,7 @@ val tauriProperties = Properties().apply {
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
-        load(FileInputStream(keystorePropertiesFile))
+        keystorePropertiesFile.inputStream().use { load(it) }
     }
 }
 val releaseSigningConfigured = keystorePropertiesFile.exists()

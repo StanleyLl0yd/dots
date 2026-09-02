@@ -40,7 +40,7 @@ const messages = {
     resetConfirm: "Текущая партия будет удалена. Это действие нельзя отменить.",
     hint: "Точка ставится на ближайшее пересечение. Перетаскивание — поле, колесо или щипок — масштаб.",
     boardLabel: "Игровое поле Точек",
-    boardInstructions: "Поле доступно с клавиатуры: стрелки перемещают курсор между пересечениями, Enter или Пробел ставит точку, плюс и минус меняют масштаб. Мышью или пальцем перетаскивайте поле; колесо или щипок меняют масштаб. Кнопка «Показать игру» возвращает сыгранную позицию в кадр. В режиме против компьютера вы играете красными, компьютер — синими; уровень сложности выбирается в верхней панели.",
+    boardInstructions: "Поле доступно с клавиатуры: стрелки перемещают курсор между пересечениями, Enter или Пробел ставят точку, плюс и минус меняют масштаб. Мышью или пальцем перетаскивайте поле; колесо или щипок меняют масштаб. Кнопка «Показать игру» возвращает сыгранную позицию в кадр. В режиме против компьютера вы играете красными, компьютер — синими; уровень сложности выбирается в верхней панели.",
     cursor: "Пересечение",
     placed: "Точка поставлена",
     unavailable: "Ход на этом пересечении недоступен",
@@ -49,7 +49,13 @@ const messages = {
     offlineReady: "Игра готова к работе без сети",
     updateAvailable: "Доступна новая версия",
     updateNow: "Обновить",
-    pwaError: "Не удалось включить офлайн-режим"
+    pwaError: "Не удалось включить офлайн-режим",
+    aboutLabel: "О приложении",
+    aboutTitle: "О приложении",
+    aboutIntro: "«Точки» — минималистичная цифровая версия классической игры. Окружайте точки соперника, захватывайте область и играйте вдвоём или против компьютера.",
+    aboutVersion: "Версия",
+    aboutGithub: "Проект на GitHub",
+    aboutRights: "© 2026 Stanley Lloyd. Все права защищены."
   },
   en: {
     title: "Dots",
@@ -99,7 +105,13 @@ const messages = {
     offlineReady: "The game is ready for offline use",
     updateAvailable: "A new version is available",
     updateNow: "Update",
-    pwaError: "Offline mode could not be enabled"
+    pwaError: "Offline mode could not be enabled",
+    aboutLabel: "About",
+    aboutTitle: "About",
+    aboutIntro: "Dots is a minimalist digital version of the classic game. Surround opponent dots, capture territory, and play locally or against the computer.",
+    aboutVersion: "Version",
+    aboutGithub: "Project on GitHub",
+    aboutRights: "© 2026 Stanley Lloyd. All rights reserved."
   }
 } as const;
 

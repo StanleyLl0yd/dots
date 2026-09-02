@@ -10,7 +10,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.9.1-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +24,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.9.1** · stabilized pre-1.0 release candidate + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **0.9.3** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -116,6 +116,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - deterministic AI-vs-AI paired strength regression tests plus six fixed Expert tactical benchmark positions;
 - versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
 - exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;
+- shared guarded JSON-storage transport without merging the independent game/preference/viewport schemas;
 - cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;
 - latest-move marker, move counter, capture/invalid-placement feedback, desktop snap preview, first-run Help, Fit game, and responsive mobile action toolbar;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
@@ -123,14 +124,14 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - accessible responsive controls, screen-reader/live-status support, safe-area mobile UI, reduced-motion and forced-colors handling;
 - explicit offline/update PWA lifecycle with user-confirmed refresh, retryable activation failure, and lifecycle regression coverage;
 - build-time verification of generated PWA/offline artifacts;
-- committed npm lockfile with reproducible `npm ci` installs in CI and Pages;
+- committed npm and Cargo lockfiles for reproducible web and native dependency graphs;
 - CI security gate rejecting high/critical npm advisories, currently reporting zero vulnerabilities;
-- Node-24-compatible GitHub Actions runtimes for checkout/setup and Pages actions, plus Dependabot coverage for npm and GitHub Actions;
+- Node-24-compatible GitHub Actions runtimes for checkout/setup and Pages actions, plus Dependabot coverage for npm, Cargo, and GitHub Actions;
 - regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.9.1** is the stabilized pre-1.0 release-candidate patch. It hardens authoritative/persisted coordinate validation, isolates stale browser AI generations, and recovers failed explicit PWA updates without changing game rules, save schemas, AI search policy, or user-facing features.
+Version **0.9.3** is the RuStore-ready native distribution release. Android publication now uses a signed AAB with a dedicated upload key, reproducible store assets, and published privacy/terms pages. Gameplay, rules, save schemas, AI search policy, scoring, and web/PWA behavior remain unchanged.
 
 ## 🧱 Technology
 
@@ -140,10 +141,11 @@ Version **0.9.1** is the stabilized pre-1.0 release-candidate patch. It hardens 
 | Rendering | HTML5 Canvas |
 | Build | Vite 7.3.6 |
 | PWA | vite-plugin-pwa / Workbox |
+| Native shell | Tauri 2 |
 | Tests | Vitest 3.2.7 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
 | AI | deterministic bounded strategic minimax over the game core, executed in a browser Web Worker |
-| Dependencies | committed npm lockfile + `npm ci` + high/critical audit gate |
+| Dependencies | committed npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -168,17 +170,30 @@ src/
 │   ├── canvas-board.ts    Canvas, pointer/touch/keyboard interaction
 │   ├── viewport.ts        pan/zoom, visible bounds, screen↔game transforms
 │   └── viewport.test.ts   viewport/performance regression tests
+├── storage.ts             guarded JSON storage transport
 ├── persistence.ts         authoritative move-log save/restore adapter
 ├── preferences.ts         versioned game-mode + AI-difficulty preference
 ├── viewport-persistence.ts  separate viewport save/restore adapter
 ├── pwa.ts                 service-worker update/offline lifecycle
 ├── pwa.test.ts            service-worker lifecycle regression tests
 ├── i18n.ts                Russian / English interface and a11y copy
+├── about.ts               localized About dialog
 ├── main.ts                application composition, computer-turn scheduling, status UI
 └── styles.css             notebook/mobile/accessibility visual layer
 
+src-tauri/
+├── Cargo.toml             exact direct native dependencies
+├── Cargo.lock             resolved native dependency graph
+├── tauri.conf.json        native shell/security/bundle configuration
+└── src/                   minimal Rust bootstrap
+
 scripts/
-└── verify-build.mjs       production PWA/AI-worker artifact verification
+├── verify-build.mjs              production PWA/AI-worker artifact verification
+├── capture-rustore-android.mjs   Android emulator/CDP RuStore screenshots
+├── run-rustore-emulator-capture.sh emulator launch/capture wrapper
+├── tauri-android-build.gradle.kts generated Android release build policy
+├── setup-rustore-signing.ps1     app/upload signing-key setup
+└── prepare-rustore-pepk.ps1      RuStore PEPK export helper
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), and [`CHANGELOG.md`](CHANGELOG.md).
@@ -206,10 +221,10 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Use 0.9.1 as the release-candidate baseline: perform empirical desktop/mobile browser and installed-PWA testing and fix concrete regressions only.
-2. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
-3. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
-4. Consider import/export or Android/Capacitor packaging only after the stable 1.0 web/PWA release.
+1. Publish and validate the 0.9.3 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
+2. Continue real-device Android/macOS and installed-PWA validation and fix concrete regressions only.
+3. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
+4. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
 
 ## 📄 License
 

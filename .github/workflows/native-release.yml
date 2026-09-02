@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   android:
-    name: Signed Android APK
+    name: Signed Android AAB
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -38,7 +38,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -54,6 +54,9 @@ jobs:
 
       - name: Install web dependencies
         run: npm ci
+
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -71,21 +74,21 @@ jobs:
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
-      - name: Restore Android signing key
+      - name: Restore Android upload key
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
-          test -n "$ANDROID_KEY_PASSWORD"
-          KEYSTORE_PATH="$RUNNER_TEMP/dots.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -n "$ANDROID_UPLOAD_KEYSTORE_BASE64"
+          test -n "$ANDROID_UPLOAD_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_UPLOAD_KEY_ALIAS"
+          test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
+          KEYSTORE_PATH="$RUNNER_TEMP/dots-upload.keystore"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
-          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -alias "$ANDROID_UPLOAD_KEY_ALIAS" >/dev/null
           echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Initialize Android wrapper
@@ -94,13 +97,13 @@ jobs:
           cargo tauri icon public/pwa-192.png
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
 
-      - name: Build signed APK
+      - name: Build signed AAB
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
-          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          export ANDROID_UPLOAD_KEYSTORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD KEYSTORE_PATH
           python - <<'PY'
           import os
           from pathlib import Path
@@ -109,31 +112,42 @@ jobs:
               return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
 
           Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
-              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
-              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
-              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storePassword={prop(os.environ['ANDROID_UPLOAD_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_UPLOAD_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_UPLOAD_KEY_ALIAS'])}",
               f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
               '',
           ]), encoding='utf-8')
           PY
-          cargo tauri android build --apk
+          cargo tauri android build --aab
           mkdir -p release
-          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
-          test -f "$APK"
-          cp "$APK" "release/Dots-v${VERSION}-Android.apk"
+          AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
+          test -f "$AAB"
+          cp "$AAB" "release/Dots-v${VERSION}-Android.aab"
 
-      - name: Verify signed APK
+      - name: Verify signed AAB
         run: |
-          APK="release/Dots-v${VERSION}-Android.apk"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAB="release/Dots-v${VERSION}-Android.aab"
+          JARSIGNER_LOG="$RUNNER_TEMP/jarsigner.txt"
+          jarsigner -verify -verbose -certs "$AAB" > "$JARSIGNER_LOG" 2>&1
+          grep -q "jar verified" "$JARSIGNER_LOG"
+          BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
+          curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
+          java -jar "$BUNDLETOOL" version
+          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package | tr -d '"\r\n')"
+          test "$PACKAGE" = "com.sl.dots"
+          UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
+          rm -rf "$UNIVERSAL_DIR"
+          java -jar "$BUNDLETOOL" build-apks --bundle="$AAB" --output-format=DIRECTORY --output="$UNIVERSAL_DIR" --mode=universal
+          UNIVERSAL_APK="$(find "$UNIVERSAL_DIR" -type f -name '*.apk' -print -quit)"
+          test -f "$UNIVERSAL_APK"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          test -x "$APKSIGNER"
           test -x "$AAPT"
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          "$AAPT" dump badging "$APK" | grep -F "package: name='com.sl.dots'"
+          "$AAPT" dump badging "$UNIVERSAL_APK" | grep -F "package: name='com.sl.dots'"
+          test "$(stat -c%s "$UNIVERSAL_APK")" -lt 5368709120
           rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
 
-      - name: Attach APK to GitHub Release
+      - name: Attach AAB to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -144,7 +158,7 @@ jobs:
             sleep 10
           done
           gh release view "$TAG" >/dev/null
-          gh release upload "$TAG" "release/Dots-v${VERSION}-Android.apk" --clobber
+          gh release upload "$TAG" "release/Dots-v${VERSION}-Android.aab" --clobber
 
   macos:
     name: Universal macOS DMG
@@ -160,7 +174,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -176,6 +190,9 @@ jobs:
 
       - name: Install web dependencies
         run: npm ci
+
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high

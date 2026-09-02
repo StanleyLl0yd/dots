@@ -1,0 +1,237 @@
+name: RuStore Assets
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
+      - scripts/capture-rustore-android.mjs
+      - scripts/run-rustore-emulator-capture.sh
+      - scripts/tauri-android-build.gradle.kts
+      - store/rustore/**
+      - .github/workflows/rustore-assets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Resolve version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install and verify dependencies
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          npm test
+          npm install --no-save --package-lock=false @tauri-apps/cli@2.11.4
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.scripts.tauri = 'tauri';
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          python3 -m pip install --disable-pip-version-check pillow==11.3.0
+
+      - name: Configure Android toolchain
+        run: |
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add x86_64-linux-android
+
+      - name: Build emulator APK
+        run: |
+          npx tauri android init --ci
+          MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
+          test -f "$MAIN_ACTIVITY"
+          python3 - "$MAIN_ACTIVITY" <<'PY'
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          if "import android.webkit.WebView" not in text:
+              text = text.replace(
+                  "import android.os.Bundle\n",
+                  "import android.os.Bundle\nimport android.view.WindowInsets\nimport android.view.WindowInsetsController\nimport android.webkit.WebView\n",
+                  1,
+              )
+          needle = "  override fun onCreate(savedInstanceState: Bundle?) {\n"
+          if needle not in text:
+              print(text)
+              raise SystemExit("Unexpected generated MainActivity.kt")
+          if "WebView.setWebContentsDebuggingEnabled(true)" not in text:
+              text = text.replace(
+                  needle,
+                  needle + "    WebView.setWebContentsDebuggingEnabled(true)\n",
+                  1,
+              )
+          super_call = "    super.onCreate(savedInstanceState)\n"
+          if super_call not in text:
+              print(text)
+              raise SystemExit("Generated MainActivity has no super.onCreate call")
+          if "WindowInsets.Type.systemBars()" not in text:
+              text = text.replace(
+                  super_call,
+                  super_call + "    window.insetsController?.apply {\n      hide(WindowInsets.Type.systemBars())\n      systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE\n    }\n",
+                  1,
+              )
+          path.write_text(text)
+          print(text)
+          PY
+          npx tauri icon public/pwa-192.png
+          cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
+          npx tauri android build --apk --debug --target x86_64
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+          test -f "$APK"
+          echo "EMULATOR_APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Capture Android emulator screenshots
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/run-rustore-emulator-capture.sh "$EMULATOR_APK"
+
+      - name: Generate store icon and promo banner
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          out = Path('store/rustore/generated')
+          out.mkdir(parents=True, exist_ok=True)
+
+          icon = Image.new('RGB', (512, 512), '#f4efe5')
+          draw = ImageDraw.Draw(icon)
+          grid = '#d2c8b8'
+          for value in range(64, 449, 64):
+              draw.line((value, 64, value, 448), fill=grid, width=8)
+              draw.line((64, value, 448, value), fill=grid, width=8)
+          red = '#dc2626'
+          blue = '#2563eb'
+          ring = [(256, 128), (192, 192), (192, 256), (192, 320), (256, 384), (320, 320), (320, 256), (320, 192)]
+          draw.polygon(ring, fill='#f2dddd')
+          draw.line(ring + [ring[0]], fill=red, width=12, joint='curve')
+          for x, y in ring:
+              draw.ellipse((x-18, y-18, x+18, y+18), fill=red)
+          for x, y in [(256, 256), (256, 320)]:
+              draw.ellipse((x-20, y-20, x+20, y+20), fill=blue)
+          icon.save(out / 'icon-512.png', optimize=True)
+
+          width, height = 1080, 607
+          banner = Image.new('RGB', (width, height), '#f4efe5')
+          draw = ImageDraw.Draw(banner)
+          banner_grid = '#d7d0c4'
+          for x in range(0, width, 54):
+              draw.line((x, 0, x, height), fill=banner_grid, width=1)
+          for y in range(0, height, 54):
+              draw.line((0, y, width, y), fill=banner_grid, width=1)
+
+          banner_red = '#d94444'
+          banner_blue = '#367bd6'
+          for x, y in [(135, 142), (216, 223), (135, 304), (54, 223)]:
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=banner_red)
+          draw.ellipse((119, 207, 151, 239), fill=banner_blue)
+          for x, y in [(350, 170), (431, 251), (350, 332), (269, 251)]:
+              draw.ellipse((x-16, y-16, x+16, y+16), fill=banner_blue)
+          draw.ellipse((334, 235, 366, 267), fill=banner_red)
+
+          font_root = Path('/usr/share/fonts/truetype/dejavu')
+          title = ImageFont.truetype(str(font_root / 'DejaVuSans-Bold.ttf'), 92)
+          subtitle = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 30)
+          small = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 24)
+          draw.text((535, 145), 'DOTS', font=title, fill='#2b2925')
+          draw.text((539, 270), 'Окружай · Захватывай', font=subtitle, fill='#2b2925')
+          draw.text((539, 314), 'Контролируй', font=subtitle, fill='#2b2925')
+          draw.text((541, 372), 'Классическая игра «Точки»', font=small, fill='#625e57')
+          banner.save(out / 'promo-banner-1080x607.png', optimize=True)
+          PY
+
+      - name: Verify RuStore assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          expected = {
+              'icon-512.png': (512, 512),
+              'promo-banner-1080x607.png': (1080, 607),
+              '01-game-capture.png': (1080, 1920),
+              '02-vs-computer.png': (1080, 1920),
+              '03-help.png': (1080, 1920),
+              '04-about.png': (1080, 1920),
+          }
+          screenshot_names = {
+              '01-game-capture.png',
+              '02-vs-computer.png',
+              '03-help.png',
+              '04-about.png',
+          }
+          root = Path('store/rustore/generated')
+          for name, size in expected.items():
+              path = root / name
+              with Image.open(path) as source:
+                  image = source.copy()
+              if name in screenshot_names and image.size == (size[0] + 2, size[1] + 2):
+                  image = image.crop((1, 1, image.width - 1, image.height - 1))
+                  image.save(path, optimize=True)
+              if image.size != size:
+                  raise SystemExit(f'{name}: expected {size}, got {image.size}')
+          PY
+          mkdir -p release
+          (cd store/rustore/generated && zip -9 "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" ./*.png)
+
+      - name: Upload RuStore assets artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-RuStore-assets
+          path: release/Dots-v${{ env.VERSION }}-RuStore-assets.zip
+          if-no-files-found: error
+
+      - name: Attach assets to GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VERSION}"
+          for attempt in {1..30}; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "release/Dots-v${VERSION}-RuStore-assets.zip" --clobber

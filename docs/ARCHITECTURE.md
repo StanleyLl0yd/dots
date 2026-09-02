@@ -26,6 +26,8 @@ src/
 │   ├── canvas-board.ts
 │   ├── viewport.ts
 │   └── viewport.test.ts
+├── storage.ts                    guarded JSON-storage transport helpers
+├── storage.test.ts
 ├── persistence.ts                versioned authoritative move-log adapter
 ├── persistence.test.ts
 ├── preferences.ts                versioned mode + AI-difficulty preference
@@ -36,15 +38,26 @@ src/
 ├── pwa.test.ts                   service-worker lifecycle regression tests
 ├── i18n.ts                       locale and user/a11y copy
 ├── i18n.test.ts
+├── about.ts                      localized About dialog composition
+├── about.css
 ├── main.ts                       application composition and browser/AI orchestration
 ├── styles.css                    notebook/mobile/accessibility visual system
 └── vite-env.d.ts                 Vite/PWA virtual-module types
 
 scripts/
-└── verify-build.mjs              post-build PWA/offline artifact verification
+├── verify-build.mjs              post-build PWA/offline artifact verification
+├── tauri-android-build.gradle.kts Android generated-wrapper build policy
+└── RuStore helpers               emulator screenshots and local signing/export tooling
+
+src-tauri/
+├── Cargo.toml                    direct native dependencies
+├── Cargo.lock                    resolved native dependency graph
+├── tauri.conf.json               native shell/security/bundle configuration
+├── capabilities/                 Tauri permission scope
+└── src/                          minimal Rust shell bootstrap
 ```
 
-The game layer imports no DOM, Canvas, viewport, service-worker, storage, or network APIs. Rendering consumes confirmed game state; it never decides whether a capture exists. Game persistence replays moves through the game core. The AI and AI-match harness are consumers of the same core and may propose/apply coordinates but do not own legality or capture resolution. Viewport, preferences, and PWA lifecycle remain separate platform/presentation state.
+The game layer imports no DOM, Canvas, viewport, service-worker, storage, or network APIs. Rendering consumes confirmed game state; it never decides whether a capture exists. Game persistence replays moves through the game core. The AI and AI-match harness are consumers of the same core and may propose/apply coordinates but do not own legality or capture resolution. The storage helper owns only guarded JSON transport; game, preference, and viewport schemas remain separate adapters. Viewport, preferences, PWA lifecycle, and native shell configuration remain platform/presentation state.
 
 ## Capture and move engine
 
@@ -146,6 +159,7 @@ Every `chooseAiMove()` call creates fresh in-memory caches:
 - evaluation values;
 - exact minimax/transposition results;
 - canonical state signatures;
+- inactive captured-stone key sets;
 - active connected components;
 - closure-pressure values;
 - immediate-capture threat probes;
@@ -161,7 +175,7 @@ All caches are discarded after the move is selected. They are never persisted, n
 
 `pairedMatchMargin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
 
-The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive aggregate captured-score margin across them. `ai-tactical-benchmark.test.ts` complements those matches with six fixed decisions covering immediate multi-capture, mandatory defense, false closure, hostile-house safety, counter-capture under double threat, and capture-of-capture release. These are regression guards, not Elo claims.
+The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive captured-score margin across them. `ai-tactical-benchmark.test.ts` complements those matches with six fixed decisions covering immediate multi-capture, mandatory defense, false closure, hostile-house safety, counter-capture under double threat, and capture-of-capture release. These are regression guards, not Elo claims.
 
 ## Computer-mode orchestration
 
@@ -181,9 +195,11 @@ The CI suite deliberately uses short deterministic matches rather than a wall-cl
 
 In computer mode, Undo first removes the latest move. If that returns the session to Blue with an earlier human move still present, Undo is applied once more so the user returns to the previous Red decision point. The underlying `undoMove()` primitive remains unchanged and authoritative.
 
-## Session history and game persistence
+## Session history and persistence adapters
 
 `src/game/session.ts` wraps `GameState` with reversible history. A legal move records the placed point, previous active captures, and previous player. Undo removes that stone, restores the previous capture set/player, and derives score again. Illegal placement attempts create no history entry.
+
+`src/storage.ts` centralizes only failure-tolerant JSON read/write/remove behavior and record-shape detection. It has no knowledge of game rules, preference values, viewport bounds, keys, or schema versions. Each adapter continues to validate its own payload and removes only its own malformed value.
 
 `src/persistence.ts` stores save format version 1 as an ordered list of safe-integer move coordinates. Loading starts from a fresh session and replays every move through `playMove()`. Score, captures, player, rendering geometry, AI difficulty, and AI intent are never trusted from storage. Computer moves are indistinguishable from human moves in the persisted log.
 
@@ -258,7 +274,17 @@ Starting a new game resets the viewport to `(0, 0, 1)` and persists that present
 
 Network and worker failures remain status UI only. The persisted move log, viewport, preferences, and AI are independent of service-worker caches.
 
-`scripts/verify-build.mjs` runs after every production build and fails if the generated PWA manifest, service worker, key install/mobile assets, expected standalone metadata, Apple touch-icon linkage, or generated `ai-worker-*.js` Worker asset is missing.
+`scripts/verify-build.mjs` runs after every production web build and fails if the generated PWA manifest, service worker, key install/mobile assets, expected standalone metadata, Apple touch-icon linkage, or generated `ai-worker-*.js` Worker asset is missing.
+
+## Native Tauri shell and store tooling
+
+`src-tauri/` is a thin Tauri 2 shell around the same compiled TypeScript/Canvas frontend. It does not reimplement game state, captures, scoring, persistence, or AI. Native builds switch Vite to relative assets and disable the browser PWA/service-worker layer; the GitHub Pages build keeps the normal PWA configuration.
+
+The Tauri configuration owns the native application identifier (`com.sl.dots`), window/bundle metadata, CSP, and capability scope. `tauri-plugin-opener` is limited by the capability configuration and supports opening the project link from the shared About UI through the platform browser.
+
+Android release policy lives in `scripts/tauri-android-build.gradle.kts`: `minSdk 24`, `targetSdk 36`, `compileSdk 36`, release minification, signing integration, and generated-wrapper dependencies. GitHub release automation builds a signed Android App Bundle and a universal Intel/Apple-Silicon macOS DMG. RuStore-specific workflows/scripts generate publication screenshots/assets and support the app-signing/upload-key handoff without moving the app-signing private key into the repository.
+
+Native direct dependencies are exact-pinned in `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock` freezes the resolved transitive graph for reproducible builds. Neither native metadata nor release tooling is authoritative game state.
 
 ## Mobile and accessibility shell
 
@@ -270,16 +296,18 @@ Network and worker failures remain status UI only. The persisted move log, viewp
 
 ## Toolchain and dependency reproducibility
 
-`package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed dependency graph. `package.json` requires Node.js 22 or newer.
+`package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed JavaScript dependency graph. `package.json` requires Node.js 22 or newer.
 
-CI and GitHub Pages run `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification and cannot reach a Pages deployment. GitHub Release publication independently performs `npm ci`, the same audit gate, the complete test suite, and the production/PWA build before creating a new tag/release. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions, and Dependabot monitors both npm dependencies and GitHub Actions monthly. This tooling/security layer is operational only and cannot affect authoritative game state.
+`src-tauri/Cargo.lock` is committed alongside exact direct Tauri dependency constraints so Cargo-based native builds use one resolved Rust dependency graph. Dependabot monitors npm, Cargo under `/src-tauri`, and GitHub Actions monthly.
+
+CI and GitHub Pages run `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification and cannot reach a Pages deployment. GitHub Release publication independently performs `npm ci`, the same audit gate, the complete test suite, and the production/PWA build before creating a new tag/release. Native release jobs repeat the web dependency audit/tests before platform packaging. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions. This tooling/security layer is operational only and cannot affect authoritative game state.
 
 ## Regression and operational verification
 
 Automated coverage includes:
 
 - enclosure topology, houses, capture-of-capture, release, multiple/minimum captures, and large coordinates;
-- reversible sessions, invalid/non-safe-integer moves, save replay, malformed/unsupported persistence, preference migration/validation, and viewport persistence validation;
+- reversible sessions, invalid/non-safe-integer moves, save replay, malformed/unsupported persistence, guarded storage failures, preference migration/validation, and viewport persistence validation;
 - deterministic AI legality at all four levels, progressive profile depth, immediate capture selection, threat blocking from Normal upward, wrong-turn rejection, non-mutation, adaptive large-position budgets, and Expert sparse-position behavior;
 - deterministic AI-vs-AI replay plus paired Expert-vs-Normal/Hard non-losing and aggregate-strength guards;
 - six fixed Expert tactical positions covering multi-capture, defense, false closure, house safety, counter-capture, and capture-of-capture release;
@@ -290,6 +318,6 @@ Automated coverage includes:
 - post-build verification of generated service-worker/manifest/install artifacts;
 - PWA reconnect/foreground/periodic/update/cleanup lifecycle regression coverage.
 
-Version **0.8.2** is a toolchain/security hardening release: patched Vite/Vitest advisories, reproducible lockfile-based installs, an enforced high/critical audit gate, and maintained GitHub Actions runtimes. Game rules, persistence formats, UI behavior, PWA lifecycle, accessibility, and AI search/benchmark contracts are unchanged from 0.8.1.
+Version **0.8.2** hardened the JavaScript toolchain/security baseline with reproducible installs and dependency gates. Version **0.9.0** moved browser AI computation into a Worker, and 0.9.1 hardened input/replay and Worker/PWA failure handling without changing game rules or AI policy.
 
-Version **0.9.1** is the current stabilized pre-1.0 release-candidate baseline. It adds safe-integer input/replay boundaries, stronger browser AI generation ownership, recoverable explicit PWA update failure, and direct PWA lifecycle regression coverage without changing game rules, save schemas, AI search policy, or user-facing features.
+Version **0.9.3** is the current pre-1.0 native/RuStore baseline. It adds the shared Tauri shell, signed AAB/universal-DMG publication path, RuStore publication tooling, and reproducible Rust dependency locking while preserving authoritative game rules, save schemas, AI search policy/difficulty semantics, web/PWA behavior, accessibility, and the shared frontend feature set.
