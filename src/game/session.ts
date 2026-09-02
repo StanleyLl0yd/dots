@@ -1,11 +1,8 @@
-import { createGameState, placeStone, pointKey } from "./board";
-import { scoreCaptures } from "./capture";
-import type { Capture, GameState, Player, Point } from "./types";
+import { applyCoreMove, createCoreState, replayCoreMoves } from "./core";
+import type { GameState, Point } from "./types";
 
 export interface HistoryEntry {
   placed: Point;
-  previousCaptures: Capture[];
-  previousPlayer: Player;
 }
 
 export interface GameSession {
@@ -13,41 +10,33 @@ export interface GameSession {
   history: HistoryEntry[];
 }
 
-export const createSession = (state: GameState = createGameState()): GameSession => ({ state, history: [] });
+export const createSession = async (): Promise<GameSession> => ({
+  state: await createCoreState(),
+  history: []
+});
 
-export const playMove = (session: GameSession, point: Point): GameSession => {
-  const nextState = placeStone(session.state, point);
-  if (nextState === session.state) return session;
+export const restoreSession = async (moves: Point[]): Promise<GameSession | undefined> => {
+  const state = await replayCoreMoves(moves);
+  if (!state) return undefined;
+  return {
+    state,
+    history: moves.map((placed) => ({ placed: { ...placed } }))
+  };
+};
 
+export const playMove = async (session: GameSession, point: Point): Promise<GameSession> => {
+  const nextState = await applyCoreMove(session.state, point);
+  if (!nextState) return session;
   return {
     state: nextState,
-    history: [
-      ...session.history,
-      {
-        placed: { ...point },
-        previousCaptures: session.state.captures,
-        previousPlayer: session.state.currentPlayer
-      }
-    ]
+    history: [...session.history, { placed: { ...point } }]
   };
 };
 
-export const undoMove = (session: GameSession): GameSession => {
-  const previous = session.history.at(-1);
-  if (!previous) return session;
-
-  const stones = new Map(session.state.stones);
-  stones.delete(pointKey(previous.placed));
-
-  return {
-    state: {
-      currentPlayer: previous.previousPlayer,
-      stones,
-      captures: previous.previousCaptures,
-      score: scoreCaptures(previous.previousCaptures)
-    },
-    history: session.history.slice(0, -1)
-  };
+export const undoMove = async (session: GameSession): Promise<GameSession> => {
+  if (session.history.length === 0) return session;
+  const moves = session.history.slice(0, -1).map(({ placed }) => placed);
+  return (await restoreSession(moves)) ?? session;
 };
 
-export const resetSession = (): GameSession => createSession();
+export const resetSession = (): Promise<GameSession> => createSession();
