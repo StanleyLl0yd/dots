@@ -38,6 +38,13 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+      - name: Configure Rust WASM toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+
       - name: Install and verify dependencies
         run: |
           npm ci
