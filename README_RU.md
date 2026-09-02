@@ -116,9 +116,10 @@
 - детерминированные парные AI-vs-AI проверки силы и шесть фиксированных тактических позиций «Эксперта»;
 - вычисление хода компьютера в отменяемом Web Worker с авторитетным принятием через `playMove()`;
 - маркер последнего хода, счётчик ходов, feedback захвата/недопустимого хода, desktop snap-preview, Fit game и компактная mobile-панель;
-- зафиксированный `package-lock.json` и воспроизводимая установка через `npm ci` в CI и GitHub Pages;
+- общий защищённый JSON storage-слой без объединения независимых форматов партии, настроек и viewport;
+- зафиксированные `package-lock.json` и `src-tauri/Cargo.lock` для воспроизводимых web/native dependency graph;
 - обязательный `npm audit --audit-level=high`, блокирующий high/critical уязвимости; сейчас audit сообщает ноль уязвимостей;
-- GitHub Actions `checkout/setup-node` и Pages-actions на Node-24-compatible runtime, плюс Dependabot для npm и GitHub Actions;
+- GitHub Actions `checkout/setup-node` и Pages-actions на Node-24-compatible runtime, плюс Dependabot для npm, Cargo и GitHub Actions;
 - версионированное сохранение режима и сложности с миграцией настроек 0.6.0;
 - точный Undo, подтверждаемая новая игра, версионированный журнал ходов и детерминированное восстановление через replay;
 - практически неограниченный pan/zoom viewport для мыши, трекпада, touch/pinch и клавиатуры;
@@ -144,7 +145,7 @@
 | Тесты | Vitest 3.2.7 + проверка артефактов сборки |
 | Хранение | версионированный журнал ходов + viewport + настройки режима/сложности в localStorage |
 | ИИ | детерминированный ограниченный стратегический minimax поверх game core, выполняемый в browser Web Worker |
-| Зависимости | зафиксированный npm lockfile + `npm ci` + high/critical audit gate |
+| Зависимости | зафиксированные npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
 | Хостинг | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -154,6 +155,8 @@
 src/
 ├── game/
 │   ├── ai.ts              чистый многоуровневый стратегический поиск ИИ
+│   ├── ai-worker.ts       browser Worker для изолированного вычисления ИИ
+│   ├── ai-worker-protocol.ts  типизированный Worker-контракт
 │   ├── ai-match.ts        детерминированные AI-vs-AI регрессионные матчи
 │   ├── ai.test.ts         тесты сложности/тактики/детерминизма/большой позиции
 │   ├── ai-match.test.ts   парные регрессионные проверки силы
@@ -167,18 +170,28 @@ src/
 │   ├── canvas-board.ts    Canvas, mouse/touch/keyboard взаимодействие
 │   ├── viewport.ts        pan/zoom, видимые границы, screen↔game
 │   └── viewport.test.ts   тесты viewport/производительности
+├── storage.ts             защищённый JSON storage transport
 ├── persistence.ts         сохранение/восстановление авторитетного журнала ходов
 ├── preferences.ts         версионированные режим игры + сложность ИИ
 ├── viewport-persistence.ts  отдельное сохранение/восстановление viewport
 ├── pwa.ts                 lifecycle service worker / offline / update
 ├── pwa.test.ts            регрессионные тесты PWA lifecycle
 ├── i18n.ts                RU/EN интерфейс и тексты доступности
+├── about.ts               локализованный диалог «О приложении»
 ├── main.ts                сборка приложения, планирование хода ИИ и status UI
 └── styles.css             notebook/mobile/accessibility оформление
 
+src-tauri/
+├── Cargo.toml             точные прямые native-зависимости
+├── Cargo.lock             разрешённый native dependency graph
+├── tauri.conf.json        native shell/security/bundle конфигурация
+└── src/                   минимальный Rust bootstrap
+
 scripts/
 ├── verify-build.mjs              проверка production PWA/AI-worker артефактов
-├── capture-rustore-assets.mjs    детерминированные скриншоты RuStore
+├── capture-rustore-android.mjs   скриншоты RuStore через Android emulator/CDP
+├── run-rustore-emulator-capture.sh wrapper запуска/съёмки emulator
+├── tauri-android-build.gradle.kts политика Android release-сборки
 ├── setup-rustore-signing.ps1     подготовка app/upload ключей подписи
 └── prepare-rustore-pepk.ps1      подготовка PEPK-архива RuStore
 ```
