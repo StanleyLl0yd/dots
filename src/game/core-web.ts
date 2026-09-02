@@ -1,10 +1,9 @@
-import type * as WasmApi from "./wasm-api";
-
 export const backendKind: "native" | "web" = "web";
 
-let modulePromise: Promise<typeof WasmApi> | undefined;
+type WasmApi = typeof import("#game-core-wasm");
+let modulePromise: Promise<WasmApi> | undefined;
 
-const loadCore = async (): Promise<typeof WasmApi> => {
+const loadCore = async (): Promise<WasmApi> => {
   modulePromise ??= import("#game-core-wasm").then(async (module) => {
     await module.default();
     return module;
