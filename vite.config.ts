@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -5,9 +6,24 @@ const tauriPlatform = (globalThis as {
   process?: { env?: Record<string, string | undefined> };
 }).process?.env?.TAURI_ENV_PLATFORM;
 const isTauriBuild = Boolean(tauriPlatform);
+const source = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig(({ command }) => ({
   base: isTauriBuild ? "./" : command === "build" ? "/dots/" : "/",
+  define: {
+    __NATIVE_GAME_CORE__: JSON.stringify(isTauriBuild)
+  },
+  resolve: {
+    alias: {
+      "#game-core-backend": source(isTauriBuild ? "./src/game/core-native.ts" : "./src/game/core-web.ts"),
+      "#game-core-wasm": source("./src/wasm/game_core.js")
+    }
+  },
+  build: {
+    minify: "esbuild",
+    sourcemap: false,
+    target: "es2022"
+  },
   plugins: [
     VitePWA({
       disable: isTauriBuild,
@@ -43,7 +59,7 @@ export default defineConfig(({ command }) => ({
       workbox: {
         cleanupOutdatedCaches: true,
         navigateFallback: "index.html",
-        globPatterns: ["**/*.{js,css,html,png,svg,webp}"]
+        globPatterns: ["**/*.{js,css,html,png,svg,webp,wasm}"]
       }
     })
   ]
