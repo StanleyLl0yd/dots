@@ -19,15 +19,15 @@ class MemoryStorage implements StorageLike {
 }
 
 describe("game persistence", () => {
-  it("restores the legal move log, game state, and undo history", () => {
+  it("restores the legal move log, game state, and undo history", async () => {
     const storage = new MemoryStorage();
-    let session = createSession();
-    session = playMove(session, { x: 0, y: 0 });
-    session = playMove(session, { x: 4, y: 4 });
-    session = playMove(session, { x: 1, y: 0 });
+    let session = await createSession();
+    session = await playMove(session, { x: 0, y: 0 });
+    session = await playMove(session, { x: 4, y: 4 });
+    session = await playMove(session, { x: 1, y: 0 });
     saveSession(storage, session);
 
-    const restored = loadSession(storage);
+    const restored = await loadSession(storage);
 
     expect(restored?.history).toHaveLength(3);
     expect(restored?.state.stones.size).toBe(3);
@@ -35,9 +35,9 @@ describe("game persistence", () => {
     expect(restored?.state.stones.get("1:0")?.player).toBe("red");
   });
 
-  it("rebuilds captures and score from persisted moves instead of stored derived state", () => {
+  it("rebuilds captures and score from persisted moves instead of stored derived state", async () => {
     const storage = new MemoryStorage();
-    let session = createSession();
+    let session = await createSession();
     for (const point of [
       { x: 0, y: -1 },
       { x: 0, y: 0 },
@@ -47,57 +47,59 @@ describe("game persistence", () => {
       { x: 11, y: 10 },
       { x: 0, y: 1 }
     ]) {
-      session = playMove(session, point);
+      session = await playMove(session, point);
     }
     saveSession(storage, session);
 
-    const restored = loadSession(storage);
+    const restored = await loadSession(storage);
 
     expect(restored?.state.captures).toHaveLength(1);
     expect(restored?.state.score).toEqual({ red: 1, blue: 0 });
   });
 
-  it("rejects an unsupported save version", () => {
+  it("rejects an unsupported save version", async () => {
     const storage = new MemoryStorage();
     storage.setItem(SAVE_KEY, JSON.stringify({ version: SAVE_VERSION + 1, moves: [] }));
 
-    expect(loadSession(storage)).toBeUndefined();
+    expect(await loadSession(storage)).toBeUndefined();
     expect(storage.getItem(SAVE_KEY)).toBeNull();
   });
 
-  it("rejects a move log containing an illegal repeated move", () => {
+  it("rejects a move log containing an illegal repeated move", async () => {
     const storage = new MemoryStorage();
     storage.setItem(SAVE_KEY, JSON.stringify({
       version: SAVE_VERSION,
       moves: [{ x: 0, y: 0 }, { x: 0, y: 0 }]
     }));
 
-    expect(loadSession(storage)).toBeUndefined();
+    expect(await loadSession(storage)).toBeUndefined();
     expect(storage.getItem(SAVE_KEY)).toBeNull();
   });
 
-  it("rejects malformed saved coordinates", () => {
+  it("rejects malformed saved coordinates", async () => {
     const storage = new MemoryStorage();
     storage.setItem(SAVE_KEY, JSON.stringify({ version: SAVE_VERSION, moves: [{ x: 1.5, y: 0 }] }));
 
-    expect(loadSession(storage)).toBeUndefined();
+    expect(await loadSession(storage)).toBeUndefined();
     expect(storage.getItem(SAVE_KEY)).toBeNull();
   });
 
-  it("rejects unsafe saved coordinates", () => {
+  it("rejects unsafe saved coordinates", async () => {
     const storage = new MemoryStorage();
     storage.setItem(
       SAVE_KEY,
       JSON.stringify({ version: SAVE_VERSION, moves: [{ x: Number.MAX_SAFE_INTEGER + 1, y: 0 }] })
     );
 
-    expect(loadSession(storage)).toBeUndefined();
+    expect(await loadSession(storage)).toBeUndefined();
     expect(storage.getItem(SAVE_KEY)).toBeNull();
   });
 
-  it("clears a saved game", () => {
+  it("clears a saved game", async () => {
     const storage = new MemoryStorage();
-    saveSession(storage, playMove(createSession(), { x: 0, y: 0 }));
+    const initial = await createSession();
+    const moved = await playMove(initial, { x: 0, y: 0 });
+    saveSession(storage, moved);
     clearSavedGame(storage);
 
     expect(storage.getItem(SAVE_KEY)).toBeNull();
