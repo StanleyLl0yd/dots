@@ -48,6 +48,8 @@ run("wasm-bindgen", [
 run("wasm-opt", [
   outputWasm,
   "-Oz",
+  "--enable-bulk-memory",
+  "--enable-sign-ext",
   "--strip-debug",
   "--strip-producers",
   "-o",
