@@ -8,13 +8,10 @@ fn stone(x: i64, y: i64, player: Player) -> Stone {
 }
 
 fn state_with(stones: Vec<Stone>, current_player: Player, captures: Vec<Capture>) -> GameState {
-    let mut state = GameState {
-        current_player,
-        stones,
-        captures,
-        score: Score::default(),
-        ..GameState::new()
-    };
+    let mut state = GameState::new();
+    state.current_player = current_player;
+    state.stones = stones;
+    state.captures = captures;
     state.rebuild_index();
     state.score = crate::capture::score_captures(&state.captures);
     state
