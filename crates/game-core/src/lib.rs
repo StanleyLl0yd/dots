@@ -64,3 +64,6 @@ pub fn choose_ai_move_json(state_json: &str, options_json: &str) -> Result<Strin
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod regression_tests;
