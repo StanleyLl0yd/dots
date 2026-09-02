@@ -178,11 +178,27 @@ jobs:
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
           java -jar "$BUNDLETOOL" version
-          PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package | tr -d '"\r\n')"
-          if [ "$PACKAGE" != "com.sl.dots" ]; then
-            echo "Unexpected AAB package: $PACKAGE" >&2
+
+          AAB_MANIFEST="$RUNNER_TEMP/aab-manifest.xml"
+          AAB_MANIFEST_LOG="$RUNNER_TEMP/bundletool-dump-manifest.txt"
+          if ! java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base > "$AAB_MANIFEST" 2> "$AAB_MANIFEST_LOG"; then
+            cat "$AAB_MANIFEST_LOG" >&2
+            echo "bundletool dump manifest failed" >&2
             exit 1
           fi
+          AAB_MANIFEST="$AAB_MANIFEST" python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          manifest = os.environ['AAB_MANIFEST']
+          try:
+              package = ET.parse(manifest).getroot().attrib.get('package', '')
+          except Exception as exc:
+              raise SystemExit(f'Unable to parse AAB manifest: {exc}') from exc
+          if package != 'com.sl.dots':
+              raise SystemExit(f'Unexpected AAB package: {package}')
+          print(f'Verified AAB package: {package}')
+          PY
 
           APKS="$RUNNER_TEMP/universal.apks"
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
