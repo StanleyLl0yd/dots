@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export const backendKind = "native" as const;
+export const backendKind: "native" | "web" = "native";
 
 export const coreCreate = (): Promise<string> => invoke<string>("core_create");
 
