@@ -19,6 +19,10 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Validate workflow YAML
+        run: npx --yes prettier@3.6.2 .github/workflows/*.yml >/dev/null
       - name: Baseline repository statistics
         shell: bash
         run: |
@@ -38,16 +42,15 @@ jobs:
           grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
-      - name: Unused-code candidate scan
-        shell: bash
-        run: |
-          set +e
-          npx --yes knip
-          echo "knip_exit=$?"
-          exit 0
+      - name: Unused files and dependencies
+        run: npx --yes knip@5.82.1 --no-progress --include files,dependencies,devDependencies,binaries --exclude exports
+      - name: TypeScript unused exports
+        run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
       - run: npm test
       - run: npm run build
+      - name: Diff hygiene
+        run: git diff --check
       - name: Production statistics
         shell: bash
         run: |
