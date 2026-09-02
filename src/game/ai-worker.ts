@@ -1,4 +1,4 @@
-import { chooseAiMove } from "./ai";
+import { requestAiMove } from "./core";
 import type { AiWorkerRequest, AiWorkerResponse } from "./ai-worker-protocol";
 
 const scope = self as unknown as {
@@ -8,10 +8,7 @@ const scope = self as unknown as {
 
 scope.onmessage = (event) => {
   const { requestId, state, options } = event.data;
-  try {
-    const move = chooseAiMove(state, options);
-    scope.postMessage({ requestId, move });
-  } catch {
-    scope.postMessage({ requestId, error: "AI computation failed" });
-  }
+  void requestAiMove(state, options)
+    .then((move) => scope.postMessage({ requestId, move }))
+    .catch(() => scope.postMessage({ requestId, error: "AI computation failed" }));
 };
