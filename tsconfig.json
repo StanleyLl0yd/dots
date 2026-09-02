@@ -13,7 +13,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "#game-core-backend": ["src/game/core-web.ts"],
+      "#game-core-wasm": ["src/game/wasm-api.ts"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }
