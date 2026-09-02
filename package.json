@@ -12,7 +12,7 @@
     "build": "npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
     "build:native": "tsc --noEmit && vite build && node scripts/verify-build.mjs --native",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run wasm:build && vitest run",
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
