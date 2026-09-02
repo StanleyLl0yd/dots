@@ -28,6 +28,13 @@ jobs:
           enablement: true
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Configure Rust WASM toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+      - run: cargo test --manifest-path crates/game-core/Cargo.toml --locked
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
