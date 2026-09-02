@@ -12,7 +12,7 @@ The product should feel like squared notebook paper with two pens rather than a 
 - No progression, currencies, power-ups, loot, energy, quests, world map, or unrelated meta systems.
 - Game rules stay independent from rendering and platform UI.
 - The browser version is the primary implementation.
-- The same core should remain suitable for later Android packaging through Capacitor.
+- The same core is shared by the web/PWA build and the current Tauri native shell; platform packaging must not duplicate rules.
 - No backend, account, analytics, advertising, tracking, or required network connection in the initial product.
 - Computer play must consume the same authoritative game core rather than duplicating rules.
 
@@ -169,7 +169,7 @@ A compact localized **About** control sits beside the product title and opens ve
 
 ## Current implementation status
 
-Version **0.9.1** is the stabilized pre-1.0 release-candidate baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:
+Version **0.9.3** is the current pre-1.0 baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -190,7 +190,9 @@ Version **0.9.1** is the stabilized pre-1.0 release-candidate baseline for the c
 - build-time verification of generated manifest, service worker, and required install/mobile assets;
 - bounded visible-grid rendering, DPR cap, debounced viewport persistence, and stress tests for long histories and repeated/extreme viewport transforms;
 - AI regression tests covering all four search profiles and a 300-stone Expert position;
-- committed npm lockfile, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm plus GitHub Actions.
+- committed npm and Cargo lockfiles, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm, Cargo, and GitHub Actions;
+- a thin Tauri 2 shell that packages the same frontend/core without introducing platform-specific game rules;
+- signed Android AAB and universal macOS DMG release paths plus RuStore screenshot/signing/export tooling.
 
 Remaining pre-1.0 work is empirical real-device/browser and installed-PWA validation, keyboard/accessibility/forced-colors/reduced-motion checks, long-game responsiveness, continued adversarial topology coverage, and AI refinement only when driven by concrete failing positions. No principal software layer is missing.
 
@@ -301,9 +303,23 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 - recoverable explicit PWA update activation failure;
 - regression coverage for coordinate boundaries and PWA lifecycle behavior.
 
+### Phase 6.2 — shared native shell — complete in 0.9.2
+
+- Tauri 2 wrapper around the same compiled frontend and authoritative TypeScript game core;
+- Android and macOS bundle configuration without a second rules implementation;
+- localized About surface and native-safe external project link;
+- native builds use relative assets and disable the browser PWA/service-worker layer.
+
+### Phase 6.3 — RuStore/native delivery hardening — complete in 0.9.3
+
+- signed Android App Bundle as the primary Android release artifact;
+- dedicated upload-key/app-signing handoff and PEPK support without storing private signing material in the repository;
+- reproducible Android emulator/CDP RuStore screenshots and publication assets;
+- committed Cargo lockfile and Cargo Dependabot coverage for the native dependency graph.
+
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
-Use 0.9.1 as the release-candidate baseline for empirical browser/device/PWA testing and concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export and Capacitor/Android packaging remain optional post-1.0 work rather than prerequisites for the stable web release.
+Use 0.9.3 as the release-candidate baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
 
 ## Visual direction
 
@@ -348,5 +364,8 @@ Use 0.9.1 as the release-candidate baseline for empirical browser/device/PWA tes
 - Essential state must remain perceivable with reduced motion and forced colors; focus must remain visible for keyboard interaction.
 - Production builds must fail if required PWA/offline install artifacts or the browser AI Worker bundle are missing.
 - `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.
+- `src-tauri/Cargo.lock` must remain committed so native builds resolve one reviewed transitive Rust dependency graph.
+- The Tauri/native layer may package or expose platform capabilities but must not become a second authority for rules, AI decisions, score, or saved game state.
+- Native builds must not register the browser PWA/service-worker layer.
 - High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.
-- GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled.
+- GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled across npm, Cargo, and Actions.
