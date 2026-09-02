@@ -4,6 +4,9 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 export const removeStoredValue = (storage: StorageLike, key: string): void => {
   try {
     storage.removeItem(key);
