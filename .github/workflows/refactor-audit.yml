@@ -42,35 +42,6 @@ jobs:
           grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
-      - name: Unused files
-        id: knip-files
-        continue-on-error: true
-        run: npx --yes knip@5.82.1 --no-progress --include files --exclude exports
-      - name: Unused dependencies
-        id: knip-dependencies
-        continue-on-error: true
-        run: npx --yes knip@5.82.1 --no-progress --include dependencies --exclude exports
-      - name: Unused dev dependencies
-        id: knip-dev-dependencies
-        continue-on-error: true
-        run: npx --yes knip@5.82.1 --no-progress --include devDependencies --exclude exports
-      - name: Unused binaries
-        id: knip-binaries
-        continue-on-error: true
-        run: npx --yes knip@5.82.1 --no-progress --include binaries --exclude exports
-      - name: Enforce Knip results
-        if: always()
-        env:
-          FILES: ${{ steps.knip-files.outcome }}
-          DEPENDENCIES: ${{ steps.knip-dependencies.outcome }}
-          DEV_DEPENDENCIES: ${{ steps.knip-dev-dependencies.outcome }}
-          BINARIES: ${{ steps.knip-binaries.outcome }}
-        run: |
-          printf 'files=%s\ndependencies=%s\ndevDependencies=%s\nbinaries=%s\n' "$FILES" "$DEPENDENCIES" "$DEV_DEPENDENCIES" "$BINARIES"
-          test "$FILES" = success
-          test "$DEPENDENCIES" = success
-          test "$DEV_DEPENDENCIES" = success
-          test "$BINARIES" = success
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
@@ -83,3 +54,51 @@ jobs:
         run: |
           echo "dist_bytes=$(du -sb dist | cut -f1)"
           find dist -type f -printf '%s %p\n' | sort -nr
+
+  knip-files:
+    name: Knip / unused files
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include files
+
+  knip-dependencies:
+    name: Knip / unused dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include dependencies
+
+  knip-dev-dependencies:
+    name: Knip / unused devDependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
+
+  knip-binaries:
+    name: Knip / unused binaries
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx --yes knip@5.82.1 --no-progress --include binaries
