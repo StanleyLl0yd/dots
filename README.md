@@ -10,7 +10,8 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
+[![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
+[![Source version](https://img.shields.io/badge/source-0.9.4-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +25,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.9.3** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **0.9.4** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -51,7 +52,7 @@ Choose **Vs computer** from the mode selector to play Red against the Blue compu
 | **Hard** | Adds a selective computer continuation, strategic enclosure/threat analysis, and a forcing-capture horizon extension. |
 | **Expert** | Adds another bounded opponent reply, the widest strategic analysis, alpha-beta pruning, and deeper forcing-capture extensions. |
 
-The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. `src/game/ai.ts` remains browser-independent; the browser now executes its potentially expensive search in a cancellable Web Worker, and every returned coordinate is still accepted only through the authoritative `playMove()` path.
+The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. Rules, scoring, replay validation, and AI search live in the shared Rust `crates/game-core`; the browser executes the WASM-backed search in a cancellable Web Worker, and every returned coordinate is still accepted through the authoritative Rust move path.
 
 Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`. Version 0.8.2 does not change gameplay or AI behavior.
 
@@ -63,7 +64,7 @@ Existing 0.6.0 computer-mode preferences migrate automatically to **Normal** dif
 
 ### AI strength regression
 
-The repository includes a deterministic `src/game/ai-match.ts` harness. CI runs short paired **Expert vs Normal** and **Expert vs Hard** games with color assignment swapped. Expert must not lose either paired comparison and must keep a positive aggregate captured-score margin. A separate six-position `ai-tactical-benchmark.test.ts` suite locks down concrete Expert decisions including double captures, house safety, counter-capture, threat blocking, and capture-of-capture release. These are tactical regression guards, not an Elo rating or a hardware benchmark.
+The Rust regression suite runs short paired **Expert vs Normal** and **Expert vs Hard** games with color assignment swapped. Expert must not lose either paired comparison and must keep a positive aggregate captured-score margin. Six fixed Rust tactical regressions lock down concrete Expert decisions including double captures, house safety, counter-capture, threat blocking, and capture-of-capture release. These are tactical regression guards, not an Elo rating or a hardware benchmark.
 
 ## 🖱 Board navigation
 
@@ -106,7 +107,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 
 ## ✨ Current build
 
-- complete classic local rule engine separated from Canvas and browser UI;
+- authoritative Rust game core shared by native Tauri and web/PWA via WASM, separated from Canvas and browser UI;
 - strict 8-direction neighboring-dot topology, houses, multiple captures, capture-of-capture, release, and derived scoring;
 - local two-player mode plus deterministic offline Blue computer opponent;
 - four AI levels with bounded multi-ply search, adaptive budgets, real game-core simulation, and ephemeral transposition reuse;
@@ -131,20 +132,20 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.9.3** is the RuStore-ready native distribution release. Android publication now uses a signed AAB with a dedicated upload key, reproducible store assets, and published privacy/terms pages. Gameplay, rules, save schemas, AI search policy, scoring, and web/PWA behavior remain unchanged.
+Version **0.9.4** hardens the 0.9.3 native/RuStore baseline by moving authoritative rules, capture/scoring, replay validation, and deterministic AI into the shared Rust core used directly by Tauri and through WASM on the web. Gameplay rules, save schema, AI policy/difficulty semantics, accessibility, and PWA behavior are intentionally preserved.
 
 ## 🧱 Technology
 
 | Category | Technology |
 | --- | --- |
-| Language | TypeScript 5.9 |
+| Languages | Rust game core + TypeScript 5.9 UI/orchestration |
 | Rendering | HTML5 Canvas |
 | Build | Vite 7.3.6 |
 | PWA | vite-plugin-pwa / Workbox |
 | Native shell | Tauri 2 |
 | Tests | Vitest 3.2.7 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
-| AI | deterministic bounded strategic minimax over the game core, executed in a browser Web Worker |
+| AI | deterministic bounded Rust minimax; native direct call, browser WASM in a Web Worker |
 | Dependencies | committed npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
@@ -152,55 +153,31 @@ Version **0.9.3** is the RuStore-ready native distribution release. Android publ
 ## 🗂 Architecture
 
 ```text
-src/
-├── game/
-│   ├── ai.ts              pure multi-level strategic computer search
-│   ├── ai-worker.ts       browser Worker entry for isolated AI computation
-│   ├── ai-worker-protocol.ts  typed Worker request/response contract
-│   ├── ai-match.ts        deterministic AI-vs-AI regression harness
-│   ├── ai.test.ts         difficulty/tactics/determinism/large-position tests
-│   ├── ai-match.test.ts   paired strength regression tests
-│   ├── ai-tactical-benchmark.test.ts  fixed Expert tactical positions
-│   ├── board.ts           game state and legal placement
-│   ├── capture.ts         topology, houses, release, and scoring
-│   ├── session.ts         history, undo, and reset
-│   ├── *.test.ts          rule/session/topology/stress regression tests
-│   └── types.ts           domain types
-├── ui/
-│   ├── canvas-board.ts    Canvas, pointer/touch/keyboard interaction
-│   ├── viewport.ts        pan/zoom, visible bounds, screen↔game transforms
-│   └── viewport.test.ts   viewport/performance regression tests
-├── storage.ts             guarded JSON storage transport
-├── persistence.ts         authoritative move-log save/restore adapter
-├── preferences.ts         versioned game-mode + AI-difficulty preference
-├── viewport-persistence.ts  separate viewport save/restore adapter
-├── pwa.ts                 service-worker update/offline lifecycle
-├── pwa.test.ts            service-worker lifecycle regression tests
-├── i18n.ts                Russian / English interface and a11y copy
-├── about.ts               localized About dialog
-├── main.ts                application composition, computer-turn scheduling, status UI
-└── styles.css             notebook/mobile/accessibility visual layer
+crates/game-core/                 authoritative Rust rules/capture/replay/AI core
+├── src/board.rs
+├── src/capture.rs
+├── src/ai.rs
+├── src/types.rs
+└── src/wasm.rs                   four coarse WASM exports
 
-src-tauri/
-├── Cargo.toml             exact direct native dependencies
-├── Cargo.lock             resolved native dependency graph
-├── tauri.conf.json        native shell/security/bundle configuration
-└── src/                   minimal Rust bootstrap
+src/game/                         thin TypeScript boundary only
+├── core.ts                       DTO conversion + shared frontend API
+├── core-web.ts                   lazy Rust/WASM transport
+├── core-native.ts                four Tauri IPC calls
+├── ai-worker.ts                  cancellable browser AI orchestration
+├── session.ts                    move-log history over Rust core
+└── types.ts                      rendering-facing DTO types
 
-scripts/
-├── verify-build.mjs              production PWA/AI-worker artifact verification
-├── capture-rustore-android.mjs   Android emulator/CDP RuStore screenshots
-├── run-rustore-emulator-capture.sh emulator launch/capture wrapper
-├── tauri-android-build.gradle.kts generated Android release build policy
-├── setup-rustore-signing.ps1     app/upload signing-key setup
-└── prepare-rustore-pepk.ps1      RuStore PEPK export helper
+src/ui/                           Canvas input/rendering + viewport only
+src-tauri/                        Tauri shell linking the same game-core crate
+scripts/                          WASM build + source/artifact hardening verification
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), and [`CHANGELOG.md`](CHANGELOG.md).
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), [`docs/HARDENING.md`](docs/HARDENING.md), and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 🛠 Development
 
-Requirements: Node.js 22+ and npm.
+Requirements: Node.js 22+, npm, Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.127, and Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git
@@ -217,11 +194,11 @@ npm test
 npm run build
 ```
 
-`npm run build` includes TypeScript validation, the Vite/PWA production build, and post-build verification of generated PWA and AI Web Worker artifacts.
+`npm run dev`, `npm test`, and `npm run build` generate the ignored Rust/WASM output automatically. Production build verification rejects source maps, TypeScript/test leakage, legacy game-core identifiers, and missing PWA/WASM/Worker assets.
 
 ## 🗺 Roadmap
 
-1. Publish and validate the 0.9.3 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
+1. Publish and validate the 0.9.4 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
 2. Continue real-device Android/macOS and installed-PWA validation and fix concrete regressions only.
 3. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
 4. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.

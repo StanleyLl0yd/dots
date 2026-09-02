@@ -4,7 +4,21 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-02
+
+### Added
+
+- shared Rust `crates/game-core` as the single production implementation of move legality, capture/house topology, release/scoring, replay validation, and deterministic AI search for both native Tauri and web/PWA builds;
+- Rust topology/tactical/paired-strength regression coverage migrated from the removed TypeScript rules/AI implementation, plus frontend session/persistence tests that execute against the compiled WASM core;
+- permanent Rust CI, source-boundary enforcement, hardened web/native artifact verification, and dedicated Dependabot coverage for the shared Rust core.
+
 ### Changed
+
+- web/PWA now executes the shared Rust core through optimized WASM while native Tauri links the same crate directly through four coarse IPC commands; the TypeScript layer is limited to DTO/session/persistence/Worker/UI orchestration;
+- removed the duplicate TypeScript rules, capture/scoring, AI search, AI-match harness, and their superseded reference tests after equivalent Rust regressions were established;
+- hardened Android release output with explicit non-debuggable JNI/app settings, minification/resource shrinking, native symbol/debug-section checks, and 16 KB ELF alignment validation, while macOS verification now checks universal architectures and stripped implementation symbols;
+- preserved gameplay rules, save format, AI policy/difficulty semantics, deterministic decisions, accessibility behavior, and PWA lifecycle while changing the implementation boundary;
+- source version advanced to 0.9.4 so hardened artifacts have a tag/source provenance distinct from the already published 0.9.3 release.
 
 - consolidated failure-tolerant JSON storage transport and record validation while keeping game, preference, and viewport schemas, keys, versions, and fail-closed behavior independent;
 - reduced repeated AI derived-state work with per-search inactive-stone caching and reuse of the existing danger difference without changing search policy, weights, deterministic ordering, or game rules;

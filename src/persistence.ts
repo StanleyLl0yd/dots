@@ -1,4 +1,4 @@
-import { createSession, playMove, type GameSession } from "./game/session";
+import { restoreSession, type GameSession } from "./game/session";
 import type { Point } from "./game/types";
 import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 
@@ -17,7 +17,7 @@ const parsePoint = (value: unknown): Point | undefined => {
   return { x: value.x as number, y: value.y as number };
 };
 
-export const loadSession = (storage: StorageLike): GameSession | undefined => {
+export const loadSession = async (storage: StorageLike): Promise<GameSession | undefined> => {
   const parsed = readStoredJson(storage, SAVE_KEY);
   if (parsed === undefined) return undefined;
   if (!isRecord(parsed) || parsed.version !== SAVE_VERSION || !Array.isArray(parsed.moves)) {
@@ -25,22 +25,18 @@ export const loadSession = (storage: StorageLike): GameSession | undefined => {
     return undefined;
   }
 
-  let session = createSession();
+  const moves: Point[] = [];
   for (const rawMove of parsed.moves) {
     const point = parsePoint(rawMove);
     if (!point) {
       removeStoredValue(storage, SAVE_KEY);
       return undefined;
     }
-
-    const next = playMove(session, point);
-    if (next === session) {
-      removeStoredValue(storage, SAVE_KEY);
-      return undefined;
-    }
-    session = next;
+    moves.push(point);
   }
 
+  const session = await restoreSession(moves);
+  if (!session) removeStoredValue(storage, SAVE_KEY);
   return session;
 };
 

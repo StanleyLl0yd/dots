@@ -1,4 +1,4 @@
-import type { AiMoveOptions } from "./ai";
+import type { AiMoveOptions } from "./core";
 import type { GameState, Point } from "./types";
 
 export interface AiWorkerRequest {

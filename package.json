@@ -1,18 +1,23 @@
 {
   "name": "dots",
   "private": true,
-  "version": "0.9.3",
+  "version": "0.9.4",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/verify-build.mjs",
-    "build:native": "tsc --noEmit && vite build",
+    "dev": "npm run wasm:build && vite",
+    "wasm:build": "node scripts/build-game-core-wasm.mjs",
+    "verify:source": "node scripts/verify-source-boundary.mjs",
+    "build": "npm run verify:source && npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
+    "build:native": "npm run verify:source && tsc --noEmit && vite build && node scripts/verify-build.mjs --native",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run verify:source && npm run wasm:build && vitest run",
     "typecheck": "tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1"
   },
   "devDependencies": {
     "typescript": "5.9.2",

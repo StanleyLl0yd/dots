@@ -10,7 +10,8 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Версия](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
+[![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
+[![Версия](https://img.shields.io/badge/source-0.9.4-16A34A?labelColor=2b2925)](package.json)
 [![Лицензия](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -24,7 +25,7 @@
 
 **Точки** переносят лист бумаги в клетку и две цветные ручки в браузер. Игроки ставят точки на пересечения сетки и строят замкнутые цепочки из соседних точек вокруг соперника. Завершённые захваты обводятся и получают лёгкую штриховку.
 
-Текущая версия исходников: **0.9.3** · готовый для RuStore AAB + нативная оболочка Tauri + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
+Текущая версия исходников: **0.9.4** · готовый для RuStore AAB + нативная оболочка Tauri + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
 
 ## 🎯 Правила
 
@@ -51,7 +52,7 @@
 | **Сложный** | Добавляет свой следующий ход, стратегический анализ окружений/угроз и ограниченное продолжение форсированных захватов. |
 | **Эксперт** | Добавляет ещё один ответ игрока, самый широкий стратегический анализ, alpha-beta pruning и более глубокие форсированные продолжения. |
 
-Компьютерный соперник полностью локальный и работает без сети. Он не использует сервер, внешний API, ML-модель, аналитику или случайность. `src/game/ai.ts` остаётся независимым от браузера; потенциально тяжёлый поиск теперь выполняется в отменяемом Web Worker, а полученная координата по-прежнему принимается только через авторитетный `playMove()`.
+Компьютерный соперник полностью локальный и работает без сети. Он не использует сервер, внешний API, ML-модель, аналитику или случайность. Правила, счёт, replay-проверка и поиск ИИ находятся в общем Rust-крейте `crates/game-core`; браузер выполняет WASM-поиск в отменяемом Web Worker, а полученная координата принимается только через авторитетный Rust-путь хода.
 
 Версия 0.8.1 сохраняет стратегическую модель ветки 0.8 и закрывает конкретные тактические слабости, найденные фиксированными эталонными позициями. «Эксперт» теперь шире, но ограниченно проверяет корневые ходы через настоящее игровое ядро, не входит в чужой домик с немедленным самозахватом при наличии безопасной альтернативы и отдаёт приоритет безопасному немедленному захвату. Анализ замыканий, локальной опасности и коротких угроз остаётся эвристикой; допустимость хода и счёт определяет только `placeStone()`. Версия 0.8.2 не меняет игровое поведение или решения ИИ.
 
@@ -63,7 +64,7 @@
 
 ### Регрессионные матчи ИИ
 
-В репозитории есть детерминированный `src/game/ai-match.ts`. CI проводит короткие парные матчи **«Эксперт» против «Обычного»** и **«Эксперт» против «Сложного»** со сменой цветов. «Эксперт» не должен проигрывать ни одно парное сравнение и должен сохранять положительный суммарный перевес по захваченным точкам. Отдельный набор из шести фиксированных позиций `ai-tactical-benchmark.test.ts` проверяет двойной захват, безопасность домика, контрзахват, обязательные блокировки и окружение окружения. Это регрессионные проверки тактики, а не рейтинг Elo и не тест скорости оборудования.
+Rust-набор регрессий проводит короткие парные матчи **«Эксперт» против «Обычного»** и **«Эксперт» против «Сложного»** со сменой цветов. «Эксперт» не должен проигрывать ни одно парное сравнение и должен сохранять положительный суммарный перевес по захваченным точкам. Шесть фиксированных Rust-позиций проверяют двойной захват, безопасность домика, контрзахват, обязательные блокировки и окружение окружения. Это регрессионные проверки тактики, а не рейтинг Elo и не тест скорости оборудования.
 
 ## 🖱 Навигация по полю
 
@@ -106,7 +107,7 @@
 
 ## ✨ Что работает сейчас
 
-- полное классическое локальное игровое ядро отдельно от Canvas и browser UI;
+- авторитетное Rust-ядро, общее для native Tauri и web/PWA через WASM, отдельно от Canvas и browser UI;
 - строгая топология соседних точек в 8 направлениях, домики, множественные окружения, окружение окружения, освобождение и производный счёт;
 - локальный режим для двух игроков и детерминированный офлайн-компьютер за синих;
 - четыре уровня ИИ с ограниченным многоходовым поиском, адаптивными бюджетами, реальной симуляцией через game core и временным transposition cache;
@@ -131,13 +132,13 @@
 - русский интерфейс при наличии русского языка в браузере/системе, иначе английский;
 - CI, автоматическая публикация GitHub Pages, автоматические GitHub Releases и proprietary-лицензия All Rights Reserved.
 
-Версия **0.9.3** подготовлена для нативной публикации в RuStore. Android-сборка теперь выпускается как подписанный AAB с отдельным upload key, воспроизводимыми материалами магазина и опубликованными страницами политики конфиденциальности/пользовательского соглашения. Игровые правила, формат сохранений, политика поиска ИИ, счёт и поведение web/PWA не изменены.
+Версия **0.9.4** подготовлена для нативной публикации в RuStore. Android-сборка теперь выпускается как подписанный AAB с отдельным upload key, воспроизводимыми материалами магазина и опубликованными страницами политики конфиденциальности/пользовательского соглашения. Игровые правила, формат сохранений, политика поиска ИИ, счёт и поведение web/PWA не изменены.
 
 ## 🧱 Технологии
 
 | Категория | Технология |
 | --- | --- |
-| Язык | TypeScript 5.9 |
+| Языки | Rust game core + TypeScript 5.9 UI/orchestration |
 | Отрисовка | HTML5 Canvas |
 | Сборка | Vite 7.3.6 |
 | PWA | vite-plugin-pwa / Workbox |
@@ -152,55 +153,31 @@
 ## 🗂 Архитектура
 
 ```text
-src/
-├── game/
-│   ├── ai.ts              чистый многоуровневый стратегический поиск ИИ
-│   ├── ai-worker.ts       browser Worker для изолированного вычисления ИИ
-│   ├── ai-worker-protocol.ts  типизированный Worker-контракт
-│   ├── ai-match.ts        детерминированные AI-vs-AI регрессионные матчи
-│   ├── ai.test.ts         тесты сложности/тактики/детерминизма/большой позиции
-│   ├── ai-match.test.ts   парные регрессионные проверки силы
-│   ├── ai-tactical-benchmark.test.ts  фиксированные тактические позиции «Эксперта»
-│   ├── board.ts           состояние игры и допустимость хода
-│   ├── capture.ts         топология, домики, освобождение и счёт
-│   ├── session.ts         история, Undo и сброс
-│   ├── *.test.ts          тесты rules/session/topology/stress
-│   └── types.ts           типы предметной области
-├── ui/
-│   ├── canvas-board.ts    Canvas, mouse/touch/keyboard взаимодействие
-│   ├── viewport.ts        pan/zoom, видимые границы, screen↔game
-│   └── viewport.test.ts   тесты viewport/производительности
-├── storage.ts             защищённый JSON storage transport
-├── persistence.ts         сохранение/восстановление авторитетного журнала ходов
-├── preferences.ts         версионированные режим игры + сложность ИИ
-├── viewport-persistence.ts  отдельное сохранение/восстановление viewport
-├── pwa.ts                 lifecycle service worker / offline / update
-├── pwa.test.ts            регрессионные тесты PWA lifecycle
-├── i18n.ts                RU/EN интерфейс и тексты доступности
-├── about.ts               локализованный диалог «О приложении»
-├── main.ts                сборка приложения, планирование хода ИИ и status UI
-└── styles.css             notebook/mobile/accessibility оформление
+crates/game-core/                 авторитетные Rust rules/capture/replay/AI
+├── src/board.rs
+├── src/capture.rs
+├── src/ai.rs
+├── src/types.rs
+└── src/wasm.rs                   четыре крупных WASM-экспорта
 
-src-tauri/
-├── Cargo.toml             точные прямые native-зависимости
-├── Cargo.lock             разрешённый native dependency graph
-├── tauri.conf.json        native shell/security/bundle конфигурация
-└── src/                   минимальный Rust bootstrap
+src/game/                         только тонкая TypeScript-граница
+├── core.ts                       DTO + единый frontend API
+├── core-web.ts                   Rust/WASM transport
+├── core-native.ts                четыре Tauri IPC-вызова
+├── ai-worker.ts                  отменяемая browser AI orchestration
+├── session.ts                    история move-log поверх Rust core
+└── types.ts                      DTO для rendering
 
-scripts/
-├── verify-build.mjs              проверка production PWA/AI-worker артефактов
-├── capture-rustore-android.mjs   скриншоты RuStore через Android emulator/CDP
-├── run-rustore-emulator-capture.sh wrapper запуска/съёмки emulator
-├── tauri-android-build.gradle.kts политика Android release-сборки
-├── setup-rustore-signing.ps1     подготовка app/upload ключей подписи
-└── prepare-rustore-pepk.ps1      подготовка PEPK-архива RuStore
+src/ui/                           Canvas/input/viewport
+src-tauri/                        Tauri shell с тем же game-core crate
+scripts/                          WASM build + source/artifact verification
 ```
 
-Подробнее — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md) и [`CHANGELOG.md`](CHANGELOG.md).
+Подробнее — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), [`docs/HARDENING.md`](docs/HARDENING.md) и [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 🛠 Разработка
 
-Требования: Node.js 22+ и npm.
+Требования: Node.js 22+, npm, Rust с target `wasm32-unknown-unknown`, `wasm-bindgen-cli` 0.2.127 и Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git

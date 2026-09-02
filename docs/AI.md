@@ -26,15 +26,15 @@ All profiles shrink their candidate budgets as the number of stones grows. At 25
 
 ## Search model
 
-`src/game/ai.ts` is pure TypeScript and imports no DOM, Canvas, storage, network, or service-worker APIs.
+`crates/game-core/src/ai.rs` is the sole production AI implementation. It is Rust, shares the authoritative move/capture engine, and has no DOM, Canvas, storage, network, or service-worker dependency.
 
 The search is intentionally bounded for browser responsiveness:
 
 1. Build a frontier from empty intersections neighboring active stones.
 2. Build active same-color connectivity components and identify frontier points that would close an existing connected path into a cycle. These points are useful for both capture/house construction and blocking an opponent closing point.
 3. Rank candidates using local connectivity, opponent contact, cycle-closing pressure, blocked opponent closures, and bounded distance from the latest move.
-4. On Hard/Expert, use a wider but bounded root pre-scan through `placeStone()` before the expensive strategic search so real score-changing moves are not hidden solely by heuristic seed order.
-5. Validate retained moves through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
+4. On Hard/Expert, use a wider but bounded root pre-scan through `place_stone()` before the expensive strategic search so real score-changing moves are not hidden solely by heuristic seed order.
+5. Validate retained moves through `place_stone()`; illegal points and captured territory are rejected by the same core used for human moves.
 6. Evaluate real score/capture state plus secondary structure, local stone danger, and near-cycle pressure.
 7. On Expert, discard immediately self-capturing root moves when at least one safe candidate exists and give safe immediate captures root tactical priority.
 8. On Hard and Expert, probe a bounded set of authoritative immediate capture threats for both sides and short setup sequences that can create a capture opportunity on the attacker's next turn.
@@ -54,7 +54,7 @@ This lets Hard and Expert value useful house/capture construction and occupy lik
 
 Hard and Expert use bounded threat probes in addition to ordinary alternating minimax:
 
-- immediate capture probes temporarily give one side the turn and test a small ranked set through `placeStone()` to discover real score-changing closures and the stones they threaten;
+- immediate capture probes temporarily give one side the turn and test a small ranked set through `place_stone()` to discover real score-changing closures and the stones they threaten;
 - setup probes test a small non-scoring setup move and then ask whether another move by the same side would create an authoritative capture opportunity;
 - local danger evaluation penalizes own active stones under concentrated opponent contact and rewards comparable pressure against opponent stones.
 
@@ -68,7 +68,7 @@ Hard and Expert also use a small quiescence-style extension at the nominal horiz
 
 ## Search caches
 
-Every `chooseAiMove()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
+Every `choose_ai_move()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
 
 The transposition signature includes player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Cache entries exist only for the current AI move and are discarded afterward, so they cannot become persistent or authoritative state.
 
@@ -76,19 +76,19 @@ The implementation is deterministic: identical `GameState`, difficulty, options,
 
 ## Strength regression matches
 
-`src/game/ai-match.ts` provides a pure deterministic AI-vs-AI harness used only for tests and analysis. It applies every generated move back through `placeStone()` and can run paired matches with the stronger level once as Red and once as Blue.
+`crates/game-core/src/regression_tests.rs` contains the deterministic AI-vs-AI harness used by Rust regression tests. It applies every generated move back through `place_stone()` and runs paired matches with the stronger level once as Red and once as Blue.
 
 The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions. Expert must not lose either paired comparison and must retain a positive aggregate margin across the suite. The suite is deliberately short and has no wall-clock assertion; it is a tactical regression guard, not an Elo rating or hardware benchmark.
 
 ## Tactical benchmark suite
 
-`src/game/ai-tactical-benchmark.test.ts` contains six deterministic fixed Expert positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
+`crates/game-core/src/regression_tests.rs` contains six deterministic fixed Expert tactical positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
 
 All six are required tests in 0.8.1. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
 
 ## Browser Worker isolation
 
-Version **0.9.0** changes browser orchestration, not AI policy. `main.ts` starts `src/game/ai-worker.ts` as a dedicated Web Worker and sends a structured-cloned `GameState`, focus point, player, difficulty, and request generation through `ai-worker-protocol.ts`. Structured clone preserves the state's `Map`; a regression test locks down that transport assumption.
+Browser orchestration runs `src/game/ai-worker.ts` as a dedicated Web Worker. The Worker receives a structured-cloned rendering-facing `GameState` plus focus/player/difficulty and delegates the full search to the shared Rust/WASM core; native Tauri calls the same Rust core directly. The Worker remains transport/orchestration only.
 
 The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.
 
@@ -107,7 +107,7 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 - Captured stones are excluded from the AI's active-structure heuristic while their holding capture remains active.
 - Difficulty changes search policy only; they never modify game rules or persisted moves.
 - Threat/setup probes are speculative evaluation only and never mutate the supplied state or session history.
-- Hard/Expert root pre-scan remains bounded and uses only authoritative `placeStone()` outcomes.
+- Hard/Expert root pre-scan remains bounded and uses only authoritative `place_stone()` outcomes.
 - Expert may reject a root move only from a real immediate opponent-score increase returned by the core and only when a safe candidate exists.
 - Search and transposition caches are ephemeral implementation details and never become trusted game state.
 - Alpha-beta cutoffs must not be cached as exact transposition values.
@@ -118,6 +118,6 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Current strength
 
-Version **0.9.3** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
+Version **0.9.4** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
