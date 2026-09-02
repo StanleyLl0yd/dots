@@ -320,15 +320,19 @@ const evaluateState = (state: GameState, player: Player, context: SearchContext)
   const opponent = otherPlayer(player);
   const scoreDifference = state.score[player] - state.score[opponent];
   let value = scoreDifference * 100_000 + structureScore(state, player, context);
+  const dangerDifference =
+    context.difficulty === "easy"
+      ? 0
+      : dangerFor(state, opponent, context) - dangerFor(state, player, context);
 
   if (context.difficulty !== "easy") {
-    value += (dangerFor(state, opponent, context) - dangerFor(state, player, context)) * 1.4;
+    value += dangerDifference * 1.4;
   }
   if (context.difficulty === "hard" || context.difficulty === "expert") {
     value += (closurePressure(state, player, context) - closurePressure(state, opponent, context)) * 10;
   }
   if (context.difficulty === "expert") {
-    value += (dangerFor(state, opponent, context) - dangerFor(state, player, context)) * 0.9;
+    value += dangerDifference * 0.9;
   }
 
   context.evaluationCache.set(key, value);
