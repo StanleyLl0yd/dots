@@ -2,10 +2,11 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const tauriPlatform = (globalThis as {
+const environment = (globalThis as {
   process?: { env?: Record<string, string | undefined> };
-}).process?.env?.TAURI_ENV_PLATFORM;
-const isTauriBuild = Boolean(tauriPlatform);
+}).process?.env;
+const isTauriBuild = Boolean(environment?.TAURI_ENV_PLATFORM);
+const isTestBuild = Boolean(environment?.VITEST);
 const source = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig(({ command }) => ({
@@ -15,7 +16,9 @@ export default defineConfig(({ command }) => ({
   },
   resolve: {
     alias: {
-      "#game-core-backend": source(isTauriBuild ? "./src/game/core-native.ts" : "./src/game/core-web.ts"),
+      "#game-core-backend": source(
+        isTestBuild ? "./src/game/core-test.ts" : isTauriBuild ? "./src/game/core-native.ts" : "./src/game/core-web.ts"
+      ),
       "#game-core-wasm": source("./src/wasm/game_core.js")
     }
   },
