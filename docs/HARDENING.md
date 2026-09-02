@@ -1,6 +1,6 @@
 # Application hardening
 
-Dots keeps the browser UI and Canvas presentation in TypeScript while moving the valuable rules, capture engine, scoring, replay validation, and computer search into one Rust crate: `crates/game-core`.
+Dots 0.9.4 keeps the browser UI and Canvas presentation in TypeScript while moving the valuable rules, capture engine, scoring, replay validation, and computer search into one Rust crate: `crates/game-core`. The hardening uses a new release version rather than replacing 0.9.3 artifacts, so published native binaries remain traceable to the source revision that produced them.
 
 ## Trust boundary
 
