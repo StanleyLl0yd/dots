@@ -1,4 +1,4 @@
-import type { AiDifficulty } from "./game/ai";
+import type { AiDifficulty } from "./game/core";
 import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 
 export type GameMode = "local" | "computer";
