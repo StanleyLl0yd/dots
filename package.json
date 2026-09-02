@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run wasm:build && vite",
     "wasm:build": "node scripts/build-game-core-wasm.mjs",
     "verify:source": "node scripts/verify-source-boundary.mjs",
     "build": "npm run verify:source && npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
