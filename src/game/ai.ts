@@ -43,6 +43,7 @@ interface SearchContext {
   evaluationCache: Map<string, number>;
   searchCache: Map<string, number>;
   signatureCache: WeakMap<GameState, string>;
+  inactiveCache: WeakMap<GameState, Set<string>>;
   componentCache: WeakMap<GameState, Record<Player, Map<string, number>>>;
   closureCache: Map<string, number>;
   threatCache: Map<string, CaptureThreat>;
@@ -67,16 +68,25 @@ const LINK_OFFSETS: Point[] = [
   { x: -1, y: 1 }
 ];
 
-const inactiveStoneKeys = (state: GameState): Set<string> =>
-  new Set(state.captures.flatMap((capture) => capture.captured.map(pointKey)));
+const inactiveStoneKeys = (state: GameState, context: SearchContext): Set<string> => {
+  const cached = context.inactiveCache.get(state);
+  if (cached) return cached;
+  const inactive = new Set(state.captures.flatMap((capture) => capture.captured.map(pointKey)));
+  context.inactiveCache.set(state, inactive);
+  return inactive;
+};
 
 const activeStoneAt = (state: GameState, inactive: Set<string>, point: Point): Stone | undefined => {
   const stone = state.stones.get(pointKey(point));
   return stone && !inactive.has(pointKey(stone)) ? stone : undefined;
 };
 
-const buildComponents = (state: GameState, player: Player): Map<string, number> => {
-  const inactive = inactiveStoneKeys(state);
+const buildComponents = (
+  state: GameState,
+  player: Player,
+  context: SearchContext
+): Map<string, number> => {
+  const inactive = inactiveStoneKeys(state, context);
   const active = new Map(
     [...state.stones.values()]
       .filter((stone) => stone.player === player && !inactive.has(pointKey(stone)))
@@ -112,8 +122,8 @@ const componentsFor = (state: GameState, player: Player, context: SearchContext)
   let cached = context.componentCache.get(state);
   if (!cached) {
     cached = {
-      red: buildComponents(state, "red"),
-      blue: buildComponents(state, "blue")
+      red: buildComponents(state, "red", context),
+      blue: buildComponents(state, "blue", context)
     };
     context.componentCache.set(state, cached);
   }
@@ -144,7 +154,7 @@ const neighborCounts = (
 
 const cyclePairCount = (state: GameState, point: Point, player: Player, context: SearchContext): number => {
   if (state.stones.has(pointKey(point))) return 0;
-  const inactive = inactiveStoneKeys(state);
+  const inactive = inactiveStoneKeys(state, context);
   const components = componentsFor(state, player, context);
   const adjacentComponents: number[] = [];
 
@@ -198,7 +208,7 @@ const generateSeeds = (
   focus: Point | undefined,
   context: SearchContext
 ): CandidateSeed[] => {
-  const inactive = inactiveStoneKeys(state);
+  const inactive = inactiveStoneKeys(state, context);
   const points = new Map<string, Point>();
 
   for (const stone of state.stones.values()) {
@@ -224,8 +234,8 @@ const generateSeeds = (
     );
 };
 
-const structureScore = (state: GameState, player: Player): number => {
-  const inactive = inactiveStoneKeys(state);
+const structureScore = (state: GameState, player: Player, context: SearchContext): number => {
+  const inactive = inactiveStoneKeys(state, context);
   const opponent = otherPlayer(player);
   let ownLinks = 0;
   let opponentLinks = 0;
@@ -248,8 +258,8 @@ const structureScore = (state: GameState, player: Player): number => {
   return (ownLinks - opponentLinks) * 3 + (ownActive - opponentActive) * 0.2;
 };
 
-const dangerFor = (state: GameState, player: Player): number => {
-  const inactive = inactiveStoneKeys(state);
+const dangerFor = (state: GameState, player: Player, context: SearchContext): number => {
+  const inactive = inactiveStoneKeys(state, context);
   let total = 0;
 
   for (const stone of state.stones.values()) {
@@ -309,16 +319,16 @@ const evaluateState = (state: GameState, player: Player, context: SearchContext)
 
   const opponent = otherPlayer(player);
   const scoreDifference = state.score[player] - state.score[opponent];
-  let value = scoreDifference * 100_000 + structureScore(state, player);
+  let value = scoreDifference * 100_000 + structureScore(state, player, context);
 
   if (context.difficulty !== "easy") {
-    value += (dangerFor(state, opponent) - dangerFor(state, player)) * 1.4;
+    value += (dangerFor(state, opponent, context) - dangerFor(state, player, context)) * 1.4;
   }
   if (context.difficulty === "hard" || context.difficulty === "expert") {
     value += (closurePressure(state, player, context) - closurePressure(state, opponent, context)) * 10;
   }
   if (context.difficulty === "expert") {
-    value += (dangerFor(state, opponent) - dangerFor(state, player)) * 0.9;
+    value += (dangerFor(state, opponent, context) - dangerFor(state, player, context)) * 0.9;
   }
 
   context.evaluationCache.set(key, value);
@@ -643,6 +653,7 @@ export const chooseAiMove = (state: GameState, options: AiMoveOptions = {}): Poi
     evaluationCache: new Map(),
     searchCache: new Map(),
     signatureCache: new WeakMap(),
+    inactiveCache: new WeakMap(),
     componentCache: new WeakMap(),
     closureCache: new Map(),
     threatCache: new Map(),
