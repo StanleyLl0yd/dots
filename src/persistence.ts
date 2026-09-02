@@ -1,6 +1,6 @@
 import { createSession, playMove, type GameSession } from "./game/session";
 import type { Point } from "./game/types";
-import { readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
+import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 
 export type { StorageLike } from "./storage";
 
@@ -11,9 +11,6 @@ interface StoredGame {
   version: number;
   moves: Point[];
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parsePoint = (value: unknown): Point | undefined => {
   if (!isRecord(value) || !Number.isSafeInteger(value.x) || !Number.isSafeInteger(value.y)) return undefined;
