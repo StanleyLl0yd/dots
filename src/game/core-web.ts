@@ -1,6 +1,6 @@
 import type * as WasmApi from "./wasm-api";
 
-export const backendKind = "web" as const;
+export const backendKind: "native" | "web" = "web";
 
 let modulePromise: Promise<typeof WasmApi> | undefined;
 
