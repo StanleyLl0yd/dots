@@ -1,6 +1,6 @@
 import "./styles.css";
 import AiWorker from "./game/ai-worker?worker";
-import type { AiDifficulty } from "./game/ai";
+import { isNativeGameCore, requestAiMove, type AiDifficulty } from "./game/core";
 import type { AiWorkerRequest, AiWorkerResponse } from "./game/ai-worker-protocol";
 import { createSession, playMove, resetSession, undoMove } from "./game/session";
 import type { Capture, Player, Point } from "./game/types";
@@ -143,7 +143,7 @@ try {
   storage = undefined;
 }
 
-let session = storage ? loadSession(storage) ?? createSession() : createSession();
+let session = (storage ? await loadSession(storage) : undefined) ?? await createSession();
 const initialPreferences = storage ? loadPreferences(storage) : DEFAULT_PREFERENCES;
 let gameMode: GameMode = initialPreferences.gameMode;
 let aiDifficulty: AiDifficulty = initialPreferences.aiDifficulty;
@@ -159,6 +159,7 @@ let computerTimer: number | undefined;
 let computerWorker: Worker | undefined;
 let computerGeneration = 0;
 let computerThinking = false;
+let stateMutationInFlight = false;
 
 const announce = (message: string): void => {
   a11yStatus.textContent = "";
@@ -326,6 +327,23 @@ const applyMove = (
   }
 };
 
+const applyComputerProposal = async (generation: number, move: Point | undefined): Promise<void> => {
+  if (generation !== computerGeneration || !isComputerTurn()) return;
+  if (!isPoint(move)) {
+    fallBackToLocalMode();
+    return;
+  }
+
+  const baseSession = session;
+  const next = await playMove(baseSession, move);
+  if (generation !== computerGeneration || session !== baseSession) return;
+  if (next === baseSession) {
+    fallBackToLocalMode();
+    return;
+  }
+  applyMove(next, move, true);
+};
+
 const scheduleComputerMove = (): void => {
   if (document.visibilityState === "hidden" || !isComputerTurn() || computerThinking) return;
   const generation = ++computerGeneration;
@@ -339,6 +357,21 @@ const scheduleComputerMove = (): void => {
     if (!isComputerTurn()) {
       computerThinking = false;
       renderStatus();
+      return;
+    }
+
+    const options = {
+      player: COMPUTER_PLAYER,
+      focus: session.history.at(-1)?.placed,
+      difficulty: aiDifficulty
+    };
+
+    if (isNativeGameCore) {
+      void requestAiMove(session.state, options)
+        .then((move) => applyComputerProposal(generation, move))
+        .catch(() => {
+if (generation === computerGeneration && isComputerTurn()) fallBackToLocalMode();
+        });
       return;
     }
 
@@ -359,24 +392,14 @@ const scheduleComputerMove = (): void => {
     worker.onmessage = (event: MessageEvent<AiWorkerResponse>) => {
       finishWorker();
       if (generation !== computerGeneration) return;
-      if (!isComputerTurn()) {
-        computerThinking = false;
-        renderStatus();
-        return;
-      }
       const response = event.data;
-      if (response.requestId !== generation || response.error || !isPoint(response.move)) {
+      if (response.requestId !== generation || response.error) {
         fallBackToLocalMode();
         return;
       }
-
-      const next = playMove(session, response.move);
-      if (next === session) {
-        fallBackToLocalMode();
-        return;
-      }
-
-      applyMove(next, response.move, true);
+      void applyComputerProposal(generation, response.move).catch(() => {
+        if (generation === computerGeneration && isComputerTurn()) fallBackToLocalMode();
+      });
     };
 
     worker.onerror = () => {
@@ -387,11 +410,7 @@ const scheduleComputerMove = (): void => {
     const request: AiWorkerRequest = {
       requestId: generation,
       state: session.state,
-      options: {
-        player: COMPUTER_PLAYER,
-        focus: session.history.at(-1)?.placed,
-        difficulty: aiDifficulty
-      }
+      options
     };
 
     try {
@@ -407,59 +426,82 @@ board = new CanvasBoard(canvas, session.state, {
   initialViewport,
   onViewportChange: persistViewport,
   onKeyboardCursorChange: (point) => announce(pointMessage(copy.cursor, point)),
-  onPoint: (point) => {
-    if (isComputerTurn()) {
-      announce(copy.waitComputer);
-      scheduleComputerMove();
-      return false;
-    }
+  onPoint: async (point) => {
+  if (isComputerTurn()) {
+    announce(copy.waitComputer);
+    scheduleComputerMove();
+    return;
+  }
+  if (stateMutationInFlight) return;
 
-    const next = playMove(session, point);
-    if (next === session) {
+  stateMutationInFlight = true;
+  try {
+    const baseSession = session;
+    const next = await playMove(baseSession, point);
+    if (session !== baseSession) return;
+    if (next === baseSession) {
       board.showInvalidPoint(point);
       announce(pointMessage(copy.unavailable, point));
-      return false;
+      return;
     }
     applyMove(next, point, false);
     scheduleComputerMove();
-    return true;
+  } finally {
+    stateMutationInFlight = false;
   }
+}
 });
 board.setState(session.state, lastMove());
 
 undo.addEventListener("click", () => {
-  cancelComputerMove();
-  let previous = undoMove(session);
-  if (previous === session) {
-    renderStatus();
-    return;
-  }
+  void (async () => {
+    if (stateMutationInFlight) return;
+    stateMutationInFlight = true;
+    try {
+      cancelComputerMove();
+      const baseSession = session;
+      let previous = await undoMove(baseSession);
+      if (session !== baseSession) return;
+      if (previous === baseSession) {
+        renderStatus();
+        return;
+      }
 
-  if (gameMode === "computer" && previous.state.currentPlayer === COMPUTER_PLAYER && previous.history.length > 0) {
-    previous = undoMove(previous);
-  }
+      if (gameMode === "computer" && previous.state.currentPlayer === COMPUTER_PLAYER && previous.history.length > 0) {
+        previous = await undoMove(previous);
+      }
 
-  session = previous;
-  persist();
-  board.setState(session.state, lastMove());
-  clearGameFeedback();
-  renderStatus();
-  scheduleComputerMove();
+      session = previous;
+      persist();
+      board.setState(session.state, lastMove());
+      clearGameFeedback();
+      renderStatus();
+      scheduleComputerMove();
+    } finally {
+      stateMutationInFlight = false;
+    }
+  })();
 });
 
-const resetGame = (): void => {
-  cancelComputerMove();
-  session = resetSession();
-  persist();
-  board.setState(session.state);
-  board.resetViewport();
-  clearGameFeedback();
-  renderStatus();
+const resetGame = async (): Promise<void> => {
+  if (stateMutationInFlight) return;
+  stateMutationInFlight = true;
+  try {
+    cancelComputerMove();
+    session = await resetSession();
+    persist();
+    board.setState(session.state);
+    board.resetViewport();
+    clearGameFeedback();
+    renderStatus();
+  } finally {
+    stateMutationInFlight = false;
+  }
 };
 
 newGame.addEventListener("click", () => {
   if (session.history.length === 0) {
-    resetGame();
+    void resetGame();
     return;
   }
   cancelComputerMove();
@@ -469,7 +511,7 @@ newGame.addEventListener("click", () => {
 });
 
 newGameDialog.addEventListener("close", () => {
-  if (newGameDialog.returnValue === "confirm") resetGame();
+  if (newGameDialog.returnValue === "confirm") void resetGame();
   else {
     renderStatus();
     scheduleComputerMove();

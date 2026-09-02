@@ -15,7 +15,7 @@ import {
 } from "./viewport";
 
 interface CanvasBoardOptions {
-  onPoint: (point: Point) => boolean;
+  onPoint: (point: Point) => void | Promise<void>;
   initialViewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
   onKeyboardCursorChange?: (point: Point) => void;
