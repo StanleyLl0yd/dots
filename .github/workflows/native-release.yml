@@ -58,6 +58,21 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
 
+      - name: Pin existing release tag source
+        if: github.event_name == 'push'
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+            if [ -z "$EXPECTED" ]; then
+              EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+            fi
+            git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
+            git checkout --detach FETCH_HEAD
+            ACTUAL="$(git rev-parse HEAD)"
+            test "$ACTUAL" = "$EXPECTED"
+            echo "Pinned existing release source $TAG at $ACTUAL"
+          fi
+
       - name: Install web dependencies
         run: npm ci
 
@@ -146,60 +161,95 @@ jobs:
       - name: Verify signed AAB and native hardening
         run: |
           AAB="release/Dots-v${VERSION}-Android.aab"
+          test -f "$AAB"
+
           JARSIGNER_LOG="$RUNNER_TEMP/jarsigner.txt"
           jarsigner -verify -verbose -certs "$AAB" > "$JARSIGNER_LOG" 2>&1
-          grep -q "jar verified" "$JARSIGNER_LOG"
+          if ! grep -Fq "jar verified" "$JARSIGNER_LOG"; then
+            cat "$JARSIGNER_LOG" >&2
+            echo "AAB signature verification failed" >&2
+            exit 1
+          fi
 
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
           java -jar "$BUNDLETOOL" version
           PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package | tr -d '"\r\n')"
-          test "$PACKAGE" = "com.sl.dots"
+          if [ "$PACKAGE" != "com.sl.dots" ]; then
+            echo "Unexpected AAB package: $PACKAGE" >&2
+            exit 1
+          fi
 
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
           rm -rf "$UNIVERSAL_DIR"
           java -jar "$BUNDLETOOL" build-apks --bundle="$AAB" --output-format=DIRECTORY --output="$UNIVERSAL_DIR" --mode=universal
           UNIVERSAL_APK="$(find "$UNIVERSAL_DIR" -type f -name '*.apk' -print -quit)"
-          test -f "$UNIVERSAL_APK"
+          if [ ! -f "$UNIVERSAL_APK" ]; then
+            echo "bundletool did not produce a universal APK" >&2
+            exit 1
+          fi
 
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$AAPT"
-          "$AAPT" dump badging "$UNIVERSAL_APK" | grep -F "package: name='com.sl.dots'"
-          if "$AAPT" dump badging "$UNIVERSAL_APK" | grep -q '^application-debuggable'; then
+          BADGING="$RUNNER_TEMP/android-badging.txt"
+          "$AAPT" dump badging "$UNIVERSAL_APK" > "$BADGING"
+          if ! grep -Fq "package: name='com.sl.dots'" "$BADGING"; then
+            cat "$BADGING" >&2
+            echo "Universal APK package verification failed" >&2
+            exit 1
+          fi
+          if grep -q '^application-debuggable' "$BADGING"; then
             echo "Release APK is debuggable" >&2
             exit 1
           fi
+
           MANIFEST_DUMP="$RUNNER_TEMP/android-manifest.txt"
           "$AAPT" dump xmltree "$UNIVERSAL_APK" AndroidManifest.xml > "$MANIFEST_DUMP"
-          if grep -F 'android:debuggable' "$MANIFEST_DUMP" | grep -Fq '0xffffffff'; then
+          if grep -Eq 'android:debuggable.*0xffffffff' "$MANIFEST_DUMP"; then
             echo "android:debuggable=true in release manifest" >&2
             exit 1
           fi
-          if grep -F 'android:usesCleartextTraffic' "$MANIFEST_DUMP" | grep -Fq '0xffffffff'; then
+          if grep -Eq 'android:usesCleartextTraffic.*0xffffffff' "$MANIFEST_DUMP"; then
             echo "usesCleartextTraffic=true in release manifest" >&2
             exit 1
           fi
-          test "$(stat -c%s "$UNIVERSAL_APK")" -lt 5368709120
+
+          APK_SIZE="$(stat -c%s "$UNIVERSAL_APK")"
+          if [ "$APK_SIZE" -ge 5368709120 ]; then
+            echo "Universal APK exceeds 5 GiB: $APK_SIZE bytes" >&2
+            exit 1
+          fi
 
           NATIVE_DIR="$RUNNER_TEMP/native-libs"
           rm -rf "$NATIVE_DIR"
           mkdir -p "$NATIVE_DIR"
           unzip -q "$UNIVERSAL_APK" 'lib/*/*.so' -d "$NATIVE_DIR"
-          test -n "$(find "$NATIVE_DIR/lib/arm64-v8a" -type f -name '*.so' -print -quit)"
+          ARM64_SO="$(find "$NATIVE_DIR/lib/arm64-v8a" -type f -name '*.so' -print -quit 2>/dev/null || true)"
+          if [ -z "$ARM64_SO" ]; then
+            echo "arm64-v8a native library is missing from universal APK" >&2
+            find "$NATIVE_DIR" -maxdepth 4 -type f -print >&2 || true
+            exit 1
+          fi
+
           READELF="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-readelf -print -quit)"
           NM="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-nm -print -quit)"
           test -x "$READELF"
           test -x "$NM"
 
           while IFS= read -r so; do
-            if "$READELF" -SW "$so" | grep -Eq '\.debug_(info|line|str|abbrev)'; then
+            SECTIONS="$(mktemp "$RUNNER_TEMP/sections.XXXXXX")"
+            SYMBOLS="$(mktemp "$RUNNER_TEMP/symbols.XXXXXX")"
+            "$READELF" -SW "$so" > "$SECTIONS"
+            "$NM" -D --defined-only "$so" > "$SYMBOLS" 2>/dev/null || true
+            if grep -Eq '\.debug_(info|line|str|abbrev)' "$SECTIONS"; then
               echo "Debug sections found in $so" >&2
               exit 1
             fi
-            if "$NM" -D --defined-only "$so" 2>/dev/null | grep -Eiq 'choose_ai_move|minimax|closure_pressure|setup_potential|find_new_captures|find_house_capture'; then
+            if grep -Eiq 'choose_ai_move|minimax|closure_pressure|setup_potential|find_new_captures|find_house_capture' "$SYMBOLS"; then
               echo "Sensitive game-core symbol exported by $so" >&2
               exit 1
             fi
+            rm -f "$SECTIONS" "$SYMBOLS"
           done < <(find "$NATIVE_DIR/lib" -type f -name '*.so' -print)
 
           READELF="$READELF" NATIVE_DIR="$NATIVE_DIR" python - <<'PY'
@@ -266,6 +316,21 @@ jobs:
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Pin existing release tag source
+        if: github.event_name == 'push'
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+            if [ -z "$EXPECTED" ]; then
+              EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+            fi
+            git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
+            git checkout --detach FETCH_HEAD
+            ACTUAL="$(git rev-parse HEAD)"
+            test "$ACTUAL" = "$EXPECTED"
+            echo "Pinned existing release source $TAG at $ACTUAL"
+          fi
 
       - name: Install web dependencies
         run: npm ci
