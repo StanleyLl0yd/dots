@@ -159,6 +159,10 @@ jobs:
           cp "$AAB" "release/Dots-v${VERSION}-Android.aab"
 
       - name: Verify signed AAB and native hardening
+        env:
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
           AAB="release/Dots-v${VERSION}-Android.aab"
           test -f "$AAB"
@@ -180,14 +184,37 @@ jobs:
             exit 1
           fi
 
+          APKS="$RUNNER_TEMP/universal.apks"
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
+          STORE_PASS_FILE="$RUNNER_TEMP/bundletool-store.pass"
+          KEY_PASS_FILE="$RUNNER_TEMP/bundletool-key.pass"
+          rm -f "$APKS" "$STORE_PASS_FILE" "$KEY_PASS_FILE"
           rm -rf "$UNIVERSAL_DIR"
-          java -jar "$BUNDLETOOL" build-apks --bundle="$AAB" --output-format=DIRECTORY --output="$UNIVERSAL_DIR" --mode=universal
-          UNIVERSAL_APK="$(find "$UNIVERSAL_DIR" -type f -name '*.apk' -print -quit)"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" > "$STORE_PASS_FILE"
+          printf '%s' "$ANDROID_UPLOAD_KEY_PASSWORD" > "$KEY_PASS_FILE"
+          chmod 600 "$STORE_PASS_FILE" "$KEY_PASS_FILE"
+          java -jar "$BUNDLETOOL" build-apks \
+            --bundle="$AAB" \
+            --output="$APKS" \
+            --mode=universal \
+            --overwrite \
+            --ks="$KEYSTORE_PATH" \
+            --ks-pass=file:"$STORE_PASS_FILE" \
+            --ks-key-alias="$ANDROID_UPLOAD_KEY_ALIAS" \
+            --key-pass=file:"$KEY_PASS_FILE"
+          test -f "$APKS"
+          mkdir -p "$UNIVERSAL_DIR"
+          unzip -q "$APKS" -d "$UNIVERSAL_DIR"
+          UNIVERSAL_APK="$(find "$UNIVERSAL_DIR" -type f -name 'universal.apk' -print -quit)"
           if [ ! -f "$UNIVERSAL_APK" ]; then
-            echo "bundletool did not produce a universal APK" >&2
+            echo "bundletool did not produce universal.apk" >&2
+            find "$UNIVERSAL_DIR" -maxdepth 3 -type f -print >&2 || true
             exit 1
           fi
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify "$UNIVERSAL_APK"
 
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$AAPT"
@@ -274,7 +301,7 @@ jobs:
                       raise SystemExit(f'{library}: 64-bit LOAD alignment is not 16 KB compatible: {aligns}')
           PY
 
-          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
+          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH" "$STORE_PASS_FILE" "$KEY_PASS_FILE"
 
       - name: Attach AAB to GitHub Release
         env:
