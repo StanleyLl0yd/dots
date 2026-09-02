@@ -11,7 +11,7 @@
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
-[![Source version](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.9.4-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -25,7 +25,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.9.3** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **0.9.4** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -132,7 +132,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
-Version **0.9.3** is the RuStore-ready native distribution release. Android publication now uses a signed AAB with a dedicated upload key, reproducible store assets, and published privacy/terms pages. Gameplay, rules, save schemas, AI search policy, scoring, and web/PWA behavior remain unchanged.
+Version **0.9.4** hardens the 0.9.3 native/RuStore baseline by moving authoritative rules, capture/scoring, replay validation, and deterministic AI into the shared Rust core used directly by Tauri and through WASM on the web. Gameplay rules, save schema, AI policy/difficulty semantics, accessibility, and PWA behavior are intentionally preserved.
 
 ## 🧱 Technology
 
@@ -198,7 +198,7 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Publish and validate the 0.9.3 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
+1. Publish and validate the 0.9.4 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
 2. Continue real-device Android/macOS and installed-PWA validation and fix concrete regressions only.
 3. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
 4. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.

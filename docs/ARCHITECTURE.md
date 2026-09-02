@@ -44,7 +44,7 @@ The AI builds a finite frontier from empty intersections one grid step away from
 
 For both colors, the engine builds connected components over active 8-neighbor stones. A frontier point receives cycle-closing pressure when at least two adjacent stones of one color already belong to the same connected component. Adding a stone at that point would close an existing graph path into a cycle.
 
-This is only a move-ordering/evaluation heuristic. The cycle may become a house, a scoring capture, a capture-of-capture, or no valid capture at all; only `placeStone()` and the capture engine decide that.
+This is only a move-ordering/evaluation heuristic. The cycle may become a house, a scoring capture, a capture-of-capture, or no valid capture at all; only `place_stone()` and the capture engine decide that.
 
 Frontier ranking uses:
 
@@ -54,9 +54,9 @@ Frontier ranking uses:
 - bonuses for locally dense own/opponent contact;
 - a bounded distance penalty from the most recent focus point.
 
-Every retained coordinate is subsequently passed through `placeStone()`. Hard/Expert perform a wider but bounded root pre-scan so real score-changing moves cannot be excluded solely by heuristic seed order. Occupied, captured-territory, or otherwise illegal points are rejected by the authoritative core.
+Every retained coordinate is subsequently passed through `place_stone()`. Hard/Expert perform a wider but bounded root pre-scan so real score-changing moves cannot be excluded solely by heuristic seed order. Occupied, captured-territory, or otherwise illegal points are rejected by the authoritative core.
 
-At the Expert root, candidates that immediately increase the opponent's score are excluded when at least one safe candidate exists. Safe immediate captures take tactical priority before deeper minimax comparison. These are move-selection policies only; the score change used by the policy is still the result returned by `placeStone()`.
+At the Expert root, candidates that immediately increase the opponent's score are excluded when at least one safe candidate exists. Safe immediate captures take tactical priority before deeper minimax comparison. These are move-selection policies only; the score change used by the policy is still the result returned by `place_stone()`.
 
 ### Position evaluation
 
@@ -74,9 +74,9 @@ Easy uses the lightest evaluation. Normal adds local danger. Hard and Expert als
 
 Hard and Expert add bounded speculative analysis that still uses the real move engine.
 
-`immediateCaptureThreat()` temporarily evaluates a chosen side as the mover, tests a small ranked set through `placeStone()`, and measures actual score-changing capture/release outcomes plus newly threatened stones.
+`immediate_capture_threat()` temporarily evaluates a chosen side as the mover, tests a small ranked set through `place_stone()`, and measures actual score-changing capture/release outcomes plus newly threatened stones.
 
-`setupPotential()` tries a small non-scoring setup move and then probes whether another move by the same side could create a real capture opportunity. This recognizes short two-own-move plans across an intervening opponent turn. It is evaluation-only: it does not enter session history, persist state, or replace the alternating-turn minimax tree.
+`setup_potential()` tries a small non-scoring setup move and then probes whether another move by the same side could create a real capture opportunity. This recognizes short two-own-move plans across an intervening opponent turn. It is evaluation-only: it does not enter session history, persist state, or replace the alternating-turn minimax tree.
 
 On positions with 250 or more stones the expensive setup probe is disabled and immediate-threat budgets are reduced.
 
@@ -130,9 +130,9 @@ All caches are discarded after the move is selected. They are never persisted, n
 
 `crates/game-core/src/regression_tests.rs` contains the deterministic AI-vs-AI harness. It alternates Rust `choose_ai_move()` for Red/Blue and feeds every proposal back through Rust `place_stone()`.
 
-`pairedMatchMargin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
+`paired_match_margin()` runs a stronger level once as Red and once as Blue against a weaker level, reducing first-move/color bias in short regression comparisons.
 
-The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive captured-score margin across them. `ai-tactical-benchmark.test.ts` complements those matches with six fixed decisions covering immediate multi-capture, mandatory defense, false closure, hostile-house safety, counter-capture under double threat, and capture-of-capture release. These are regression guards, not Elo claims.
+The CI suite deliberately uses short deterministic matches rather than a wall-clock benchmark. Expert must not lose the paired Expert-vs-Normal or Expert-vs-Hard comparisons and must maintain a positive captured-score margin across them. Six fixed cases in the same Rust regression module cover immediate multi-capture, mandatory defense, false closure, hostile-house safety, counter-capture under double threat, and capture-of-capture release. These are regression guards, not Elo claims.
 
 ## Computer-mode orchestration
 
@@ -144,7 +144,7 @@ The CI suite deliberately uses short deterministic matches rather than a wall-cl
 - Mode and difficulty are stored together by `preferences.ts` under their own versioned key.
 - Switching mode or difficulty never rewrites the move log or resets the board.
 - Enabling computer mode while Blue is to move schedules a Blue AI move against the existing state.
-- The selected difficulty is passed to `chooseAiMove()` for each newly scheduled computer turn.
+- The selected difficulty is passed through the native/WASM core request for each newly scheduled computer turn.
 - The computer move is accepted with `playMove()` and persisted as an ordinary move. Save replay needs no special AI metadata.
 - During pending computer work, primary controls remain responsive so mode/difficulty/Undo/New game can cancel or redirect the request; accessible status announces that the computer is thinking.
 - A pending computer timer is cancelled on `pagehide`. If the document returns visible while Blue still owns the turn, scheduling resumes through `visibilitychange`/`pageshow`.
@@ -235,7 +235,7 @@ Network and worker failures remain status UI only. The persisted move log, viewp
 
 ## Native Tauri shell and store tooling
 
-`src-tauri/` is a thin Tauri 2 shell around the same compiled TypeScript/Canvas frontend. It does not reimplement game state, captures, scoring, persistence, or AI. Native builds switch Vite to relative assets and disable the browser PWA/service-worker layer; the GitHub Pages build keeps the normal PWA configuration.
+`src-tauri/` is a thin Tauri 2 shell that links the shared Rust game core and hosts the same TypeScript/Canvas frontend. It adds no second native rules, capture, scoring, persistence, or AI implementation. Native builds switch Vite to relative assets and disable the browser PWA/service-worker layer; the GitHub Pages build keeps the normal PWA configuration.
 
 The Tauri configuration owns the native application identifier (`com.sl.dots`), window/bundle metadata, CSP, and capability scope. `tauri-plugin-opener` is limited by the capability configuration and supports opening the project link from the shared About UI through the platform browser.
 
@@ -255,7 +255,7 @@ Native direct dependencies are exact-pinned in `src-tauri/Cargo.toml`; `src-taur
 
 `package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed JavaScript dependency graph. `package.json` requires Node.js 22 or newer.
 
-`src-tauri/Cargo.lock` is committed alongside exact direct Tauri dependency constraints so Cargo-based native builds use one resolved Rust dependency graph. Dependabot monitors npm, Cargo under `/src-tauri`, and GitHub Actions monthly.
+`src-tauri/Cargo.lock` is committed alongside exact direct Tauri dependency constraints so Cargo-based native builds use one resolved Rust dependency graph. Dependabot monitors npm, Cargo under `/crates/game-core` and `/src-tauri`, and GitHub Actions monthly.
 
 CI and GitHub Pages run `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification and cannot reach a Pages deployment. GitHub Release publication independently performs `npm ci`, the same audit gate, the complete test suite, and the production/PWA build before creating a new tag/release. Native release jobs repeat the web dependency audit/tests before platform packaging. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions. This tooling/security layer is operational only and cannot affect authoritative game state.
 
@@ -277,4 +277,4 @@ Automated coverage includes:
 
 Version **0.8.2** hardened the JavaScript toolchain/security baseline with reproducible installs and dependency gates. Version **0.9.0** moved browser AI computation into a Worker, and 0.9.1 hardened input/replay and Worker/PWA failure handling without changing game rules or AI policy.
 
-Version **0.9.3** is the current pre-1.0 native/RuStore baseline. It adds the shared Tauri shell, signed AAB/universal-DMG publication path, RuStore publication tooling, and reproducible Rust dependency locking while preserving authoritative game rules, save schemas, AI search policy/difficulty semantics, web/PWA behavior, accessibility, and the shared frontend feature set.
+Version **0.9.4** is the current pre-1.0 hardened native/RuStore baseline. It adds the shared Tauri shell, signed AAB/universal-DMG publication path, RuStore publication tooling, and reproducible Rust dependency locking while preserving authoritative game rules, save schemas, AI search policy/difficulty semantics, web/PWA behavior, accessibility, and the shared frontend feature set.

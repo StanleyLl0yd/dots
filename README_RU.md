@@ -11,7 +11,7 @@
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
-[![Версия](https://img.shields.io/badge/source-0.9.3-16A34A?labelColor=2b2925)](package.json)
+[![Версия](https://img.shields.io/badge/source-0.9.4-16A34A?labelColor=2b2925)](package.json)
 [![Лицензия](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -25,7 +25,7 @@
 
 **Точки** переносят лист бумаги в клетку и две цветные ручки в браузер. Игроки ставят точки на пересечения сетки и строят замкнутые цепочки из соседних точек вокруг соперника. Завершённые захваты обводятся и получают лёгкую штриховку.
 
-Текущая версия исходников: **0.9.3** · готовый для RuStore AAB + нативная оболочка Tauri + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
+Текущая версия исходников: **0.9.4** · готовый для RuStore AAB + нативная оболочка Tauri + классические расширенные правила + четыре уровня локального компьютера + усиленный Worker/PWA lifecycle + воспроизводимый проверяемый toolchain
 
 ## 🎯 Правила
 
@@ -132,7 +132,7 @@ Rust-набор регрессий проводит короткие парны�
 - русский интерфейс при наличии русского языка в браузере/системе, иначе английский;
 - CI, автоматическая публикация GitHub Pages, автоматические GitHub Releases и proprietary-лицензия All Rights Reserved.
 
-Версия **0.9.3** подготовлена для нативной публикации в RuStore. Android-сборка теперь выпускается как подписанный AAB с отдельным upload key, воспроизводимыми материалами магазина и опубликованными страницами политики конфиденциальности/пользовательского соглашения. Игровые правила, формат сохранений, политика поиска ИИ, счёт и поведение web/PWA не изменены.
+Версия **0.9.4** подготовлена для нативной публикации в RuStore. Android-сборка теперь выпускается как подписанный AAB с отдельным upload key, воспроизводимыми материалами магазина и опубликованными страницами политики конфиденциальности/пользовательского соглашения. Игровые правила, формат сохранений, политика поиска ИИ, счёт и поведение web/PWA не изменены.
 
 ## 🧱 Технологии
 

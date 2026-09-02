@@ -31,7 +31,7 @@ The native Vite build aliases the frontend to `core-native.ts` and does not ship
 
 ## Web/PWA path
 
-The web build compiles the same `game-core` crate to `wasm32-unknown-unknown`, generates minimal `wasm-bindgen` glue, then optimizes the module with Binaryen `wasm-opt -Oz --strip-debug --strip-producers`.
+The web build compiles the same `game-core` crate to `wasm32-unknown-unknown`, generates minimal `wasm-bindgen` glue, then optimizes the module with Binaryen `wasm-opt -Oz --enable-bulk-memory --enable-sign-ext --strip-debug --strip-producers`.
 
 The PWA uses the same four logical operations through `core-web.ts`. Expensive browser AI work remains in a cancellable Web Worker so the UI stays responsive. Worker responses are generation-scoped proposals and are still committed through the Rust move path.
 

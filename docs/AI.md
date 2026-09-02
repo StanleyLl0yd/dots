@@ -33,8 +33,8 @@ The search is intentionally bounded for browser responsiveness:
 1. Build a frontier from empty intersections neighboring active stones.
 2. Build active same-color connectivity components and identify frontier points that would close an existing connected path into a cycle. These points are useful for both capture/house construction and blocking an opponent closing point.
 3. Rank candidates using local connectivity, opponent contact, cycle-closing pressure, blocked opponent closures, and bounded distance from the latest move.
-4. On Hard/Expert, use a wider but bounded root pre-scan through `placeStone()` before the expensive strategic search so real score-changing moves are not hidden solely by heuristic seed order.
-5. Validate retained moves through `placeStone()`; illegal points and captured territory are rejected by the same core used for human moves.
+4. On Hard/Expert, use a wider but bounded root pre-scan through `place_stone()` before the expensive strategic search so real score-changing moves are not hidden solely by heuristic seed order.
+5. Validate retained moves through `place_stone()`; illegal points and captured territory are rejected by the same core used for human moves.
 6. Evaluate real score/capture state plus secondary structure, local stone danger, and near-cycle pressure.
 7. On Expert, discard immediately self-capturing root moves when at least one safe candidate exists and give safe immediate captures root tactical priority.
 8. On Hard and Expert, probe a bounded set of authoritative immediate capture threats for both sides and short setup sequences that can create a capture opportunity on the attacker's next turn.
@@ -54,7 +54,7 @@ This lets Hard and Expert value useful house/capture construction and occupy lik
 
 Hard and Expert use bounded threat probes in addition to ordinary alternating minimax:
 
-- immediate capture probes temporarily give one side the turn and test a small ranked set through `placeStone()` to discover real score-changing closures and the stones they threaten;
+- immediate capture probes temporarily give one side the turn and test a small ranked set through `place_stone()` to discover real score-changing closures and the stones they threaten;
 - setup probes test a small non-scoring setup move and then ask whether another move by the same side would create an authoritative capture opportunity;
 - local danger evaluation penalizes own active stones under concentrated opponent contact and rewards comparable pressure against opponent stones.
 
@@ -107,7 +107,7 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 - Captured stones are excluded from the AI's active-structure heuristic while their holding capture remains active.
 - Difficulty changes search policy only; they never modify game rules or persisted moves.
 - Threat/setup probes are speculative evaluation only and never mutate the supplied state or session history.
-- Hard/Expert root pre-scan remains bounded and uses only authoritative `placeStone()` outcomes.
+- Hard/Expert root pre-scan remains bounded and uses only authoritative `place_stone()` outcomes.
 - Expert may reject a root move only from a real immediate opponent-score increase returned by the core and only when a safe candidate exists.
 - Search and transposition caches are ephemeral implementation details and never become trusted game state.
 - Alpha-beta cutoffs must not be cached as exact transposition values.
@@ -118,6 +118,6 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Current strength
 
-Version **0.9.3** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
+Version **0.9.4** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
