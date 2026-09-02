@@ -5,7 +5,13 @@ on:
     branches: [main]
     paths:
       - package.json
+      - package-lock.json
+      - vite.config.ts
+      - src/**
+      - crates/game-core/**
       - src-tauri/**
+      - scripts/build-game-core-wasm.mjs
+      - scripts/verify-build.mjs
       - scripts/tauri-android-build.gradle.kts
       - .github/workflows/native-release.yml
   workflow_dispatch:
@@ -55,13 +61,25 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
-      - name: Verify native dependency lock
-        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify native dependency locks
+        run: |
+          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Run tests
+      - name: Configure WASM test toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+
+      - name: Run Rust core tests
+        run: cargo test --manifest-path crates/game-core/Cargo.toml --locked
+
+      - name: Run frontend tests against WASM core
         run: npm test
 
       - name: Install Tauri CLI
@@ -125,26 +143,87 @@ jobs:
           test -f "$AAB"
           cp "$AAB" "release/Dots-v${VERSION}-Android.aab"
 
-      - name: Verify signed AAB
+      - name: Verify signed AAB and native hardening
         run: |
           AAB="release/Dots-v${VERSION}-Android.aab"
           JARSIGNER_LOG="$RUNNER_TEMP/jarsigner.txt"
           jarsigner -verify -verbose -certs "$AAB" > "$JARSIGNER_LOG" 2>&1
           grep -q "jar verified" "$JARSIGNER_LOG"
+
           BUNDLETOOL="$RUNNER_TEMP/bundletool.jar"
           curl -fsSL "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o "$BUNDLETOOL"
           java -jar "$BUNDLETOOL" version
           PACKAGE="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --module=base --xpath=/manifest/@package | tr -d '"\r\n')"
           test "$PACKAGE" = "com.sl.dots"
+
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
           rm -rf "$UNIVERSAL_DIR"
           java -jar "$BUNDLETOOL" build-apks --bundle="$AAB" --output-format=DIRECTORY --output="$UNIVERSAL_DIR" --mode=universal
           UNIVERSAL_APK="$(find "$UNIVERSAL_DIR" -type f -name '*.apk' -print -quit)"
           test -f "$UNIVERSAL_APK"
+
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$AAPT"
           "$AAPT" dump badging "$UNIVERSAL_APK" | grep -F "package: name='com.sl.dots'"
+          if "$AAPT" dump badging "$UNIVERSAL_APK" | grep -q '^application-debuggable'; then
+            echo "Release APK is debuggable" >&2
+            exit 1
+          fi
+          MANIFEST_DUMP="$RUNNER_TEMP/android-manifest.txt"
+          "$AAPT" dump xmltree "$UNIVERSAL_APK" AndroidManifest.xml > "$MANIFEST_DUMP"
+          if grep -F 'android:debuggable' "$MANIFEST_DUMP" | grep -Fq '0xffffffff'; then
+            echo "android:debuggable=true in release manifest" >&2
+            exit 1
+          fi
+          if grep -F 'android:usesCleartextTraffic' "$MANIFEST_DUMP" | grep -Fq '0xffffffff'; then
+            echo "usesCleartextTraffic=true in release manifest" >&2
+            exit 1
+          fi
           test "$(stat -c%s "$UNIVERSAL_APK")" -lt 5368709120
+
+          NATIVE_DIR="$RUNNER_TEMP/native-libs"
+          rm -rf "$NATIVE_DIR"
+          mkdir -p "$NATIVE_DIR"
+          unzip -q "$UNIVERSAL_APK" 'lib/*/*.so' -d "$NATIVE_DIR"
+          test -n "$(find "$NATIVE_DIR/lib/arm64-v8a" -type f -name '*.so' -print -quit)"
+          READELF="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-readelf -print -quit)"
+          NM="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-nm -print -quit)"
+          test -x "$READELF"
+          test -x "$NM"
+
+          while IFS= read -r so; do
+            if "$READELF" -SW "$so" | grep -Eq '\.debug_(info|line|str|abbrev)'; then
+              echo "Debug sections found in $so" >&2
+              exit 1
+            fi
+            if "$NM" -D --defined-only "$so" 2>/dev/null | grep -Eiq 'choose_ai_move|minimax|closure_pressure|setup_potential|find_new_captures|find_house_capture'; then
+              echo "Sensitive game-core symbol exported by $so" >&2
+              exit 1
+            fi
+          done < <(find "$NATIVE_DIR/lib" -type f -name '*.so' -print)
+
+          READELF="$READELF" NATIVE_DIR="$NATIVE_DIR" python - <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+
+          root = Path(os.environ['NATIVE_DIR']) / 'lib'
+          readelf = os.environ['READELF']
+          for abi in ('arm64-v8a', 'x86_64'):
+              directory = root / abi
+              if not directory.exists():
+                  continue
+              for library in directory.glob('*.so'):
+                  output = subprocess.check_output([readelf, '-lW', str(library)], text=True)
+                  aligns = []
+                  for line in output.splitlines():
+                      fields = line.split()
+                      if fields and fields[0] == 'LOAD':
+                          aligns.append(int(fields[-1], 0))
+                  if not aligns or min(aligns) < 0x4000:
+                      raise SystemExit(f'{library}: 64-bit LOAD alignment is not 16 KB compatible: {aligns}')
+          PY
+
           rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
 
       - name: Attach AAB to GitHub Release
@@ -191,13 +270,24 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
-      - name: Verify native dependency lock
-        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify native dependency locks
+        run: |
+          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Run tests
+      - name: Configure WASM test toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          brew list binaryen >/dev/null 2>&1 || brew install binaryen
+
+      - name: Run Rust core tests
+        run: cargo test --manifest-path crates/game-core/Cargo.toml --locked
+
+      - name: Run frontend tests against WASM core
         run: npm test
 
       - name: Install Tauri CLI
@@ -226,6 +316,23 @@ jobs:
           test -d "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign -dv --verbose=4 "$APP" 2>&1 | grep -F 'Identifier=com.sl.dots'
+          test -z "$(find "$APP" -type d -name '*.dSYM' -print -quit)"
+
+          EXECUTABLE="$(defaults read "$APP/Contents/Info" CFBundleExecutable)"
+          BINARY="$APP/Contents/MacOS/$EXECUTABLE"
+          test -x "$BINARY"
+          ARCHS="$(lipo -archs "$BINARY")"
+          echo "$ARCHS" | grep -qw arm64
+          echo "$ARCHS" | grep -qw x86_64
+          if otool -l "$BINARY" | grep -Eq 'sectname __debug|segname __DWARF'; then
+            echo "Debug sections found in macOS executable" >&2
+            exit 1
+          fi
+          if nm -gj "$BINARY" 2>/dev/null | grep -Eiq 'choose_ai_move|minimax|closure_pressure|setup_potential|find_new_captures|find_house_capture'; then
+            echo "Sensitive game-core symbol exported by macOS executable" >&2
+            exit 1
+          fi
+
           hdiutil detach "$MOUNT_POINT"
           trap - EXIT
           mkdir -p release
