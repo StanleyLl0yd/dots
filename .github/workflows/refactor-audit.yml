@@ -42,8 +42,35 @@ jobs:
           grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
-      - name: Unused files and dependencies
-        run: npx --yes knip@5.82.1 --no-progress --include files,dependencies,devDependencies,binaries --exclude exports
+      - name: Unused files
+        id: knip-files
+        continue-on-error: true
+        run: npx --yes knip@5.82.1 --no-progress --include files --exclude exports
+      - name: Unused dependencies
+        id: knip-dependencies
+        continue-on-error: true
+        run: npx --yes knip@5.82.1 --no-progress --include dependencies --exclude exports
+      - name: Unused dev dependencies
+        id: knip-dev-dependencies
+        continue-on-error: true
+        run: npx --yes knip@5.82.1 --no-progress --include devDependencies --exclude exports
+      - name: Unused binaries
+        id: knip-binaries
+        continue-on-error: true
+        run: npx --yes knip@5.82.1 --no-progress --include binaries --exclude exports
+      - name: Enforce Knip results
+        if: always()
+        env:
+          FILES: ${{ steps.knip-files.outcome }}
+          DEPENDENCIES: ${{ steps.knip-dependencies.outcome }}
+          DEV_DEPENDENCIES: ${{ steps.knip-dev-dependencies.outcome }}
+          BINARIES: ${{ steps.knip-binaries.outcome }}
+        run: |
+          printf 'files=%s\ndependencies=%s\ndevDependencies=%s\nbinaries=%s\n' "$FILES" "$DEPENDENCIES" "$DEV_DEPENDENCIES" "$BINARIES"
+          test "$FILES" = success
+          test "$DEPENDENCIES" = success
+          test "$DEV_DEPENDENCIES" = success
+          test "$BINARIES" = success
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
