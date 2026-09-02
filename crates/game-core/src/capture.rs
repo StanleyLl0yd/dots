@@ -172,7 +172,7 @@ pub fn point_in_polygon(point: Point, polygon: &[Point]) -> bool {
         let a = polygon[current];
         let b = polygon[previous];
         let crosses = (a.y > point.y) != (b.y > point.y)
-            && point.x as f64
+            && (point.x as f64)
                 < (b.x - a.x) as f64 * (point.y - a.y) as f64 / (b.y - a.y) as f64
                     + a.x as f64;
         if crosses {
