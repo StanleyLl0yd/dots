@@ -34,10 +34,9 @@ jobs:
           text = text.replace(old_imports, new_imports)
 
           old_session = 'let session = storage ? loadSession(storage) ?? createSession() : createSession();'
-          new_session = 'let session = (storage ? await loadSession(storage) : undefined) ?? await createSession();'
           if text.count(old_session) != 1:
               raise SystemExit('unexpected session initialization')
-          text = text.replace(old_session, new_session)
+          text = text.replace(old_session, 'let session = (storage ? await loadSession(storage) : undefined) ?? await createSession();')
 
           thinking = 'let computerThinking = false;'
           if text.count(thinking) != 1:
@@ -142,51 +141,34 @@ jobs:
           };'''.replace('          ', '')
           text = text[:schedule_start] + schedule + text[schedule_end:]
 
-          old_on_point = '''  onPoint: (point) => {
+          board_start = text.index('board = new CanvasBoard')
+          on_point_start = text.index('  onPoint: (point) => {', board_start)
+          on_point_end = text.index('\n  }\n});', on_point_start) + len('\n  }')
+          on_point = '''  onPoint: async (point) => {
             if (isComputerTurn()) {
               announce(copy.waitComputer);
               scheduleComputerMove();
-              return false;
+              return;
             }
-
-            const next = playMove(session, point);
-            if (next === session) {
-              board.showInvalidPoint(point);
-              announce(pointMessage(copy.unavailable, point));
-              return false;
-            }
-            applyMove(next, point, false);
-            scheduleComputerMove();
-            return true;
-          }'''.replace('          ', '')
-          new_on_point = '''  onPoint: async (point) => {
-            if (isComputerTurn()) {
-              announce(copy.waitComputer);
-              scheduleComputerMove();
-              return false;
-            }
-            if (stateMutationInFlight) return false;
+            if (stateMutationInFlight) return;
 
             stateMutationInFlight = true;
             try {
               const baseSession = session;
               const next = await playMove(baseSession, point);
-              if (session !== baseSession) return false;
+              if (session !== baseSession) return;
               if (next === baseSession) {
                 board.showInvalidPoint(point);
                 announce(pointMessage(copy.unavailable, point));
-                return false;
+                return;
               }
               applyMove(next, point, false);
               scheduleComputerMove();
-              return true;
             } finally {
               stateMutationInFlight = false;
             }
           }'''.replace('          ', '')
-          if text.count(old_on_point) != 1:
-              raise SystemExit('unexpected onPoint block')
-          text = text.replace(old_on_point, new_on_point)
+          text = text[:on_point_start] + on_point + text[on_point_end:]
 
           undo_start = text.index('undo.addEventListener("click", () => {')
           undo_end = text.index('\n\nconst resetGame', undo_start)
@@ -239,14 +221,7 @@ jobs:
             }
           };'''.replace('          ', '')
           text = text[:reset_start] + reset_block + text[reset_end:]
-
-          text = text.replace('''  if (session.history.length === 0) {
-            resetGame();
-            return;
-          }'''.replace('          ', ''), '''  if (session.history.length === 0) {
-            void resetGame();
-            return;
-          }'''.replace('          ', ''), 1)
+          text = text.replace('    resetGame();', '    void resetGame();', 1)
           text = text.replace('if (newGameDialog.returnValue === "confirm") resetGame();', 'if (newGameDialog.returnValue === "confirm") void resetGame();', 1)
 
           main_path.write_text(text, encoding='utf-8')
@@ -256,7 +231,7 @@ jobs:
           old_type = 'onPoint: (point: Point) => boolean;'
           if canvas.count(old_type) != 1:
               raise SystemExit('unexpected CanvasBoard onPoint type')
-          canvas = canvas.replace(old_type, 'onPoint: (point: Point) => boolean | Promise<boolean>;')
+          canvas = canvas.replace(old_type, 'onPoint: (point: Point) => void | Promise<void>;')
           canvas_path.write_text(canvas, encoding='utf-8')
           PY
       - name: Commit migration
