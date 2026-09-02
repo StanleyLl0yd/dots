@@ -65,7 +65,19 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
-      - run: npx --yes knip@5.82.1 --no-progress --include files
+      - name: Declare non-standard entry points
+        run: |
+          cat > .knip-audit.json <<'JSON'
+          {
+            "entry": [
+              "src/main.ts",
+              "src/about.ts",
+              "scripts/capture-rustore-android.mjs",
+              "scripts/verify-build.mjs"
+            ]
+          }
+          JSON
+      - run: npx --yes knip@5.82.1 --config .knip-audit.json --no-progress --include files
 
   knip-dependencies:
     name: Knip / unused dependencies
@@ -95,7 +107,7 @@ jobs:
     name: Knip / unused binaries
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d342e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
