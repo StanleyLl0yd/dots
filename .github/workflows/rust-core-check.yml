@@ -1,9 +1,18 @@
-name: Rust core migration check
+name: Rust core
 
 on:
   push:
-    branches:
-      - hardening/rust-game-core-0.9.3
+    branches: [main]
+    paths:
+      - crates/game-core/**
+      - src-tauri/**
+      - .github/workflows/rust-core-check.yml
+  pull_request:
+    paths:
+      - crates/game-core/**
+      - src-tauri/**
+      - .github/workflows/rust-core-check.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
