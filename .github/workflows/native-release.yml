@@ -55,6 +55,9 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
@@ -187,6 +190,9 @@ jobs:
 
       - name: Install web dependencies
         run: npm ci
+
+      - name: Verify native dependency lock
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
