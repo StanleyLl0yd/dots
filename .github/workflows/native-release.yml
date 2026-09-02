@@ -186,22 +186,23 @@ jobs:
 
           APKS="$RUNNER_TEMP/universal.apks"
           UNIVERSAL_DIR="$RUNNER_TEMP/universal-apks"
-          STORE_PASS_FILE="$RUNNER_TEMP/bundletool-store.pass"
-          KEY_PASS_FILE="$RUNNER_TEMP/bundletool-key.pass"
-          rm -f "$APKS" "$STORE_PASS_FILE" "$KEY_PASS_FILE"
+          BUNDLETOOL_LOG="$RUNNER_TEMP/bundletool-build-apks.txt"
+          rm -f "$APKS" "$BUNDLETOOL_LOG"
           rm -rf "$UNIVERSAL_DIR"
-          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" > "$STORE_PASS_FILE"
-          printf '%s' "$ANDROID_UPLOAD_KEY_PASSWORD" > "$KEY_PASS_FILE"
-          chmod 600 "$STORE_PASS_FILE" "$KEY_PASS_FILE"
-          java -jar "$BUNDLETOOL" build-apks \
+          if ! java -jar "$BUNDLETOOL" build-apks \
             --bundle="$AAB" \
             --output="$APKS" \
             --mode=universal \
             --overwrite \
             --ks="$KEYSTORE_PATH" \
-            --ks-pass=file:"$STORE_PASS_FILE" \
+            --ks-pass="pass:$ANDROID_UPLOAD_KEYSTORE_PASSWORD" \
             --ks-key-alias="$ANDROID_UPLOAD_KEY_ALIAS" \
-            --key-pass=file:"$KEY_PASS_FILE"
+            --key-pass="pass:$ANDROID_UPLOAD_KEY_PASSWORD" \
+            >"$BUNDLETOOL_LOG" 2>&1; then
+            cat "$BUNDLETOOL_LOG" >&2
+            echo "bundletool build-apks failed" >&2
+            exit 1
+          fi
           test -f "$APKS"
           mkdir -p "$UNIVERSAL_DIR"
           unzip -q "$APKS" -d "$UNIVERSAL_DIR"
@@ -301,7 +302,7 @@ jobs:
                       raise SystemExit(f'{library}: 64-bit LOAD alignment is not 16 KB compatible: {aligns}')
           PY
 
-          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH" "$STORE_PASS_FILE" "$KEY_PASS_FILE"
+          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
 
       - name: Attach AAB to GitHub Release
         env:
