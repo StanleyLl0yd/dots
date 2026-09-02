@@ -1,4 +1,3 @@
-import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -7,7 +6,8 @@ const environment = (globalThis as {
 }).process?.env;
 const isTauriBuild = Boolean(environment?.TAURI_ENV_PLATFORM);
 const isTestBuild = Boolean(environment?.VITEST);
-const source = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+const source = (path: string): string =>
+  decodeURIComponent(new URL(path, import.meta.url).pathname).replace(/^\/([A-Za-z]:\/)/, "$1");
 
 export default defineConfig(({ command }) => ({
   base: isTauriBuild ? "./" : command === "build" ? "/dots/" : "/",
