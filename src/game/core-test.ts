@@ -1,11 +1,11 @@
 import * as wasm from "#game-core-wasm";
-import type * as WasmApi from "./wasm-api";
 
 export const backendKind: "native" | "web" = "web";
 
+type WasmApi = typeof import("#game-core-wasm");
 let initialized = false;
 
-const loadCore = (): typeof WasmApi => {
+const loadCore = (): WasmApi => {
   if (!initialized) {
     const process = (globalThis as unknown as {
       process: {
