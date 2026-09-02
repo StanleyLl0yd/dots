@@ -27,6 +27,9 @@ export default defineConfig(({ command }) => ({
     sourcemap: false,
     target: "es2022"
   },
+  worker: {
+    format: "es"
+  },
   plugins: [
     VitePWA({
       disable: isTauriBuild,
