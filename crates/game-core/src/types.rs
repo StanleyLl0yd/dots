@@ -80,7 +80,7 @@ pub struct GameState {
     pub captures: Vec<Capture>,
     pub score: Score,
     #[serde(skip)]
-    stone_index: HashMap<Point, usize>,
+    pub(crate) stone_index: HashMap<Point, usize>,
 }
 
 impl GameState {
