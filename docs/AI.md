@@ -68,7 +68,7 @@ Hard and Expert also use a small quiescence-style extension at the nominal horiz
 
 ## Search caches
 
-Every `chooseAiMove()` call creates fresh in-memory caches for evaluation, search results, connected components, closure pressure, capture-threat probes, setup probes, and canonical state signatures.
+Every `chooseAiMove()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
 
 The transposition signature includes player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Cache entries exist only for the current AI move and are discarded afterward, so they cannot become persistent or authoritative state.
 
@@ -118,6 +118,6 @@ AI difficulty is stored in preference format version 2. Existing version-1 prefe
 
 ## Current strength
 
-Version **0.8.1** keeps the bounded strategic model from 0.8.0 and closes the first concrete tactical gaps exposed by the fixed-position suite: missed multi-target immediate capture, self-capturing entry into an opponent house, and defensive blocking when a safe counter-capture is the stronger forced choice. Root tactical discovery/safety now handles these cases before deeper Expert minimax comparison. Version **0.8.2** is toolchain-only and leaves this AI behavior and all benchmark expectations unchanged.
+Version **0.9.3** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
