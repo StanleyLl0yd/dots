@@ -1,0 +1,62 @@
+name: Sync product specification
+
+on:
+  push:
+    branches:
+      - refactor/full-audit-0.9.3
+    paths:
+      - .github/workflows/sync-product-doc.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Update product specification
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/PRODUCT.md")
+          text = path.read_text()
+          replacements = [
+              (
+                  "- The same core should remain suitable for later Android packaging through Capacitor.",
+                  "- The same core is shared by the web/PWA build and the current Tauri native shell; platform packaging must not duplicate rules."
+              ),
+              (
+                  "Version **0.9.1** is the stabilized pre-1.0 release-candidate baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, and the reproducible audited toolchain:",
+                  "Version **0.9.3** is the current pre-1.0 baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:"
+              ),
+              (
+                  "- committed npm lockfile, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm plus GitHub Actions.",
+                  "- committed npm and Cargo lockfiles, `npm ci` in CI/Pages, high/critical npm audit gating, maintained Node-24-compatible GitHub Actions, and Dependabot coverage for npm, Cargo, and GitHub Actions;\n- a thin Tauri 2 shell that packages the same frontend/core without introducing platform-specific game rules;\n- signed Android AAB and universal macOS DMG release paths plus RuStore screenshot/signing/export tooling."
+              ),
+              (
+                  "### Phase 7 — 1.0 validation and optional post-1.0 work\n\nUse 0.9.1 as the release-candidate baseline for empirical browser/device/PWA testing and concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export and Capacitor/Android packaging remain optional post-1.0 work rather than prerequisites for the stable web release.",
+                  "### Phase 6.2 — shared native shell — complete in 0.9.2\n\n- Tauri 2 wrapper around the same compiled frontend and authoritative TypeScript game core;\n- Android and macOS bundle configuration without a second rules implementation;\n- localized About surface and native-safe external project link;\n- native builds use relative assets and disable the browser PWA/service-worker layer.\n\n### Phase 6.3 — RuStore/native delivery hardening — complete in 0.9.3\n\n- signed Android App Bundle as the primary Android release artifact;\n- dedicated upload-key/app-signing handoff and PEPK support without storing private signing material in the repository;\n- reproducible Android emulator/CDP RuStore screenshots and publication assets;\n- committed Cargo lockfile and Cargo Dependabot coverage for the native dependency graph.\n\n### Phase 7 — 1.0 validation and optional post-1.0 work\n\nUse 0.9.3 as the release-candidate baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release."
+              ),
+              (
+                  "- `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.\n- High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.\n- GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled.",
+                  "- `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.\n- `src-tauri/Cargo.lock` must remain committed so native builds resolve one reviewed transitive Rust dependency graph.\n- The Tauri/native layer may package or expose platform capabilities but must not become a second authority for rules, AI decisions, score, or saved game state.\n- Native builds must not register the browser PWA/service-worker layer.\n- High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.\n- GitHub Actions used for checkout/runtime setup must remain on maintained Node-24-compatible releases, with automated dependency monitoring enabled across npm, Cargo, and Actions."
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected product text not found: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+      - name: Commit product specification
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/PRODUCT.md
+          git diff --cached --check
+          git commit -m "docs: sync product specification with Tauri delivery"
+          git push
