@@ -156,13 +156,11 @@ jobs:
           mkdir -p "$TMP_NATIVE/aab" "$TMP_NATIVE/apk"
           unzip -q "$AAB" 'base/lib/*/*.so' -d "$TMP_NATIVE/aab"
           unzip -q "$APK" 'lib/*/*.so' -d "$TMP_NATIVE/apk"
-          echo "TMP_NATIVE=$TMP_NATIVE" >> "$GITHUB_ENV"
-          READELF="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-readelf -print -quit)"
-          NM="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-nm -print -quit)"
+          test -n "$(find "$TMP_NATIVE" -type f -name '*.so' -print -quit)"
+          READELF="$(command -v readelf)"
           test -x "$READELF"
-          test -x "$NM"
+          echo "TMP_NATIVE=$TMP_NATIVE" >> "$GITHUB_ENV"
           echo "READELF=$READELF" >> "$GITHUB_ENV"
-          echo "NM=$NM" >> "$GITHUB_ENV"
 
       - name: Verify Android ELF sections and exports
         run: |
@@ -173,7 +171,6 @@ jobs:
           from pathlib import Path
           root = Path(os.environ['TMP_NATIVE'])
           readelf = os.environ['READELF']
-          nm = os.environ['NM']
           sensitive = re.compile(r'choose_ai_move|minimax|closure_pressure|setup_potential|find_new_captures|find_house_capture', re.I)
           libraries = sorted(root.rglob('*.so'))
           if not libraries:
@@ -182,7 +179,7 @@ jobs:
               sections = subprocess.check_output([readelf, '-SW', str(library)], text=True)
               if re.search(r'\.(?:debug_|zdebug_|gdb_index)', sections):
                   raise SystemExit(f'Debug sections found in {library}')
-              symbols = subprocess.run([nm, '-D', '--defined-only', str(library)], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+              symbols = subprocess.check_output([readelf, '-sW', str(library)], text=True)
               if sensitive.search(symbols):
                   raise SystemExit(f'Sensitive game-core symbol exported by {library}')
           print(f'Checked {len(libraries)} native libraries')
