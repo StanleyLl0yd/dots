@@ -1,6 +1,6 @@
 [package]
 name = "game-core"
-version = "0.9.4"
+version = "0.9.5"
 description = "Authoritative Dots game rules and AI core"
 edition = "2021"
 publish = false

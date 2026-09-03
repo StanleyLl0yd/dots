@@ -58,7 +58,7 @@ if (native) {
 
 const manifestName = names.find((name) => name.endsWith(".webmanifest"));
 if (!manifestName) throw new Error("PWA manifest was not generated");
-for (const file of ["sw.js", "pwa-192.png", "icon.svg", "apple-touch-icon.png"]) {
+for (const file of ["sw.js", "favicon-32.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"]) {
   await access(new URL(file, dist));
 }
 if (!names.some((name) => /(?:^|\/)ai-worker-.*\.js$/.test(name))) {
@@ -74,8 +74,11 @@ if (!Array.isArray(manifest.icons)) throw new Error("PWA manifest icons are miss
 if (!manifest.icons.some((icon) => icon.sizes === "192x192" && icon.type === "image/png")) {
   throw new Error("Missing 192x192 PNG PWA icon");
 }
-if (!manifest.icons.some((icon) => icon.sizes === "any" && icon.type === "image/svg+xml")) {
-  throw new Error("Missing scalable SVG PWA icon");
+if (!manifest.icons.some((icon) => icon.sizes === "512x512" && icon.type === "image/png" && icon.purpose === "any")) {
+  throw new Error("Missing 512x512 PNG PWA icon");
+}
+if (!manifest.icons.some((icon) => icon.sizes === "512x512" && icon.type === "image/png" && icon.purpose === "maskable")) {
+  throw new Error("Missing maskable 512x512 PNG PWA icon");
 }
 
 const index = await readFile(new URL("index.html", dist), "utf8");

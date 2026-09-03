@@ -34,7 +34,7 @@ export default defineConfig(({ command }) => ({
     VitePWA({
       disable: isTauriBuild,
       registerType: "prompt",
-      includeAssets: ["icon.svg", "pwa-192.png", "apple-touch-icon.png"],
+      includeAssets: ["favicon-32.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"],
       manifest: {
         id: ".",
         name: "Dots",
@@ -49,16 +49,22 @@ export default defineConfig(({ command }) => ({
         categories: ["games"],
         icons: [
           {
-            src: "pwa-192.png",
+            src: "icon-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any"
           },
           {
-            src: "icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any maskable"
+            src: "icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable"
           }
         ]
       },

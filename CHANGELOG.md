@@ -4,6 +4,19 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-09-03
+
+### Added
+
+- canonical `branding/dots-icon-master.png` raster source of truth plus deterministic platform icon preparation for Web/PWA and Tauri builds;
+- explicit raster-source preservation rules preventing accidental tracing, vector replacement, in-place recompression, cropping, padding, recoloring, or other artwork changes.
+
+### Changed
+
+- Web/PWA favicon and install icons, Tauri desktop/macOS icons, Android launcher/adaptive/round icons, and the RuStore 512×512 store icon now derive from the same approved raster master;
+- removed the legacy SVG/PWA icon path and the separately drawn RuStore icon, and removed stale Android icon generation from native/store release workflows;
+- source version advanced to 0.9.5 with no gameplay, rules, save-format, AI, scoring, accessibility, SDK/NDK/ABI, or native-hardening behavior changes.
+
 ## [0.9.4] - 2026-09-02
 
 ### Added
