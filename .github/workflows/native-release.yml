@@ -79,6 +79,15 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
+      - name: Configure Android Tauri npm bridge
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.scripts.tauri = 'tauri';
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+
       - name: Verify native dependency locks
         run: |
           cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
