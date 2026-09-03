@@ -11,6 +11,8 @@ on:
       - src/**
       - crates/game-core/**
       - src-tauri/**
+      - branding/**
+      - scripts/prepare-icon-assets.mjs
       - scripts/build-game-core-wasm.mjs
       - scripts/verify-build.mjs
       - scripts/tauri-android-build.gradle.kts
@@ -132,7 +134,7 @@ jobs:
       - name: Initialize Android wrapper
         run: |
           cargo tauri android init --ci
-          cargo tauri icon public/pwa-192.png
+          npm run prepare:icons
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
@@ -446,7 +448,7 @@ jobs:
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Generate native icons
-        run: cargo tauri icon public/pwa-192.png
+        run: npm run prepare:icons
 
       - name: Build universal DMG
         env:
