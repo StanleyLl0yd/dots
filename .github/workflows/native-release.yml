@@ -2,7 +2,9 @@ name: Native Release
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - fix/android-native-verifier-0.9.4-final
     paths:
       - package.json
       - package-lock.json
@@ -102,10 +104,14 @@ jobs:
 
       - name: Configure Android toolchain
         run: |
-          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          NDK_VERSION="29.0.14206865"
+          NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [[ ! -d "$NDK_PATH" ]]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          fi
           test -d "$NDK_PATH"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+          rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Restore Android upload key
         env:
@@ -129,6 +135,18 @@ jobs:
           cargo tauri android init --ci
           cargo tauri icon public/pwa-192.png
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src-tauri/gen/android/app/build.gradle.kts")
+          text = path.read_text(encoding="utf-8")
+          if 'ndkVersion = "29.0.14206865"' not in text:
+              needle = "    compileSdk = 36\n"
+              if needle not in text:
+                  raise SystemExit("Unable to pin Android NDK: compileSdk marker not found")
+              text = text.replace(needle, needle + '    ndkVersion = "29.0.14206865"\n', 1)
+              path.write_text(text, encoding="utf-8")
+          PY
 
       - name: Configure Android signing
         env:
@@ -155,7 +173,7 @@ jobs:
 
       - name: Build signed AAB
         run: |
-          cargo tauri android build --aab
+          cargo tauri android build --aab --target aarch64 --target armv7
           mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -f "$AAB"
@@ -163,12 +181,12 @@ jobs:
 
       - name: Build signed verification APK
         run: |
-          cargo tauri android build --apk
+          cargo tauri android build --apk --target aarch64 --target armv7
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
           test -f "$APK"
           cp "$APK" "release/Dots-v${VERSION}-Android-verification.apk"
 
-      - name: Verify signed Android artifacts and native hardening
+      - name: Verify Android signing and package metadata
         env:
           ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
@@ -187,18 +205,18 @@ jobs:
           EXPECTED_CERT="$(sed -n 's/.*SHA256: //p' "$EXPECTED_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
           ACTUAL_AAB_CERT="$(sed -n 's/.*SHA256: //p' "$AAB_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
           test -n "$EXPECTED_CERT"
+          test -n "$ACTUAL_AAB_CERT"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_CERT"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           test -x "$AAPT"
-          test -x "$ZIPALIGN"
 
           APK_CERT_LOG="$RUNNER_TEMP/apk-cert.txt"
           "$APKSIGNER" verify --verbose --print-certs "$APK" > "$APK_CERT_LOG"
           ACTUAL_APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$APK_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
+          test -n "$ACTUAL_APK_CERT"
           test "$ACTUAL_APK_CERT" = "$EXPECTED_CERT"
 
           BADGING="$RUNNER_TEMP/android-badging.txt"
@@ -211,6 +229,13 @@ jobs:
             echo "Release APK is debuggable" >&2
             exit 1
           fi
+
+      - name: Verify Android manifest hardening
+        run: |
+          APK="release/Dots-v${VERSION}-Android-verification.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -f "$APK"
+          test -x "$AAPT"
 
           MANIFEST_DUMP="$RUNNER_TEMP/android-manifest.txt"
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > "$MANIFEST_DUMP"
@@ -229,6 +254,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Android native hardening
+        run: |
+          AAB="release/Dots-v${VERSION}-Android.aab"
+          APK="release/Dots-v${VERSION}-Android-verification.apk"
+          test -f "$AAB"
+          test -f "$APK"
+
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          test -x "$ZIPALIGN"
           "$ZIPALIGN" -c -P 16 -v 4 "$APK" >/dev/null
 
           TMP_NATIVE="$RUNNER_TEMP/native-libs"
@@ -239,9 +273,15 @@ jobs:
 
           AAB_ABIS="$(find "$TMP_NATIVE/aab/base/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | paste -sd ' ' -)"
           APK_ABIS="$(find "$TMP_NATIVE/apk/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | paste -sd ' ' -)"
-          EXPECTED_ABIS="arm64-v8a armeabi-v7a x86 x86_64"
-          test "$AAB_ABIS" = "$EXPECTED_ABIS"
-          test "$APK_ABIS" = "$EXPECTED_ABIS"
+          EXPECTED_ABIS="arm64-v8a armeabi-v7a"
+          if [ "$AAB_ABIS" != "$EXPECTED_ABIS" ]; then
+            echo "Unexpected AAB ABIs: $AAB_ABIS" >&2
+            exit 1
+          fi
+          if [ "$APK_ABIS" != "$EXPECTED_ABIS" ]; then
+            echo "Unexpected APK ABIs: $APK_ABIS" >&2
+            exit 1
+          fi
 
           READELF="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-readelf -print -quit)"
           NM="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-nm -print -quit)"
@@ -253,7 +293,7 @@ jobs:
             SYMBOLS="$(mktemp "$RUNNER_TEMP/symbols.XXXXXX")"
             "$READELF" -SW "$so" > "$SECTIONS"
             "$NM" -D --defined-only "$so" > "$SYMBOLS" 2>/dev/null || true
-            if grep -Eq '\.debug_(info|line|str|abbrev)' "$SECTIONS"; then
+            if grep -Eq '\.(debug_|zdebug_|gdb_index)' "$SECTIONS"; then
               echo "Debug sections found in $so" >&2
               exit 1
             fi
@@ -262,7 +302,7 @@ jobs:
               exit 1
             fi
             rm -f "$SECTIONS" "$SYMBOLS"
-          done < <(find "$TMP_NATIVE" -type f -name '*.so' -print)
+          done < <(find "$TMP_NATIVE" -type f -name '*.so' -print | sort)
 
           READELF="$READELF" TMP_NATIVE="$TMP_NATIVE" python - <<'PY'
           import os
@@ -272,21 +312,43 @@ jobs:
           readelf = os.environ['READELF']
           root = Path(os.environ['TMP_NATIVE'])
           for artifact in ('aab/base/lib', 'apk/lib'):
-              libs_root = root / artifact
-              for abi in ('arm64-v8a', 'x86_64'):
-                  directory = libs_root / abi
-                  if not directory.exists():
-                      continue
-                  for library in directory.glob('*.so'):
-                      output = subprocess.check_output([readelf, '-lW', str(library)], text=True)
-                      aligns = []
-                      for line in output.splitlines():
-                          fields = line.split()
-                          if fields and fields[0] == 'LOAD':
-                              aligns.append(int(fields[-1], 0))
-                      if not aligns or min(aligns) < 0x4000:
-                          raise SystemExit(f'{library}: 64-bit LOAD alignment is not 16 KB compatible: {aligns}')
+              directory = root / artifact / 'arm64-v8a'
+              if not directory.is_dir():
+                  raise SystemExit(f'{directory}: arm64-v8a directory missing')
+              libraries = sorted(directory.glob('*.so'))
+              if not libraries:
+                  raise SystemExit(f'{directory}: no native libraries found')
+              for library in libraries:
+                  output = subprocess.check_output([readelf, '-lW', str(library)], text=True)
+                  aligns = []
+                  for line in output.splitlines():
+                      fields = line.split()
+                      if fields and fields[0] == 'LOAD':
+                          aligns.append(int(fields[-1], 0))
+                  if not aligns or min(aligns) < 0x4000:
+                      raise SystemExit(f'{library}: arm64 LOAD alignment is not 16 KB compatible: {aligns}')
           PY
+
+          AAB_LIST="$RUNNER_TEMP/aab-files.txt"
+          APK_LIST="$RUNNER_TEMP/apk-files.txt"
+          unzip -Z1 "$AAB" > "$AAB_LIST"
+          unzip -Z1 "$APK" > "$APK_LIST"
+          if grep -Eq '^base/assets/.*\.(map|ts|tsx|rs)$' "$AAB_LIST"; then
+            echo "Source or source-map artifact leaked into AAB assets" >&2
+            exit 1
+          fi
+          if grep -Eq '^assets/.*\.(map|ts|tsx|rs)$' "$APK_LIST"; then
+            echo "Source or source-map artifact leaked into APK assets" >&2
+            exit 1
+          fi
+          if grep -Eq '(^|/)game_core\.wasm$' "$AAB_LIST"; then
+            echo "WebAssembly game core leaked into AAB assets" >&2
+            exit 1
+          fi
+          if grep -Eq '(^|/)game_core\.wasm$' "$APK_LIST"; then
+            echo "WebAssembly game core leaked into APK assets" >&2
+            exit 1
+          fi
 
           BUNDLETOOL="$RUNNER_TEMP/bundletool-all-1.18.3.jar"
           curl --fail --location --silent --show-error \
