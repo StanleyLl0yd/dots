@@ -1,0 +1,385 @@
+name: Finalize raster icon release
+
+on:
+  push:
+    branches:
+      - release/0.9.5-new-icon
+    paths:
+      - .github/workflows/finalize-raster-icon.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: release/0.9.5-new-icon
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Configure raster icon pipeline
+        run: |
+          cat > scripts/prepare-icon-assets.mjs <<'EOF'
+          import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+          import { dirname, join } from 'node:path';
+          import { spawnSync } from 'node:child_process';
+
+          const tauriCli = join('node_modules', '@tauri-apps', 'cli', 'tauri.js');
+          const masterIcon = join('branding', 'dots-icon-master.png');
+          const nativeIcons = join('src-tauri', 'icons');
+          const staleAndroidIcons = join(nativeIcons, 'android');
+          const androidRes = join('src-tauri', 'gen', 'android', 'app', 'src', 'main', 'res');
+          const scratch = join('.icon-assets-tmp');
+
+          function runIcon(input, output, extraArgs = []) {
+            const result = spawnSync(process.execPath, [tauriCli, 'icon', input, '--output', output, ...extraArgs], {
+              stdio: 'inherit'
+            });
+            if (result.status !== 0) {
+              throw new Error(`Tauri icon generation failed for ${input}`);
+            }
+          }
+
+          function copy(source, destination) {
+            if (!existsSync(source)) {
+              throw new Error(`Missing generated icon asset: ${source}`);
+            }
+            mkdirSync(dirname(destination), { recursive: true });
+            cpSync(source, destination, { force: true });
+          }
+
+          function findPngs(root) {
+            if (!existsSync(root)) return [];
+            const result = [];
+            for (const entry of readdirSync(root, { withFileTypes: true })) {
+              const path = join(root, entry.name);
+              if (entry.isDirectory()) result.push(...findPngs(path));
+              else if (entry.isFile() && entry.name.endsWith('.png')) result.push(path);
+            }
+            return result;
+          }
+
+          function customPng(size, destination) {
+            const output = join(scratch, String(size));
+            rmSync(output, { recursive: true, force: true });
+            runIcon(masterIcon, output, ['--png', String(size)]);
+            const pngs = findPngs(output);
+            if (pngs.length !== 1) {
+              throw new Error(`Expected one ${size}px PNG, found ${pngs.length}`);
+            }
+            copy(pngs[0], destination);
+          }
+
+          function requireAsset(path) {
+            if (!existsSync(path)) {
+              throw new Error(`Missing generated icon asset: ${path}`);
+            }
+          }
+
+          if (!existsSync(masterIcon)) {
+            throw new Error(`Missing raster master icon: ${masterIcon}`);
+          }
+
+          rmSync(staleAndroidIcons, { recursive: true, force: true });
+          rmSync(scratch, { recursive: true, force: true });
+          runIcon(masterIcon, nativeIcons);
+
+          customPng(512, join('public', 'icon-512.png'));
+          copy(join('public', 'icon-512.png'), join('public', 'icon-maskable-512.png'));
+          customPng(192, join('public', 'icon-192.png'));
+          customPng(180, join('public', 'apple-touch-icon.png'));
+          copy(join(nativeIcons, '32x32.png'), join('public', 'favicon-32.png'));
+
+          if (existsSync(androidRes)) {
+            for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+              requireAsset(join(androidRes, `mipmap-${density}`, 'ic_launcher.png'));
+              requireAsset(join(androidRes, `mipmap-${density}`, 'ic_launcher_foreground.png'));
+              requireAsset(join(androidRes, `mipmap-${density}`, 'ic_launcher_round.png'));
+            }
+          }
+
+          rmSync(scratch, { recursive: true, force: true });
+          EOF
+
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+
+          pkg_path = Path('package.json')
+          pkg = json.loads(pkg_path.read_text(encoding='utf-8'))
+          pkg['version'] = '0.9.5'
+          pkg['scripts']['prepare:icons'] = 'node scripts/prepare-icon-assets.mjs'
+          pkg['scripts']['build'] = 'npm run prepare:icons && npm run verify:source && npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs'
+          pkg['scripts']['build:native'] = 'npm run prepare:icons && npm run verify:source && tsc --noEmit && vite build && node scripts/verify-build.mjs --native'
+          pkg['devDependencies']['@tauri-apps/cli'] = '2.11.4'
+          pkg_path.write_text(json.dumps(pkg, indent=2) + '\n', encoding='utf-8')
+
+          vite = read('vite.config.ts')
+          vite = vite.replace(
+              '      includeAssets: ["icon.svg", "pwa-192.png", "apple-touch-icon.png"],',
+              '      includeAssets: ["favicon-32.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"],'
+          )
+          old_icons = '''        icons: [
+          {
+            src: "pwa-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any maskable"
+          }
+        ]'''
+          new_icons = '''        icons: [
+          {
+            src: "icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable"
+          }
+        ]'''
+          if old_icons not in vite:
+              raise SystemExit('Expected old PWA icon block not found')
+          write('vite.config.ts', vite.replace(old_icons, new_icons))
+
+          index = read('index.html')
+          old = '<link rel="icon" href="./icon.svg" type="image/svg+xml" />'
+          new = '<link rel="icon" href="./favicon-32.png" type="image/png" />'
+          if old not in index:
+              raise SystemExit('Expected old favicon reference not found')
+          write('index.html', index.replace(old, new, 1))
+
+          tauri_path = Path('src-tauri/tauri.conf.json')
+          tauri = json.loads(tauri_path.read_text(encoding='utf-8'))
+          tauri['version'] = '0.9.5'
+          tauri['bundle']['icon'] = [
+              'icons/32x32.png',
+              'icons/128x128.png',
+              'icons/128x128@2x.png',
+              'icons/icon.icns',
+              'icons/icon.ico',
+          ]
+          tauri_path.write_text(json.dumps(tauri, indent=2) + '\n', encoding='utf-8')
+
+          for path in ('src-tauri/Cargo.toml', 'crates/game-core/Cargo.toml'):
+              text = read(path)
+              old = 'version = "0.9.4"'
+              if old not in text:
+                  raise SystemExit(f'{path}: expected 0.9.4 version not found')
+              write(path, text.replace(old, 'version = "0.9.5"', 1))
+
+          native_path = Path('.github/workflows/native-release.yml')
+          native = native_path.read_text(encoding='utf-8')
+          native = native.replace(
+              '      - src-tauri/**\n      - scripts/build-game-core-wasm.mjs',
+              '      - src-tauri/**\n      - branding/**\n      - scripts/prepare-icon-assets.mjs\n      - scripts/build-game-core-wasm.mjs',
+              1,
+          )
+          old = '          cargo tauri android init --ci\n          cargo tauri icon public/pwa-192.png\n'
+          new = '          cargo tauri android init --ci\n          npm run prepare:icons\n'
+          if old not in native:
+              raise SystemExit('native-release: stale Android icon command not found')
+          native_path.write_text(native.replace(old, new, 1), encoding='utf-8')
+
+          rustore_path = Path('.github/workflows/rustore-assets.yml')
+          rustore = rustore_path.read_text(encoding='utf-8')
+          rustore = rustore.replace(
+              '      - package.json\n      - scripts/capture-rustore-android.mjs',
+              '      - package.json\n      - branding/**\n      - scripts/prepare-icon-assets.mjs\n      - scripts/capture-rustore-android.mjs',
+              1,
+          )
+          install_old = '''          npm ci
+          npm audit --audit-level=high
+          npm test
+          npm install --no-save --package-lock=false @tauri-apps/cli@2.11.4
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.scripts.tauri = 'tauri';
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\\n`);
+          NODE
+          python3 -m pip install --disable-pip-version-check pillow==11.3.0
+'''
+          install_new = '''          npm ci
+          npm audit --audit-level=high
+          npm test
+          python3 -m pip install --disable-pip-version-check pillow==11.3.0
+'''
+          if install_old not in rustore:
+              raise SystemExit('rustore-assets: old Tauri install block not found')
+          rustore = rustore.replace(install_old, install_new, 1)
+          old = '          npx tauri android init --ci\n'
+          if old not in rustore:
+              raise SystemExit('rustore-assets: android init not found')
+          rustore = rustore.replace(old, old + '          npm run prepare:icons\n', 1)
+          rustore = rustore.replace('          npx tauri icon public/pwa-192.png\n', '', 1)
+          icon_block = re.compile(
+              r"\n          icon = Image\.new\('RGB', \(512, 512\), '#f4efe5'\).*?          icon\.save\(out / 'icon-512\.png', optimize=True\)\n",
+              re.S,
+          )
+          rustore, count = icon_block.subn('', rustore, count=1)
+          if count != 1:
+              raise SystemExit('rustore-assets: generated legacy icon block not found')
+          marker = "          out = Path('store/rustore/generated')\n          out.mkdir(parents=True, exist_ok=True)\n"
+          replacement = marker + "          source_icon = Path('public/icon-512.png')\n          target_icon = out / 'icon-512.png'\n          target_icon.write_bytes(source_icon.read_bytes())\n"
+          if marker not in rustore:
+              raise SystemExit('rustore-assets: output directory block not found')
+          rustore_path.write_text(rustore.replace(marker, replacement, 1), encoding='utf-8')
+
+          release_path = Path('.github/workflows/release.yml')
+          release = release_path.read_text(encoding='utf-8')
+          release = release.replace(
+              '      - src-tauri/**\n',
+              '      - src-tauri/**\n      - branding/**\n      - scripts/prepare-icon-assets.mjs\n',
+              1,
+          ) if '      - src-tauri/**\n' in release else release
+          if '      - branding/**\n' not in release:
+              release = release.replace(
+                  '      - crates/game-core/**\n',
+                  '      - crates/game-core/**\n      - branding/**\n      - scripts/prepare-icon-assets.mjs\n',
+                  1,
+              )
+          release_path.write_text(release, encoding='utf-8')
+
+          store_readme = read('store/rustore/README.md')
+          store_readme = store_readme.replace(
+              'The workflow creates a 512×512 icon, 1080×607 promo banner, and four 1080×1920 screenshots, verifies dimensions, zips the set, and uploads it as a workflow artifact.',
+              'The workflow derives the 512×512 store icon from `branding/dots-icon-master.png`, creates a 1080×607 promo banner and four 1080×1920 screenshots, verifies dimensions, zips the set, and uploads it as a workflow artifact.',
+          )
+          write('store/rustore/README.md', store_readme)
+
+          agents_path = Path('AGENTS.md')
+          agents = agents_path.read_text(encoding='utf-8')
+          if '## App icon source artwork' not in agents:
+              agents += '''\n## App icon source artwork\n\n- When the project owner provides a new app icon as a PNG and identifies it as the app icon, treat that exact PNG as the canonical source artwork.\n- Keep that source as the original raster PNG. Do not trace, vectorize, redraw, restyle, recreate, or convert it to SVG, vector PDF, Android VectorDrawable, SF Symbol, or any other vector representation unless the project owner explicitly requests it.\n- Do not overwrite, recompress, optimize in place, or otherwise rewrite the canonical PNG. Keep the uploaded source unchanged.\n- Platform-required derivatives may be generated only as raster derivatives of that PNG. Resizing and required raster packaging/container formats such as PNG size variants, ICO, or ICNS are allowed, but the visible artwork must remain unchanged: no cropping, padding, color changes, removed details, or other design edits unless explicitly requested.\n- Once a replacement PNG is explicitly supplied as the app icon, derive required platform icons from that raster source rather than converting it to a vector source.\n'''
+          agents_path.write_text(agents, encoding='utf-8')
+
+          changelog_path = Path('CHANGELOG.md')
+          changelog = changelog_path.read_text(encoding='utf-8')
+          section = '''## [0.9.5] - 2026-09-03\n\n### Added\n\n- canonical `branding/dots-icon-master.png` raster source of truth plus deterministic platform icon preparation for Web/PWA and Tauri builds;\n- explicit raster-source preservation rules preventing accidental tracing, vector replacement, in-place recompression, cropping, padding, recoloring, or other artwork changes.\n\n### Changed\n\n- Web/PWA favicon and install icons, Tauri desktop/macOS icons, Android launcher/adaptive/round icons, and the RuStore 512×512 store icon now derive from the same approved raster master;\n- removed the legacy SVG/PWA icon path and the separately drawn RuStore icon, and removed stale Android icon generation from native/store release workflows;\n- source version advanced to 0.9.5 with no gameplay, rules, save-format, AI, scoring, accessibility, SDK/NDK/ABI, or native-hardening behavior changes.\n\n'''
+          marker = '## [Unreleased]\n\n'
+          if marker not in changelog:
+              raise SystemExit('CHANGELOG Unreleased marker not found')
+          if '## [0.9.5]' not in changelog:
+              changelog = changelog.replace(marker, marker + section, 1)
+          changelog_path.write_text(changelog, encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          readme = readme.replace('source-0.9.4-', 'source-0.9.5-', 1)
+          readme = readme.replace('Current source version: **0.9.4**', 'Current source version: **0.9.5**', 1)
+          marker = 'Version **0.9.4** hardens the 0.9.3 native/RuStore baseline'
+          if marker in readme and 'Version **0.9.5** refreshes the application identity' not in readme:
+              readme = readme.replace(marker, 'Version **0.9.5** refreshes the application identity from one preserved raster master across Web/PWA, Tauri desktop, Android launcher, and RuStore store assets. Gameplay, rules, saves, AI, accessibility, and native hardening are unchanged.\n\n' + marker, 1)
+          readme = readme.replace('Publish and validate the 0.9.4 Android AAB', 'Publish and validate the 0.9.5 Android AAB', 1)
+          readme_path.write_text(readme, encoding='utf-8')
+
+          ru_path = Path('README_RU.md')
+          ru = ru_path.read_text(encoding='utf-8')
+          ru = ru.replace('source-0.9.4-', 'source-0.9.5-', 1)
+          ru = ru.replace('Текущая версия исходников: **0.9.4**', 'Текущая версия исходников: **0.9.5**', 1)
+          current_marker = 'Версия **0.9.4**'
+          if current_marker in ru and 'Версия **0.9.5** обновляет идентичность приложения' not in ru:
+              ru = ru.replace(current_marker, 'Версия **0.9.5** обновляет идентичность приложения: Web/PWA, Tauri desktop, Android launcher и иконка RuStore теперь выводятся из одного сохранённого raster master. Игровые правила, сохранения, ИИ, доступность и native hardening не изменены.\n\n' + current_marker, 1)
+          ru_path.write_text(ru, encoding='utf-8')
+          PY
+
+          rm -f public/icon.svg public/pwa-192.png
+
+      - name: Refresh lockfiles
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          cargo generate-lockfile --manifest-path crates/game-core/Cargo.toml
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Install and verify dependencies
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+
+      - name: Generate and verify raster assets
+        run: |
+          npm run prepare:icons
+          echo '942b3557bf40091f97928adb840851a8eb0586d0dffbc03184cd04546c4645e5  branding/dots-icon-master.png' | sha256sum --check --strict
+          test -f public/favicon-32.png
+          test -f public/icon-192.png
+          test -f public/icon-512.png
+          test -f public/icon-maskable-512.png
+          test -f public/apple-touch-icon.png
+          test -f src-tauri/icons/32x32.png
+          test -f src-tauri/icons/128x128.png
+          test -f src-tauri/icons/128x128@2x.png
+          test -f src-tauri/icons/icon.icns
+          test -f src-tauri/icons/icon.ico
+          file public/icon-192.png | grep -F '192 x 192'
+          file public/icon-512.png | grep -F '512 x 512'
+          file public/apple-touch-icon.png | grep -F '180 x 180'
+          test ! -e public/icon.svg
+          test ! -e public/pwa-192.png
+          if grep -R -n -E 'public/pwa-192\.png|icon\.svg|pwa-192\.png|tauri icon public/pwa-192|Image\.new\(.RGB., \(512, 512\)' package.json scripts vite.config.ts index.html .github/workflows store/rustore; then
+            exit 1
+          fi
+
+      - name: Run regression verification
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          cargo test --manifest-path crates/game-core/Cargo.toml --locked
+          npm test
+          npm run build
+
+      - name: Verify release metadata
+        run: |
+          test "$(node -p "require('./package.json').version")" = '0.9.5'
+          test "$(node -p "require('./src-tauri/tauri.conf.json').version")" = '0.9.5'
+          grep -F 'version = "0.9.5"' src-tauri/Cargo.toml
+          grep -F 'version = "0.9.5"' crates/game-core/Cargo.toml
+          grep -F 'branding/dots-icon-master.png' scripts/prepare-icon-assets.mjs
+          grep -F 'npm run prepare:icons' .github/workflows/native-release.yml
+          grep -F 'npm run prepare:icons' .github/workflows/rustore-assets.yml
+          grep -F "source_icon = Path('public/icon-512.png')" .github/workflows/rustore-assets.yml
+
+      - name: Commit raster icon release
+        run: |
+          rm -f .github/workflows/finalize-raster-icon.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Refresh Dots app icon for v0.9.5"
+          git push origin HEAD:release/0.9.5-new-icon
