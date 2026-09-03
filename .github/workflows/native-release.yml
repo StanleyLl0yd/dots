@@ -283,16 +283,14 @@ jobs:
             exit 1
           fi
 
-          READELF="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-readelf -print -quit)"
-          NM="$(find "$NDK_HOME/toolchains/llvm/prebuilt" -type f -name llvm-nm -print -quit)"
+          READELF="$(command -v readelf)"
           test -x "$READELF"
-          test -x "$NM"
 
           while IFS= read -r so; do
             SECTIONS="$(mktemp "$RUNNER_TEMP/sections.XXXXXX")"
             SYMBOLS="$(mktemp "$RUNNER_TEMP/symbols.XXXXXX")"
             "$READELF" -SW "$so" > "$SECTIONS"
-            "$NM" -D --defined-only "$so" > "$SYMBOLS" 2>/dev/null || true
+            "$READELF" -sW "$so" > "$SYMBOLS"
             if grep -Eq '\.(debug_|zdebug_|gdb_index)' "$SECTIONS"; then
               echo "Debug sections found in $so" >&2
               exit 1
