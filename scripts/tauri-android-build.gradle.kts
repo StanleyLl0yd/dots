@@ -23,6 +23,7 @@ val releaseSigningConfigured = keystorePropertiesFile.exists()
 
 android {
     compileSdk = 36
+    ndkVersion = "29.0.14206865"
     namespace = "com.sl.dots"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
