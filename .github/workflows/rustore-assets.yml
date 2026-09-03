@@ -54,6 +54,15 @@ jobs:
           npm test
           python3 -m pip install --disable-pip-version-check pillow==11.3.0
 
+      - name: Configure Android Tauri npm bridge
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.scripts.tauri = 'tauri';
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+
       - name: Configure Android toolchain
         run: |
           cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
