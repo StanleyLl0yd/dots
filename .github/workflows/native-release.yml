@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - fix/android-native-verifier-0.9.4-final
     paths:
       - package.json
       - package-lock.json
