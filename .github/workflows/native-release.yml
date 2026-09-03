@@ -180,8 +180,12 @@ jobs:
 
           jarsigner -verify "$AAB"
 
-          EXPECTED_CERT="$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -alias "$ANDROID_UPLOAD_KEY_ALIAS" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          ACTUAL_AAB_CERT="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          EXPECTED_CERT_LOG="$RUNNER_TEMP/expected-cert.txt"
+          AAB_CERT_LOG="$RUNNER_TEMP/aab-cert.txt"
+          keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -alias "$ANDROID_UPLOAD_KEY_ALIAS" > "$EXPECTED_CERT_LOG" 2>&1
+          keytool -printcert -jarfile "$AAB" > "$AAB_CERT_LOG"
+          EXPECTED_CERT="$(sed -n 's/.*SHA256: //p' "$EXPECTED_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
+          ACTUAL_AAB_CERT="$(sed -n 's/.*SHA256: //p' "$AAB_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
           test -n "$EXPECTED_CERT"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_CERT"
 
@@ -192,8 +196,9 @@ jobs:
           test -x "$AAPT"
           test -x "$ZIPALIGN"
 
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          ACTUAL_APK_CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          APK_CERT_LOG="$RUNNER_TEMP/apk-cert.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > "$APK_CERT_LOG"
+          ACTUAL_APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$APK_CERT_LOG" | tr -d ':' | tr '[:upper:]' '[:lower:]' | sed -n '1p')"
           test "$ACTUAL_APK_CERT" = "$EXPECTED_CERT"
 
           BADGING="$RUNNER_TEMP/android-badging.txt"
@@ -288,7 +293,9 @@ jobs:
             --output "$BUNDLETOOL" \
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
           printf '%s  %s\n' 'a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29' "$BUNDLETOOL" | sha256sum --check --status
-          java -jar "$BUNDLETOOL" dump config --bundle="$AAB" | grep -F 'PAGE_ALIGNMENT_16K' >/dev/null
+          BUNDLE_CONFIG="$RUNNER_TEMP/bundle-config.txt"
+          java -jar "$BUNDLETOOL" dump config --bundle="$AAB" > "$BUNDLE_CONFIG"
+          grep -F 'PAGE_ALIGNMENT_16K' "$BUNDLE_CONFIG" >/dev/null
 
       - name: Remove temporary Android signing material
         if: always()
