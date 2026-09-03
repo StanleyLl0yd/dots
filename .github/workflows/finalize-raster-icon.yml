@@ -30,7 +30,8 @@ jobs:
       - name: Apply release metadata and pipeline changes
         run: |
           python3 scripts/finalize-icon-release.py
-          rm -f scripts/finalize-icon-release.py
+          python3 scripts/fix-icon-finalizer.py
+          rm -f scripts/finalize-icon-release.py scripts/fix-icon-finalizer.py
 
       - name: Refresh lockfiles
         run: |
@@ -66,7 +67,7 @@ jobs:
           file public/apple-touch-icon.png | grep -F '180 x 180'
           test ! -e public/icon.svg
           test ! -e public/pwa-192.png
-          if grep -R -n -E 'public/pwa-192\.png|icon\.svg|pwa-192\.png|tauri icon public/pwa-192' package.json scripts vite.config.ts index.html .github/workflows store/rustore; then
+          if grep -R -n -E 'public/pwa-192\.png|icon\.svg|pwa-192\.png|tauri icon public/pwa-192' package.json scripts vite.config.ts index.html .github/workflows/native-release.yml .github/workflows/rustore-assets.yml .github/workflows/release.yml store/rustore; then
             exit 1
           fi
 
