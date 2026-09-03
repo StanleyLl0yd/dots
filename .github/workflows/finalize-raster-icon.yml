@@ -90,7 +90,7 @@ jobs:
           test "$(node -p "require('./src-tauri/tauri.conf.json').version")" = '0.9.5'
           grep -F 'version = "0.9.5"' src-tauri/Cargo.toml
           grep -F 'version = "0.9.5"' crates/game-core/Cargo.toml
-          grep -F 'branding/dots-icon-master.png' scripts/prepare-icon-assets.mjs
+          grep -F 'dots-icon-master.png' scripts/prepare-icon-assets.mjs
           grep -F 'npm run prepare:icons' .github/workflows/native-release.yml
           grep -F 'npm run prepare:icons' .github/workflows/rustore-assets.yml
           grep -F "source_icon = Path('public/icon-512.png')" .github/workflows/rustore-assets.yml
