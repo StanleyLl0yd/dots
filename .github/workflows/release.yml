@@ -11,6 +11,8 @@ on:
       - vite.config.ts
       - src/**
       - crates/game-core/**
+      - branding/**
+      - scripts/prepare-icon-assets.mjs
       - scripts/build-game-core-wasm.mjs
       - scripts/verify-build.mjs
       - scripts/verify-source-boundary.mjs
