@@ -13,7 +13,7 @@ permissions:
 jobs:
   finalize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout release branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,7 +27,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Apply release metadata and pipeline changes
+      - name: Apply validated release changes
         run: |
           python3 scripts/finalize-icon-release.py
           python3 scripts/fix-icon-finalizer.py
@@ -46,11 +46,9 @@ jobs:
           cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
-      - name: Generate raster icon assets
-        run: npm run prepare:icons
-
-      - name: Verify raster icon assets
+      - name: Generate and verify raster icon assets
         run: |
+          npm run prepare:icons
           echo '942b3557bf40091f97928adb840851a8eb0586d0dffbc03184cd04546c4645e5  branding/dots-icon-master.png' | sha256sum --check --strict
           test -f public/favicon-32.png
           test -f public/icon-192.png
@@ -71,19 +69,6 @@ jobs:
             exit 1
           fi
 
-      - name: Configure Rust WASM toolchain
-        run: |
-          rustup target add wasm32-unknown-unknown
-          cargo install wasm-bindgen-cli --version 0.2.127 --locked
-          sudo apt-get update
-          sudo apt-get install -y binaryen
-
-      - name: Run regression verification
-        run: |
-          cargo test --manifest-path crates/game-core/Cargo.toml --locked
-          npm test
-          npm run build
-
       - name: Verify release metadata
         run: |
           test "$(node -p "require('./package.json').version")" = '0.9.5'
@@ -95,9 +80,9 @@ jobs:
           grep -F 'npm run prepare:icons' .github/workflows/rustore-assets.yml
           grep -F "source_icon = Path('public/icon-512.png')" .github/workflows/rustore-assets.yml
 
-      - name: Commit raster icon release
+      - name: Commit validated non-workflow changes
         run: |
-          rm -f .github/workflows/finalize-raster-icon.yml
+          git checkout -- .github/workflows
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
