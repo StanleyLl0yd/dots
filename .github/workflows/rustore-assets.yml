@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - package.json
+      - branding/**
+      - scripts/prepare-icon-assets.mjs
       - scripts/capture-rustore-android.mjs
       - scripts/run-rustore-emulator-capture.sh
       - scripts/tauri-android-build.gradle.kts
@@ -50,13 +52,6 @@ jobs:
           npm ci
           npm audit --audit-level=high
           npm test
-          npm install --no-save --package-lock=false @tauri-apps/cli@2.11.4
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.scripts.tauri = 'tauri';
-          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
-          NODE
           python3 -m pip install --disable-pip-version-check pillow==11.3.0
 
       - name: Configure Android toolchain
@@ -70,6 +65,7 @@ jobs:
       - name: Build emulator APK
         run: |
           npx tauri android init --ci
+          npm run prepare:icons
           MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
           test -f "$MAIN_ACTIVITY"
           python3 - "$MAIN_ACTIVITY" <<'PY'
@@ -107,7 +103,6 @@ jobs:
           path.write_text(text)
           print(text)
           PY
-          npx tauri icon public/pwa-192.png
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           npx tauri android build --apk --debug --target x86_64
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
@@ -140,23 +135,9 @@ jobs:
 
           out = Path('store/rustore/generated')
           out.mkdir(parents=True, exist_ok=True)
-
-          icon = Image.new('RGB', (512, 512), '#f4efe5')
-          draw = ImageDraw.Draw(icon)
-          grid = '#d2c8b8'
-          for value in range(64, 449, 64):
-              draw.line((value, 64, value, 448), fill=grid, width=8)
-              draw.line((64, value, 448, value), fill=grid, width=8)
-          red = '#dc2626'
-          blue = '#2563eb'
-          ring = [(256, 128), (192, 192), (192, 256), (192, 320), (256, 384), (320, 320), (320, 256), (320, 192)]
-          draw.polygon(ring, fill='#f2dddd')
-          draw.line(ring + [ring[0]], fill=red, width=12, joint='curve')
-          for x, y in ring:
-              draw.ellipse((x-18, y-18, x+18, y+18), fill=red)
-          for x, y in [(256, 256), (256, 320)]:
-              draw.ellipse((x-20, y-20, x+20, y+20), fill=blue)
-          icon.save(out / 'icon-512.png', optimize=True)
+          source_icon = Path('public/icon-512.png')
+          target_icon = out / 'icon-512.png'
+          target_icon.write_bytes(source_icon.read_bytes())
 
           width, height = 1080, 607
           banner = Image.new('RGB', (width, height), '#f4efe5')

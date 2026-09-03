@@ -1,7 +1,7 @@
 {
   "name": "dots",
   "private": true,
-  "version": "0.9.4",
+  "version": "0.9.5",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -10,11 +10,12 @@
     "dev": "npm run wasm:build && vite",
     "wasm:build": "node scripts/build-game-core-wasm.mjs",
     "verify:source": "node scripts/verify-source-boundary.mjs",
-    "build": "npm run verify:source && npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
-    "build:native": "npm run verify:source && tsc --noEmit && vite build && node scripts/verify-build.mjs --native",
+    "build": "npm run prepare:icons && npm run verify:source && npm run wasm:build && tsc --noEmit && vite build && node scripts/verify-build.mjs",
+    "build:native": "npm run prepare:icons && npm run verify:source && tsc --noEmit && vite build && node scripts/verify-build.mjs --native",
     "preview": "vite preview",
     "test": "npm run verify:source && npm run wasm:build && vitest run",
-    "typecheck": "tsc --noEmit --pretty false"
+    "typecheck": "tsc --noEmit --pretty false",
+    "prepare:icons": "node scripts/prepare-icon-assets.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"
@@ -23,6 +24,7 @@
     "typescript": "5.9.2",
     "vite": "7.3.6",
     "vite-plugin-pwa": "1.0.3",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "@tauri-apps/cli": "2.11.4"
   }
 }
