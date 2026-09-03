@@ -1,0 +1,44 @@
+name: Apply canonical raster icon
+
+on:
+  push:
+    branches:
+      - release/0.9.5-new-icon
+    paths:
+      - .github/workflows/apply-raster-icon.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_URL: "https://oaisdmntprukwest.blob.core.windows.net/files/00000000-6870-8243-9cbe-62720c7e83ee/raw?se=2026-09-03T13%3A21%3A39Z&sp=r&sv=2026-02-06&sr=b&scid=87708ef0-762f-47bf-8fa9-2c3ff7c756b7&skoid=1d6acb5b-b3f4-43ec-a5ec-b05c4a7708c8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-03T07%3A07%3A53Z&ske=2026-09-04T07%3A07%3A53Z&sks=b&skv=2026-02-06&sig=jbDlDaBlgpIMtb/QeCERarWCmap938p2E89bmqRgzDg%3D"
+      EXPECTED_SHA256: "942b3557bf40091f97928adb840851a8eb0586d0dffbc03184cd04546c4645e5"
+      EXPECTED_SIZE: "1101339"
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: release/0.9.5-new-icon
+          persist-credentials: true
+
+      - name: Import exact raster master
+        run: |
+          mkdir -p branding
+          curl --fail --location --retry 3 --retry-delay 1 "$SOURCE_URL" --output branding/dots-icon-master.png
+          test "$(stat -c%s branding/dots-icon-master.png)" = "$EXPECTED_SIZE"
+          echo "$EXPECTED_SHA256  branding/dots-icon-master.png" | sha256sum --check --strict
+          file branding/dots-icon-master.png | grep -F 'PNG image data'
+
+      - name: Commit canonical master
+        run: |
+          rm -rf .icon-upload
+          rm -f .github/workflows/apply-raster-icon.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A branding/dots-icon-master.png .icon-upload .github/workflows/apply-raster-icon.yml
+          git commit -m "Add canonical raster app icon for v0.9.5"
+          git push origin HEAD:release/0.9.5-new-icon
