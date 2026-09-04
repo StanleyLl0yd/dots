@@ -367,9 +367,19 @@ jobs:
           java -jar "$BUNDLETOOL" dump config --bundle="$AAB" > "$BUNDLE_CONFIG"
           grep -F 'PAGE_ALIGNMENT_16K' "$BUNDLE_CONFIG" >/dev/null
 
+      - name: Stage signed installable APK
+        run: cp "release/Dots-v${VERSION}-Android-verification.apk" "release/Dots-v${VERSION}-Android.apk"
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-Android-APK
+          path: release/Dots-v${{ env.VERSION }}-Android.apk
+          if-no-files-found: error
+
       - name: Remove temporary Android signing material
         if: always()
-        run: rm -f src-tauri/gen/android/keystore.properties "${KEYSTORE_PATH:-}" release/Dots-v${VERSION}-Android-verification.apk
+        run: rm -f src-tauri/gen/android/keystore.properties "${KEYSTORE_PATH:-}" release/Dots-v${VERSION}-Android-verification.apk release/Dots-v${VERSION}-Android.apk
 
       - name: Attach AAB to GitHub Release
         env:
