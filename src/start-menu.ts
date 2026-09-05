@@ -10,6 +10,10 @@ export interface StartMenuCopy {
   localGame: string;
   help: string;
   aboutLabel: string;
+  soundOn: string;
+  soundOff: string;
+  enableSound: string;
+  disableSound: string;
   exit: string;
 }
 
@@ -18,6 +22,7 @@ interface StartMenuHandlers {
   onNewGame: (mode: GameMode) => void;
   onHelp: () => void;
   onAbout: () => void;
+  onSoundChange: (enabled: boolean) => void;
   onExit: () => void;
 }
 
@@ -25,6 +30,7 @@ interface StartMenuOptions {
   root: HTMLElement;
   copy: StartMenuCopy;
   canContinue: boolean;
+  soundEnabled: boolean;
   showExit: boolean;
   handlers: StartMenuHandlers;
 }
@@ -33,6 +39,7 @@ export interface StartMenuController {
   show: () => void;
   hide: () => void;
   setCanContinue: (value: boolean) => void;
+  setSoundEnabled: (value: boolean) => void;
 }
 
 const requiredElement = <T extends Element>(root: ParentNode, selector: string): T => {
@@ -45,6 +52,7 @@ export const createStartMenu = ({
   root,
   copy,
   canContinue: initialCanContinue,
+  soundEnabled: initialSoundEnabled,
   showExit,
   handlers
 }: StartMenuOptions): StartMenuController => {
@@ -75,6 +83,7 @@ export const createStartMenu = ({
         <p class="start-menu-section-label">${copy.newGame}</p>
         <button class="start-menu-button" type="button" data-start-computer>${copy.computerGame}</button>
         <button class="start-menu-button" type="button" data-start-local>${copy.localGame}</button>
+        <button class="start-menu-text-button start-menu-sound" type="button" data-start-sound aria-pressed="true"></button>
         <div class="start-menu-secondary">
           <button class="start-menu-text-button" type="button" data-start-help>${copy.help}</button>
           <button class="start-menu-text-button" type="button" data-start-about>${copy.aboutLabel}</button>
@@ -90,6 +99,7 @@ export const createStartMenu = ({
   const localButton = requiredElement<HTMLButtonElement>(menu, "[data-start-local]");
   const helpButton = requiredElement<HTMLButtonElement>(menu, "[data-start-help]");
   const aboutButton = requiredElement<HTMLButtonElement>(menu, "[data-start-about]");
+  const soundButton = requiredElement<HTMLButtonElement>(menu, "[data-start-sound]");
   const exitButton = requiredElement<HTMLButtonElement>(menu, "[data-start-exit]");
 
   exitButton.hidden = !showExit;
@@ -100,14 +110,28 @@ export const createStartMenu = ({
     computerButton.classList.toggle("start-menu-primary", !canContinue);
   };
 
+  let soundEnabled = initialSoundEnabled;
+  const setSoundEnabled = (enabled: boolean): void => {
+    soundEnabled = enabled;
+    soundButton.textContent = enabled ? copy.soundOn : copy.soundOff;
+    soundButton.setAttribute("aria-label", enabled ? copy.disableSound : copy.enableSound);
+    soundButton.setAttribute("aria-pressed", String(enabled));
+  };
+
   continueButton.addEventListener("click", handlers.onContinue);
   computerButton.addEventListener("click", () => handlers.onNewGame("computer"));
   localButton.addEventListener("click", () => handlers.onNewGame("local"));
   helpButton.addEventListener("click", handlers.onHelp);
   aboutButton.addEventListener("click", handlers.onAbout);
+  soundButton.addEventListener("click", () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    handlers.onSoundChange(next);
+  });
   exitButton.addEventListener("click", handlers.onExit);
 
   setCanContinue(initialCanContinue);
+  setSoundEnabled(initialSoundEnabled);
 
   return {
     show: () => {
@@ -119,6 +143,7 @@ export const createStartMenu = ({
     hide: () => {
       menu.hidden = true;
     },
-    setCanContinue
+    setCanContinue,
+    setSoundEnabled
   };
 };
