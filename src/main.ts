@@ -8,6 +8,7 @@ import { resolveLocale, t } from "./i18n";
 import { clearSavedGame, loadSession, saveSession, type StorageLike } from "./persistence";
 import { DEFAULT_PREFERENCES, loadPreferences, savePreferences, type GameMode } from "./preferences";
 import { setupPwaLifecycle } from "./pwa";
+import { createStartMenu } from "./start-menu";
 import { CanvasBoard } from "./ui/canvas-board";
 import type { Viewport } from "./ui/viewport";
 import { loadViewport, saveViewport } from "./viewport-persistence";
@@ -51,6 +52,7 @@ app.innerHTML = `
           </label>
         </div>
         <div class="action-buttons">
+          <button class="menu" type="button" aria-label="${copy.menu}" title="${copy.menu}"><span class="action-symbol" aria-hidden="true">☰</span><span class="action-label">${copy.menu}</span></button>
           <button class="undo" type="button" aria-label="${copy.undo}" title="${copy.undo}"><span class="action-symbol" aria-hidden="true">↶</span><span class="action-label">${copy.undo}</span></button>
           <button class="fit-game" type="button" aria-label="${copy.fitPosition}" title="${copy.fitPosition}"><span class="action-symbol" aria-hidden="true">◎</span><span class="action-label">${copy.fitPosition}</span></button>
           <button class="help" type="button" aria-label="${copy.help}" title="${copy.help}"><span class="action-symbol" aria-hidden="true">?</span><span class="action-label">${copy.help}</span></button>
@@ -123,6 +125,7 @@ const blueLabel = requiredElement<HTMLElement>("[data-blue-label]");
 const modeSelect = requiredElement<HTMLSelectElement>("[data-game-mode]");
 const difficultyControl = requiredElement<HTMLElement>("[data-difficulty-control]");
 const difficultySelect = requiredElement<HTMLSelectElement>("[data-ai-difficulty]");
+const menu = requiredElement<HTMLButtonElement>(".menu");
 const undo = requiredElement<HTMLButtonElement>(".undo");
 const fitGame = requiredElement<HTMLButtonElement>(".fit-game");
 const help = requiredElement<HTMLButtonElement>(".help");
@@ -160,6 +163,8 @@ let computerWorker: Worker | undefined;
 let computerGeneration = 0;
 let computerThinking = false;
 let stateMutationInFlight = false;
+let gameStarted = session.history.length > 0;
+let menuVisible = true;
 
 const announce = (message: string): void => {
   a11yStatus.textContent = "";
@@ -345,7 +350,7 @@ const applyComputerProposal = async (generation: number, move: Point | undefined
 };
 
 const scheduleComputerMove = (): void => {
-  if (document.visibilityState === "hidden" || !isComputerTurn() || computerThinking) return;
+  if (menuVisible || document.visibilityState === "hidden" || !isComputerTurn() || computerThinking) return;
   const generation = ++computerGeneration;
   computerThinking = true;
   renderStatus();
@@ -489,6 +494,7 @@ const resetGame = async (): Promise<void> => {
   try {
     cancelComputerMove();
     session = await resetSession();
+    gameStarted = true;
     persist();
     board.setState(session.state);
     board.resetViewport();
@@ -498,6 +504,72 @@ const resetGame = async (): Promise<void> => {
     stateMutationInFlight = false;
   }
 };
+
+const shell = requiredElement<HTMLElement>(".shell");
+const skipLink = requiredElement<HTMLAnchorElement>(".skip-link");
+
+const closeNativeApp = async (): Promise<void> => {
+  if (!isNativeGameCore) return;
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close();
+  } catch {
+    window.close();
+  }
+};
+
+const closeStartMenu = (): void => {
+  menuVisible = false;
+  shell.inert = false;
+  skipLink.hidden = false;
+  startMenu.hide();
+  renderStatus();
+  scheduleComputerMove();
+};
+
+const startNewGameFromMenu = async (mode: GameMode): Promise<void> => {
+  cancelComputerMove();
+  gameMode = mode;
+  modeSelect.value = gameMode;
+  persistPreferences();
+  await resetGame();
+  closeStartMenu();
+  announce(gameMode === "computer" ? copy.modeComputer : copy.modeLocal);
+};
+
+const openStartMenu = (): void => {
+  cancelComputerMove();
+  menuVisible = true;
+  shell.inert = true;
+  skipLink.hidden = true;
+  startMenu.setCanContinue(gameStarted);
+  startMenu.show();
+  renderStatus();
+};
+
+const startMenu = createStartMenu({
+  root: app,
+  copy,
+  canContinue: gameStarted,
+  showExit: isNativeGameCore,
+  handlers: {
+    onContinue: closeStartMenu,
+    onNewGame: (mode) => {
+      void startNewGameFromMenu(mode);
+    },
+    onHelp: () => {
+      if (!helpDialog.open) helpDialog.showModal();
+    },
+    onAbout: () => {
+      document.dispatchEvent(new Event("dots:open-about"));
+    },
+    onExit: () => {
+      void closeNativeApp();
+    }
+  }
+});
+
+menu.addEventListener("click", openStartMenu);
 
 newGame.addEventListener("click", () => {
   if (session.history.length === 0) {
@@ -582,4 +654,4 @@ updateNow.addEventListener("click", () => {
 });
 
 renderStatus();
-scheduleComputerMove();
+openStartMenu();
