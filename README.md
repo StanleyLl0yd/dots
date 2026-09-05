@@ -115,7 +115,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - local active-stone danger evaluation plus bounded immediate-capture and short setup threat probes on Hard/Expert;
 - tactical move ordering, alpha-beta pruning, and selective forcing capture/release horizon extensions;
 - deterministic AI-vs-AI paired strength regression tests plus six fixed Expert tactical benchmark positions;
-- versioned preference persistence for game mode and AI difficulty with 0.6.0 migration;
+- versioned preference persistence for game mode, AI difficulty, and sound with explicit v1/v2 migration;
 - exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;
 - shared guarded JSON-storage transport without merging the independent game/preference/viewport schemas;
 - cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;
@@ -204,7 +204,7 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Publish and validate the 0.9.5 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
+1. Publish and validate the 0.10.0 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
 2. Continue real-device Android/macOS and installed-PWA validation and fix concrete regressions only.
 3. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
 4. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
