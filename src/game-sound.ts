@@ -18,14 +18,19 @@ export class GameSoundController {
       this.output.gain.setValueAtTime(enabled ? 1 : 0, this.context.currentTime);
     }
     if (!enabled) return;
-    this.unlock();
-    this.playToggle();
+    void this.unlock().then(() => this.playToggle());
   }
 
-  unlock(): void {
+  async unlock(): Promise<void> {
     if (!this.enabled) return;
     const context = this.getContext();
-    if (context?.state === "suspended") void context.resume().catch(() => undefined);
+    if (context?.state === "suspended") {
+      try {
+        await context.resume();
+      } catch {
+        return;
+      }
+    }
   }
 
   playMove(player: Player): void {
