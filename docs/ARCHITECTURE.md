@@ -142,7 +142,7 @@ The CI suite deliberately uses short deterministic matches rather than a wall-cl
 - **Two players** leaves both colors under local human control.
 - **Vs computer** assigns Red to the human and Blue to the computer.
 - Computer mode exposes **Easy / Normal / Hard / Expert** difficulty.
-- Mode and difficulty are stored together by `preferences.ts` under their own versioned key.
+- Mode, difficulty, and sound-enabled presentation state are stored together by `preferences.ts` under their own versioned key.
 - Switching mode or difficulty never rewrites the move log or resets the board.
 - Enabling computer mode while Blue is to move schedules a Blue AI move against the existing state.
 - The selected difficulty is passed through the native/WASM core request for each newly scheduled computer turn.
@@ -281,4 +281,4 @@ Automated coverage includes:
 
 Version **0.8.2** hardened the JavaScript toolchain/security baseline with reproducible installs and dependency gates. Version **0.9.0** moved browser AI computation into a Worker, and 0.9.1 hardened input/replay and Worker/PWA failure handling without changing game rules or AI policy.
 
-Version **0.9.4** is the current pre-1.0 hardened native/RuStore baseline. It adds the shared Tauri shell, signed AAB/universal-DMG publication path, RuStore publication tooling, and reproducible Rust dependency locking while preserving authoritative game rules, save schemas, AI search policy/difficulty semantics, web/PWA behavior, accessibility, and the shared frontend feature set.
+Version **0.10.0** is the current pre-1.0 product baseline. The 0.9.4 hardened native/RuStore architecture remains unchanged; 0.10.0 adds the shared start menu and presentation-only local sound layer while preserving authoritative game rules, move-log saves, AI search policy/difficulty semantics, PWA behavior, accessibility, and native hardening.
