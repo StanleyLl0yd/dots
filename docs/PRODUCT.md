@@ -191,7 +191,7 @@ Version **0.10.0** is the current pre-1.0 baseline for the complete classic loca
 - optional locally generated move/capture/invalid/Undo sound feedback with persistent version-3 preference migration;
 - confirmed New game;
 - versioned move-log persistence with replay restoration of rules and Undo history plus fail-closed safe-integer coordinate validation;
-- separately versioned game-mode/difficulty preferences and viewport persistence;
+- separately versioned game-mode/difficulty/sound preferences and viewport persistence;
 - pan/zoom viewport independent from rules, pointer/touch/pinch interaction, anchor-preserving transforms, and keyboard board control;
 - safe-area/dynamic-viewport mobile layout, practical touch targets, focus-visible, dark, forced-colors, and reduced-motion handling;
 - installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, retryable activation failure, and lifecycle regression coverage;
@@ -327,7 +327,7 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
-Use 0.9.3 as the release-candidate baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
+Use 0.10.0 as the current pre-1.0 baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
 
 ## Visual direction
 
