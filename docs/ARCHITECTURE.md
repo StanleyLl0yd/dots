@@ -9,6 +9,7 @@ src/game/core-web.ts              lazy WASM transport
 src/game/core-native.ts           four coarse Tauri IPC calls
 src/game/ai-worker.ts             cancellable browser-only AI orchestration
 src/game/session.ts               move-log history over Rust replay/apply
+src/game-sound.ts                  local Web Audio presentation feedback
 src/ui/                           Canvas input/rendering and viewport math
 src/persistence.ts                versioned move-log storage adapter
 src-tauri/                        native shell linking crates/game-core
@@ -162,18 +163,21 @@ In computer mode, Undo first removes the latest move. If that returns the sessio
 
 Invalid JSON/version/coordinates or a move that is no longer legal invalidates only the game save.
 
-## Mode and difficulty preferences
+## Mode, difficulty, and sound preferences
 
-`src/preferences.ts` stores game mode plus AI difficulty under `dots.preferences` with explicit format version 2.
+`src/preferences.ts` stores game mode, AI difficulty, and sound enabled state under `dots.preferences` with explicit format version 3.
 
 Current legal values are:
 
 - mode: `local` / `computer`;
-- difficulty: `easy` / `normal` / `hard` / `expert`.
+- difficulty: `easy` / `normal` / `hard` / `expert`;
+- sound: boolean, enabled by default.
 
-Version-1 preferences from 0.6.0 contain only game mode. They are migrated in place to version 2 while preserving that mode and assigning `normal` difficulty. Malformed or unsupported preference data is removed and falls back to local mode plus Normal difficulty. Preference failure cannot invalidate or mutate the authoritative game save or viewport state.
+Version-1 preferences contain only game mode; version 2 adds difficulty. Both migrate in place to version 3 while preserving known values, assigning `normal` where difficulty is absent, and enabling sound where the older schema has no sound field. Malformed or unsupported preference data is removed and falls back to local mode, Normal difficulty, and sound enabled. Preference failure cannot invalidate or mutate the authoritative game save or viewport state.
 
 ### Browser Worker and UX orchestration
+
+`src/game-sound.ts` is presentation-only. It creates an `AudioContext` lazily after user interaction, synthesizes short move/capture/invalid/Undo tones locally, and uses a master gain for immediate mute. It imports only the player type and cannot alter game state, timing, AI choices, persistence, or accessibility announcements.
 
 Browser builds run the shared Rust/WASM AI through `src/game/ai-worker.ts`; native Tauri calls the linked Rust core directly without a browser Worker. `src/game/ai-worker-protocol.ts` carries a structured-cloned `GameState`, options, and request generation. The returned point is accepted only by `main.ts` through `playMove()`. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions terminate pending Worker work; generation guards reject stale responses. Version 0.9.1 further hardens generation isolation so callbacks from cancelled/stale timers or Workers cannot clear the thinking state owned by a newer request.
 
@@ -247,7 +251,7 @@ Native direct dependencies are exact-pinned in `src-tauri/Cargo.toml`; `src-taur
 
 `index.html` declares viewport-fit cover, standalone/mobile app metadata, light/dark theme colors, and Apple touch icon linkage.
 
-`styles.css` uses dynamic viewport units and safe-area insets, practical touch targets, overscroll suppression, focus-visible treatment, reduced-motion safeguards, forced-colors fallback, and explicit light/dark Canvas variables. Mode and difficulty selectors use the same focus/touch conventions and collapse into the responsive mobile action grid.
+`styles.css` uses dynamic viewport units and safe-area insets, practical touch targets, overscroll suppression, focus-visible treatment, reduced-motion safeguards, forced-colors fallback, and explicit light/dark Canvas variables. Mode and difficulty selectors plus the sound action use the same focus/touch conventions and collapse into the responsive mobile action grid.
 
 `main.ts` provides a skip link, hidden board instructions, live regions for keyboard cursor/placement/computer feedback, connection/offline status, and the update prompt. Accessibility never bypasses the core: human keyboard/pointer and computer moves all eventually enter the same legal session path.
 
