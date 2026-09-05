@@ -119,6 +119,7 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;
 - shared guarded JSON-storage transport without merging the independent game/preference/viewport schemas;
 - cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;
+- localized graph-paper start menu with Continue, direct two-player/computer starts, Help/About, native-only Exit, and an in-game Menu action;
 - latest-move marker, move counter, capture/invalid-placement feedback, desktop snap preview, first-run Help, Fit game, and responsive mobile action toolbar;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
