@@ -444,7 +444,7 @@ board = new CanvasBoard(canvas, session.state, {
   onViewportChange: persistViewport,
   onKeyboardCursorChange: (point) => announce(pointMessage(copy.cursor, point)),
   onPoint: async (point) => {
-  soundController.unlock();
+  await soundController.unlock();
   if (isComputerTurn()) {
     announce(copy.waitComputer);
     scheduleComputerMove();
@@ -473,7 +473,7 @@ board = new CanvasBoard(canvas, session.state, {
 board.setState(session.state, lastMove());
 
 undo.addEventListener("click", () => {
-  soundController.unlock();
+  void soundController.unlock();
   void (async () => {
     if (stateMutationInFlight) return;
     stateMutationInFlight = true;
@@ -535,7 +535,7 @@ const closeNativeApp = async (): Promise<void> => {
 };
 
 const closeStartMenu = (): void => {
-  soundController.unlock();
+  void soundController.unlock();
   menuVisible = false;
   shell.inert = false;
   skipLink.hidden = false;
@@ -565,6 +565,15 @@ const openStartMenu = (): void => {
   renderStatus();
 };
 
+const setSoundEnabled = (enabled: boolean): void => {
+  soundEnabled = enabled;
+  soundController.setEnabled(enabled);
+  persistPreferences();
+  renderStatus();
+  startMenu.setSoundEnabled(enabled);
+  announce(enabled ? copy.soundOn : copy.soundOff);
+};
+
 const startMenu = createStartMenu({
   root: app,
   copy,
@@ -582,13 +591,7 @@ const startMenu = createStartMenu({
     onAbout: () => {
       document.dispatchEvent(new Event("dots:open-about"));
     },
-    onSoundChange: (enabled) => {
-      soundEnabled = enabled;
-      soundController.setEnabled(enabled);
-      persistPreferences();
-      renderStatus();
-      announce(enabled ? copy.soundOn : copy.soundOff);
-    },
+    onSoundChange: setSoundEnabled,
     onExit: () => {
       void closeNativeApp();
     }
@@ -597,14 +600,7 @@ const startMenu = createStartMenu({
 
 menu.addEventListener("click", openStartMenu);
 
-soundButton.addEventListener("click", () => {
-  soundEnabled = !soundEnabled;
-  soundController.setEnabled(soundEnabled);
-  persistPreferences();
-  renderStatus();
-  startMenu.setSoundEnabled(soundEnabled);
-  announce(soundEnabled ? copy.soundOn : copy.soundOff);
-});
+soundButton.addEventListener("click", () => setSoundEnabled(!soundEnabled));
 
 newGame.addEventListener("click", () => {
   if (session.history.length === 0) {
