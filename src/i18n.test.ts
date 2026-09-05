@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveLocale } from "./i18n";
+import { resolveLocale, t } from "./i18n";
 
 describe("locale", () => {
   it("selects Russian if any browser locale is Russian", () => {
@@ -8,5 +8,14 @@ describe("locale", () => {
 
   it("falls back to English", () => {
     expect(resolveLocale(["de-DE", "nl-NL"])).toBe("en");
+  });
+
+  it("provides localized start-menu labels", () => {
+    expect(t("ru").menu).toBe("Меню");
+    expect(t("ru").continueGame).toBe("Продолжить");
+    expect(t("ru").exit).toBe("Выход");
+    expect(t("en").menu).toBe("Menu");
+    expect(t("en").continueGame).toBe("Continue");
+    expect(t("en").exit).toBe("Exit");
   });
 });
