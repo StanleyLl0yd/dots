@@ -4,14 +4,19 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-05
+
 ### Added
 
-- localized Dots-style start menu on the notebook grid with saved/current-game Continue, explicit Vs computer and Two players starts, Help, About, and native-only Exit;
-- compact in-game Menu action for returning to the start screen without restarting the application.
+- localized Dots-style start menu on the notebook grid with saved/current-game Continue, explicit Vs computer and Two players starts, Help, About, native-only Exit, and a persistent sound toggle;
+- compact in-game Menu and Sound actions for returning to the start screen and muting/unmuting without restarting the application;
+- lightweight local Web Audio sound design with distinct Red/Blue move ticks, capture accents, invalid-move feedback, and Undo feedback, generated without bundled audio files or network access.
 
 ### Changed
 
-- the game surface is inert while the start menu is open, and pending computer play is paused until the player explicitly continues or starts a game.
+- preference storage advanced to version 3 with automatic migration from versions 1 and 2 and sound enabled by default;
+- the game surface is inert while the start menu is open, pending computer play is paused until the player explicitly continues or starts a game, and audio is lazily unlocked only from user interaction;
+- source version advanced to 0.10.0 with no game-rule, scoring, save-log, AI-policy, SDK/NDK/ABI, or native-hardening changes.
 
 ## [0.9.5] - 2026-09-03
 
