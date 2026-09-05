@@ -11,7 +11,7 @@
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
-[![Source version](https://img.shields.io/badge/source-0.9.5-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.10.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -25,7 +25,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.9.5** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **0.10.0** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -119,7 +119,8 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - exact Undo, accessible confirmed New game, versioned move-log persistence, deterministic replay restore, and fail-closed safe-integer move validation;
 - shared guarded JSON-storage transport without merging the independent game/preference/viewport schemas;
 - cancellable AI Web Worker orchestration with generation-isolated stale-response guards and authoritative `playMove()` acceptance;
-- localized graph-paper start menu with Continue, direct two-player/computer starts, Help/About, native-only Exit, and an in-game Menu action;
+- localized graph-paper start menu with Continue, direct two-player/computer starts, Help/About, native-only Exit, persistent sound control, and an in-game Menu action;
+- locally synthesized Web Audio feedback for Red/Blue moves, captures, invalid placements, and Undo, with no audio assets or network dependency;
 - latest-move marker, move counter, capture/invalid-placement feedback, desktop snap preview, first-run Help, Fit game, and responsive mobile action toolbar;
 - practically unbounded pan/zoom viewport for mouse, trackpad, touch, pinch, and keyboard;
 - separate validated viewport persistence and bounded visible-range rendering;
@@ -132,6 +133,8 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
+
+Version **0.10.0** adds the localized start menu and optional locally synthesized move/capture feedback. Sound is enabled by default, stored as a versioned preference, and can be changed from both the start menu and the in-game toolbar. Game rules, move-log saves, AI policy, and native hardening remain unchanged.
 
 Version **0.9.5** refreshes the application identity from one preserved raster master across Web/PWA, Tauri desktop, Android launcher, and RuStore store assets. Gameplay, rules, saves, AI, accessibility, and native hardening are unchanged.
 
@@ -147,7 +150,7 @@ Version **0.9.4** hardens the 0.9.3 native/RuStore baseline by moving authoritat
 | PWA | vite-plugin-pwa / Workbox |
 | Native shell | Tauri 2 |
 | Tests | Vitest 3.2.7 + build artifact verification |
-| Persistence | versioned localStorage move log + viewport + game-mode/difficulty preferences |
+| Persistence | versioned localStorage move log + viewport + game-mode/difficulty/sound preferences |
 | AI | deterministic bounded Rust minimax; native direct call, browser WASM in a Web Worker |
 | Dependencies | committed npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
 | Hosting | GitHub Pages |
