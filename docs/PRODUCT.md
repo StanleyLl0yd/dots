@@ -131,8 +131,8 @@ Version **0.9.1** further hardens generation ownership so callbacks from cancell
 - Computer-generated moves are persisted as ordinary legal moves and require no AI-specific save format.
 - Malformed, illegal, corrupted, unsupported, or non-safe-integer move data is discarded instead of being accepted as game state.
 - Starting a new game clears the saved unfinished game.
-- Game mode and AI difficulty are versioned preferences stored separately from both the game move log and viewport state.
-- Preference format version 2 migrates valid 0.6.0 version-1 mode data and assigns **Normal** difficulty.
+- Game mode, AI difficulty, and sound enabled state are versioned preferences stored separately from both the game move log and viewport state.
+- Preference format version 3 migrates valid version-1 mode data and version-2 mode/difficulty data, assigning **Normal** difficulty and enabling sound when those older formats do not contain the newer fields.
 
 ## Board navigation
 
@@ -148,6 +148,10 @@ The visible board is a viewport over integer game coordinates rather than a fini
 - Grid/capture/stone rendering work is limited to visible or bounded screen-space ranges.
 
 Viewport state is independently persisted and may be discarded without affecting moves, captures, score, current player, Undo, game mode, or AI difficulty. Starting a new game resets it to `(0, 0, 1)`.
+
+### UX feedback and sound
+
+Move/capture audio is presentation-only and generated locally through Web Audio after an explicit user interaction unlocks the audio context. Red and Blue use subtly different move pitches; confirmed captures add a short accent; invalid placement and Undo have restrained feedback. Sound is enabled by default and can be disabled from both the start menu and the in-game toolbar. Audio must never run while replaying a saved move log during restoration and must never affect rules, timing, AI decisions, persistence of moves, or accessibility announcements.
 
 ### UX feedback in 0.9.0
 
@@ -172,7 +176,7 @@ A compact localized **About** control sits beside the product title and opens ve
 
 ## Current implementation status
 
-Version **0.9.3** is the current pre-1.0 baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:
+Version **0.10.0** is the current pre-1.0 baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -184,9 +188,10 @@ Version **0.9.3** is the current pre-1.0 baseline for the complete classic local
 - wider bounded Hard/Expert root discovery, Expert hostile-house safety, and safe immediate-capture root priority;
 - deterministic AI-vs-AI regression harness with paired Expert-vs-Normal/Hard strength guards plus six fixed Expert tactical benchmark positions;
 - exact Undo semantics for local mode and full human decision rollback in computer mode;
+- optional locally generated move/capture/invalid/Undo sound feedback with persistent version-3 preference migration;
 - confirmed New game;
 - versioned move-log persistence with replay restoration of rules and Undo history plus fail-closed safe-integer coordinate validation;
-- separately versioned game-mode/difficulty preferences and viewport persistence;
+- separately versioned game-mode/difficulty/sound preferences and viewport persistence;
 - pan/zoom viewport independent from rules, pointer/touch/pinch interaction, anchor-preserving transforms, and keyboard board control;
 - safe-area/dynamic-viewport mobile layout, practical touch targets, focus-visible, dark, forced-colors, and reduced-motion handling;
 - installable offline-ready PWA shell with explicit update prompt, reconnect/foreground/periodic update checks, retryable activation failure, and lifecycle regression coverage;
@@ -322,7 +327,7 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
-Use 0.9.3 as the release-candidate baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
+Use 0.10.0 as the current pre-1.0 baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
 
 ## Visual direction
 

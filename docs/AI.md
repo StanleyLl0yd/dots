@@ -9,7 +9,7 @@ Dots includes a deterministic offline computer opponent for the blue side. The A
 - The existing two-player local mode remains available.
 - Switching modes does not rewrite or reset the current move history. If the game is switched to computer mode while blue is to move, the computer takes over that turn.
 - In computer mode, Undo rolls back the computer move and the preceding human move when both are present, returning control to the human decision point.
-- Game mode and AI difficulty are stored together as versioned preferences, separately from the authoritative move log and viewport state.
+- Game mode, AI difficulty, and the unrelated sound-enabled presentation preference are stored together under a separately versioned preference key, outside the authoritative move log and viewport state.
 
 ## Difficulty levels
 
@@ -98,7 +98,7 @@ This keeps long Hard/Expert calculations off the UI thread without changing sear
 
 ## Preference migration
 
-AI difficulty is stored in preference format version 2. Existing version-1 preferences from Dots 0.6.0 are migrated automatically: the saved local/computer mode is preserved and computer difficulty defaults to **Normal**. Invalid newer preference data fails closed without touching the saved game.
+AI difficulty is stored in preference format version 3 together with game mode and sound enabled state. Existing version-1 preferences preserve the saved local/computer mode and default difficulty to **Normal**; version-2 preferences preserve their existing difficulty. Both older formats migrate with sound enabled by default. Invalid newer preference data fails closed without touching the saved game.
 
 ## Safety and invariants
 

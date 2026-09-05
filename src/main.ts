@@ -4,6 +4,7 @@ import { isNativeGameCore, requestAiMove, type AiDifficulty } from "./game/core"
 import type { AiWorkerRequest, AiWorkerResponse } from "./game/ai-worker-protocol";
 import { createSession, playMove, resetSession, undoMove } from "./game/session";
 import type { Capture, Player, Point } from "./game/types";
+import { GameSoundController } from "./game-sound";
 import { resolveLocale, t } from "./i18n";
 import { clearSavedGame, loadSession, saveSession, type StorageLike } from "./persistence";
 import { DEFAULT_PREFERENCES, loadPreferences, savePreferences, type GameMode } from "./preferences";
@@ -53,6 +54,7 @@ app.innerHTML = `
         </div>
         <div class="action-buttons">
           <button class="menu" type="button" aria-label="${copy.menu}" title="${copy.menu}"><span class="action-symbol" aria-hidden="true">☰</span><span class="action-label">${copy.menu}</span></button>
+          <button class="sound" type="button" aria-label="${copy.disableSound}" title="${copy.disableSound}" aria-pressed="true"><span class="action-symbol" data-sound-symbol aria-hidden="true">🔊</span><span class="action-label">${copy.sound}</span></button>
           <button class="undo" type="button" aria-label="${copy.undo}" title="${copy.undo}"><span class="action-symbol" aria-hidden="true">↶</span><span class="action-label">${copy.undo}</span></button>
           <button class="fit-game" type="button" aria-label="${copy.fitPosition}" title="${copy.fitPosition}"><span class="action-symbol" aria-hidden="true">◎</span><span class="action-label">${copy.fitPosition}</span></button>
           <button class="help" type="button" aria-label="${copy.help}" title="${copy.help}"><span class="action-symbol" aria-hidden="true">?</span><span class="action-label">${copy.help}</span></button>
@@ -126,6 +128,8 @@ const modeSelect = requiredElement<HTMLSelectElement>("[data-game-mode]");
 const difficultyControl = requiredElement<HTMLElement>("[data-difficulty-control]");
 const difficultySelect = requiredElement<HTMLSelectElement>("[data-ai-difficulty]");
 const menu = requiredElement<HTMLButtonElement>(".menu");
+const soundButton = requiredElement<HTMLButtonElement>(".sound");
+const soundSymbol = requiredElement<HTMLElement>("[data-sound-symbol]");
 const undo = requiredElement<HTMLButtonElement>(".undo");
 const fitGame = requiredElement<HTMLButtonElement>(".fit-game");
 const help = requiredElement<HTMLButtonElement>(".help");
@@ -150,6 +154,8 @@ let session = (storage ? await loadSession(storage) : undefined) ?? await create
 const initialPreferences = storage ? loadPreferences(storage) : DEFAULT_PREFERENCES;
 let gameMode: GameMode = initialPreferences.gameMode;
 let aiDifficulty: AiDifficulty = initialPreferences.aiDifficulty;
+let soundEnabled = initialPreferences.soundEnabled;
+const soundController = new GameSoundController(soundEnabled);
 modeSelect.value = gameMode;
 difficultySelect.value = aiDifficulty;
 const initialViewport = storage ? loadViewport(storage) : undefined;
@@ -213,7 +219,7 @@ const persist = (): void => {
 };
 
 const persistPreferences = (): void => {
-  if (storage) savePreferences(storage, { gameMode, aiDifficulty });
+  if (storage) savePreferences(storage, { gameMode, aiDifficulty, soundEnabled });
 };
 
 const flushViewport = (): void => {
@@ -262,6 +268,10 @@ const renderStatus = (): void => {
   undo.disabled = session.history.length === 0;
   fitGame.disabled = state.stones.size === 0;
   difficultySelect.disabled = gameMode !== "computer";
+  soundButton.setAttribute("aria-label", soundEnabled ? copy.disableSound : copy.enableSound);
+  soundButton.title = soundEnabled ? copy.disableSound : copy.enableSound;
+  soundButton.setAttribute("aria-pressed", String(soundEnabled));
+  soundSymbol.textContent = soundEnabled ? "🔊" : "🔇";
 };
 
 const pointMessage = (prefix: string, point: Point): string => `${prefix}: ${point.x}, ${point.y}`;
@@ -312,6 +322,7 @@ const applyMove = (
   session = next;
   computerThinking = false;
   persist();
+  soundController.playMove(previousState.currentPlayer);
   board.setState(session.state, lastMove());
   renderStatus();
   dismissHint();
@@ -325,6 +336,7 @@ const applyMove = (
       .reduce((sum, capture) => sum + capture.captured.length, 0);
     const amount = Math.max(1, scoreGain, capturedCount);
     const message = `${copy.capture}: ${playerName(owner)} +${amount}`;
+    soundController.playCapture(owner, amount);
     showGameFeedback(message);
     announce(`${pointMessage(computerMove ? copy.computerPlaced : copy.placed, point)}. ${message}`);
   } else {
@@ -432,6 +444,7 @@ board = new CanvasBoard(canvas, session.state, {
   onViewportChange: persistViewport,
   onKeyboardCursorChange: (point) => announce(pointMessage(copy.cursor, point)),
   onPoint: async (point) => {
+  await soundController.unlock();
   if (isComputerTurn()) {
     announce(copy.waitComputer);
     scheduleComputerMove();
@@ -446,6 +459,7 @@ board = new CanvasBoard(canvas, session.state, {
     if (session !== baseSession) return;
     if (next === baseSession) {
       board.showInvalidPoint(point);
+      soundController.playInvalid();
       announce(pointMessage(copy.unavailable, point));
       return;
     }
@@ -459,6 +473,7 @@ board = new CanvasBoard(canvas, session.state, {
 board.setState(session.state, lastMove());
 
 undo.addEventListener("click", () => {
+  void soundController.unlock();
   void (async () => {
     if (stateMutationInFlight) return;
     stateMutationInFlight = true;
@@ -479,6 +494,7 @@ undo.addEventListener("click", () => {
       session = previous;
       persist();
       board.setState(session.state, lastMove());
+      soundController.playUndo();
       clearGameFeedback();
       renderStatus();
       scheduleComputerMove();
@@ -519,6 +535,7 @@ const closeNativeApp = async (): Promise<void> => {
 };
 
 const closeStartMenu = (): void => {
+  void soundController.unlock();
   menuVisible = false;
   shell.inert = false;
   skipLink.hidden = false;
@@ -543,14 +560,25 @@ const openStartMenu = (): void => {
   shell.inert = true;
   skipLink.hidden = true;
   startMenu.setCanContinue(gameStarted);
+  startMenu.setSoundEnabled(soundEnabled);
   startMenu.show();
   renderStatus();
+};
+
+const setSoundEnabled = (enabled: boolean): void => {
+  soundEnabled = enabled;
+  soundController.setEnabled(enabled);
+  persistPreferences();
+  renderStatus();
+  startMenu.setSoundEnabled(enabled);
+  announce(enabled ? copy.soundOn : copy.soundOff);
 };
 
 const startMenu = createStartMenu({
   root: app,
   copy,
   canContinue: gameStarted,
+  soundEnabled,
   showExit: isNativeGameCore,
   handlers: {
     onContinue: closeStartMenu,
@@ -563,6 +591,7 @@ const startMenu = createStartMenu({
     onAbout: () => {
       document.dispatchEvent(new Event("dots:open-about"));
     },
+    onSoundChange: setSoundEnabled,
     onExit: () => {
       void closeNativeApp();
     }
@@ -570,6 +599,8 @@ const startMenu = createStartMenu({
 });
 
 menu.addEventListener("click", openStartMenu);
+
+soundButton.addEventListener("click", () => setSoundEnabled(!soundEnabled));
 
 newGame.addEventListener("click", () => {
   if (session.history.length === 0) {

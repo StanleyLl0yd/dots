@@ -25,23 +25,52 @@ class MemoryStorage implements StorageLike {
 }
 
 describe("game preferences", () => {
-  it("defaults to local play at normal difficulty and round-trips all settings", () => {
+  it("defaults to local play with sound enabled and round-trips all settings", () => {
     const storage = new MemoryStorage();
     expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
 
-    savePreferences(storage, { gameMode: "computer", aiDifficulty: "expert" });
-    expect(loadPreferences(storage)).toEqual({ gameMode: "computer", aiDifficulty: "expert" });
+    savePreferences(storage, { gameMode: "computer", aiDifficulty: "expert", soundEnabled: false });
+    expect(loadPreferences(storage)).toEqual({
+      gameMode: "computer",
+      aiDifficulty: "expert",
+      soundEnabled: false
+    });
   });
 
   it("migrates version 1 computer-mode preferences to normal difficulty", () => {
     const storage = new MemoryStorage();
     storage.setItem(PREFERENCES_KEY, JSON.stringify({ version: 1, gameMode: "computer" }));
 
-    expect(loadPreferences(storage)).toEqual({ gameMode: "computer", aiDifficulty: "normal" });
+    expect(loadPreferences(storage)).toEqual({
+      gameMode: "computer",
+      aiDifficulty: "normal",
+      soundEnabled: true
+    });
     expect(JSON.parse(storage.getItem(PREFERENCES_KEY)!)).toEqual({
       version: PREFERENCES_VERSION,
       gameMode: "computer",
-      aiDifficulty: "normal"
+      aiDifficulty: "normal",
+      soundEnabled: true
+    });
+  });
+
+  it("migrates version 2 preferences with sound enabled by default", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({ version: 2, gameMode: "computer", aiDifficulty: "hard" })
+    );
+
+    expect(loadPreferences(storage)).toEqual({
+      gameMode: "computer",
+      aiDifficulty: "hard",
+      soundEnabled: true
+    });
+    expect(JSON.parse(storage.getItem(PREFERENCES_KEY)!)).toEqual({
+      version: PREFERENCES_VERSION,
+      gameMode: "computer",
+      aiDifficulty: "hard",
+      soundEnabled: true
     });
   });
 
@@ -50,7 +79,12 @@ describe("game preferences", () => {
     storage.setItem("dots.game", "keep-me");
     storage.setItem(
       PREFERENCES_KEY,
-      JSON.stringify({ version: PREFERENCES_VERSION + 1, gameMode: "computer", aiDifficulty: "expert" })
+      JSON.stringify({
+        version: PREFERENCES_VERSION + 1,
+        gameMode: "computer",
+        aiDifficulty: "expert",
+        soundEnabled: true
+      })
     );
 
     expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
@@ -59,7 +93,24 @@ describe("game preferences", () => {
 
     storage.setItem(
       PREFERENCES_KEY,
-      JSON.stringify({ version: PREFERENCES_VERSION, gameMode: "computer", aiDifficulty: "impossible" })
+      JSON.stringify({
+        version: PREFERENCES_VERSION,
+        gameMode: "computer",
+        aiDifficulty: "impossible",
+        soundEnabled: true
+      })
+    );
+    expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
+    expect(storage.getItem(PREFERENCES_KEY)).toBeNull();
+
+    storage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({
+        version: PREFERENCES_VERSION,
+        gameMode: "computer",
+        aiDifficulty: "expert",
+        soundEnabled: "yes"
+      })
     );
     expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
     expect(storage.getItem(PREFERENCES_KEY)).toBeNull();

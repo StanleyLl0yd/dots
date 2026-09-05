@@ -106,6 +106,8 @@ button, select, canvas { -webkit-tap-highlight-color: transparent; }
 }
 .action-symbol { display: none; font-size: 20px; line-height: 1; }
 
+.sound[aria-pressed="false"] { color: #81786d; }
+
 .action-buttons button:disabled,
 .mode-control select:disabled,
 .update-prompt button:disabled { opacity: .45; cursor: default; }
@@ -266,7 +268,7 @@ dialog:focus-visible {
   .mode-control select { width: 100%; min-width: 0; }
   .action-buttons {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 6px;
   }
   .action-buttons button { width: 100%; min-width: 0; min-height: 44px; padding: 8px; }
