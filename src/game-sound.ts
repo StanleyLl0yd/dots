@@ -4,6 +4,7 @@ type ToneShape = OscillatorType;
 
 export class GameSoundController {
   private context: AudioContext | undefined;
+  private output: GainNode | undefined;
 
   constructor(private enabled: boolean) {}
 
@@ -13,6 +14,9 @@ export class GameSoundController {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+    if (this.context && this.output) {
+      this.output.gain.setValueAtTime(enabled ? 1 : 0, this.context.currentTime);
+    }
     if (!enabled) return;
     this.unlock();
     this.playToggle();
@@ -86,7 +90,7 @@ export class GameSoundController {
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
     oscillator.connect(gain);
-    gain.connect(context.destination);
+    gain.connect(this.output ?? context.destination);
     oscillator.start(start);
     oscillator.stop(end + 0.01);
   }
@@ -102,6 +106,9 @@ export class GameSoundController {
     if (typeof AudioContext === "undefined") return undefined;
     try {
       this.context = new AudioContext({ latencyHint: "interactive" });
+      this.output = this.context.createGain();
+      this.output.gain.value = this.enabled ? 1 : 0;
+      this.output.connect(this.context.destination);
       return this.context;
     } catch {
       return undefined;
