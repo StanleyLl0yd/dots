@@ -101,11 +101,14 @@ const waitFor = async (cdp, expression, message) => {
 const seed = async (cdp, moves, preferences) => {
   await cdp.evaluate(`
     localStorage.setItem("dots.game", ${JSON.stringify(JSON.stringify({ version: 1, moves }))});
-    localStorage.setItem("dots.preferences", ${JSON.stringify(JSON.stringify({ version: 2, ...preferences }))});
+    localStorage.setItem("dots.preferences", ${JSON.stringify(JSON.stringify({ version: 3, soundEnabled: false, ...preferences }))});
     location.reload();
   `);
-  await waitFor(cdp, `document.readyState === "complete" && document.querySelector("#game-board") !== null`, "Dots UI did not reload");
-  await sleep(350);
+  await waitFor(cdp, `document.readyState === "complete" && document.querySelector("#game-board") !== null && document.querySelector("[data-start-continue]") !== null`, "Dots UI did not reload");
+  await sleep(250);
+  await cdp.evaluate(`document.querySelector("[data-start-continue]")?.click()`);
+  await waitFor(cdp, `document.querySelector(".start-menu")?.hidden === true`, "Start menu did not close");
+  await sleep(100);
   await cdp.evaluate(`document.querySelector('.fit-game')?.click()`);
   await sleep(300);
 };
