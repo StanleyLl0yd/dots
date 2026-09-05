@@ -10,6 +10,8 @@ const messages = {
     computerBlue: "Компьютер (синие)",
     turn: "Ход",
     moveNumber: "Ход №",
+    menu: "Меню",
+    continueGame: "Продолжить",
     undo: "Отменить",
     newGame: "Новая игра",
     newGameTitle: "Начать новую игру?",
@@ -55,7 +57,8 @@ const messages = {
     aboutIntro: "«Точки» — минималистичная цифровая версия классической игры. Окружайте точки соперника, захватывайте область и играйте вдвоём или против компьютера.",
     aboutVersion: "Версия",
     aboutGithub: "Проект на GitHub",
-    aboutRights: "© 2026 Stanley Lloyd. Все права защищены."
+    aboutRights: "© 2026 Stanley Lloyd. Все права защищены.",
+    exit: "Выход"
   },
   en: {
     title: "Dots",
@@ -66,6 +69,8 @@ const messages = {
     computerBlue: "Computer (Blue)",
     turn: "Turn",
     moveNumber: "Move #",
+    menu: "Menu",
+    continueGame: "Continue",
     undo: "Undo",
     newGame: "New game",
     newGameTitle: "Start a new game?",
@@ -111,7 +116,8 @@ const messages = {
     aboutIntro: "Dots is a minimalist digital version of the classic game. Surround opponent dots, capture territory, and play locally or against the computer.",
     aboutVersion: "Version",
     aboutGithub: "Project on GitHub",
-    aboutRights: "© 2026 Stanley Lloyd. All rights reserved."
+    aboutRights: "© 2026 Stanley Lloyd. All rights reserved.",
+    exit: "Exit"
   }
 } as const;
 

@@ -4,6 +4,15 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- localized Dots-style start menu on the notebook grid with saved/current-game Continue, explicit Vs computer and Two players starts, Help, About, and native-only Exit;
+- compact in-game Menu action for returning to the start screen without restarting the application.
+
+### Changed
+
+- the game surface is inert while the start menu is open, and pending computer play is paused until the player explicitly continues or starts a game.
+
 ## [0.9.5] - 2026-09-03
 
 ### Added

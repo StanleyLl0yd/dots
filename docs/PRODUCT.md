@@ -119,6 +119,8 @@ Version **0.9.1** further hardens generation ownership so callbacks from cancell
 
 ## Game-state ergonomics
 
+- The application opens on a localized start menu styled as squared notebook paper. Continue is available for an existing/current game; new-game actions explicitly start either Two players or Vs computer through the existing reset and preference paths.
+- While the start menu is open, the gameplay surface is inert and computer turns do not run in the background. Returning with Continue resumes the unchanged session and any pending computer turn only after the menu closes.
 - **Undo** in two-player mode reverses one legal move and restores the player to move, active captures, released/captured status, and score to the exact previous rule state.
 - In computer mode, when the usual human+computer pair exists, Undo removes the latest computer move and the preceding human move so the human returns to the previous decision point.
 - Illegal clicks do not create undo history.
@@ -151,7 +153,7 @@ Viewport state is independently persisted and may be discarded without affecting
 
 Latest-move rings, move counters, desktop snap previews, invalid-placement markers, capture emphasis, first-run Help, and the mobile action toolbar are presentation only. **Fit game** derives a bounded viewport from placed-stone coordinates and cannot alter rule-space coordinates or history. Capture feedback is derived from confirmed before/after active capture state; reduced-motion mode may suppress transient emphasis but not essential textual/assistive feedback.
 
-A compact localized **About** control sits beside the product title and opens version, copyright, and project-link information without touching game/session state.
+A compact localized **About** control sits beside the product title and opens version, copyright, and project-link information without touching game/session state. The same About content and Help dialog are reachable from the localized start menu, which can be reopened from the in-game Menu action.
 
 ## Browser, accessibility, and PWA behavior
 
@@ -163,6 +165,7 @@ A compact localized **About** control sits beside the product title and opens ve
 - The game board is keyboard focusable, includes assistive instructions, and reports keyboard cursor movement and placement results through live regions.
 - Computer-thinking, computer-move, mode, and difficulty feedback use accessible localized controls/status paths.
 - Primary controls maintain practical touch targets and visible focus states.
+- The start menu takes focus away from the inert game shell; its Exit action is exposed only by the native shell, while browser/PWA builds keep navigation under browser control.
 - Mobile layout accounts for safe-area insets and dynamic viewport height.
 - Dark mode, forced-colors, and reduced-motion preferences must not hide essential game state.
 - Canvas backing resolution may be bounded independently from CSS/game-space geometry to prevent extreme device pixel ratios from causing disproportionate memory use.

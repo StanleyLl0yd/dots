@@ -30,6 +30,9 @@ dialog.innerHTML = `
 
 brand.append(button);
 app.append(dialog);
-button.addEventListener("click", () => {
+const openAbout = (): void => {
   if (!dialog.open) dialog.showModal();
-});
+};
+
+button.addEventListener("click", openAbout);
+document.addEventListener("dots:open-about", openAbout);
