@@ -78,8 +78,9 @@ jobs:
             "entry": [
               "src/main.ts",
               "src/about.ts",
-              "scripts/capture-rustore-android.mjs",
-              "scripts/verify-build.mjs"
+              "src/game/core-native.ts",
+              "src/game/core-test.ts",
+              "scripts/capture-rustore-android.mjs"
             ]
           }
           JSON
