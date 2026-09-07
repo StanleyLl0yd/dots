@@ -6,7 +6,7 @@ Only the latest published version is supported.
 
 ## Dependency hygiene
 
-The repository commits both `package-lock.json` and `src-tauri/Cargo.lock` so web and native dependency graphs are reproducible. CI uses `npm ci` and runs `npm audit --audit-level=high` before tests and production builds; high or critical npm advisories fail verification. Native release automation verifies that the committed Cargo lockfile still resolves with `--locked`. Dependabot monitors npm packages, Cargo dependencies, and GitHub Actions.
+The repository commits `package-lock.json`, `crates/game-core/Cargo.lock`, and `src-tauri/Cargo.lock` so web, authoritative game-core, and native dependency graphs are reproducible. Required CI uses `npm ci`, rejects high or critical npm advisories, verifies both Cargo lockfiles with `--locked`, and runs Rust core tests and Clippy before the production build. The native shell check and native release automation also resolve Cargo dependencies with `--locked`. Dependabot monitors npm packages, both Cargo manifests, and GitHub Actions.
 
 ## Native and signing security
 
