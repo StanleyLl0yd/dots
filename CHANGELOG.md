@@ -4,6 +4,15 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- aligned Rust game-core and Tauri package metadata/lockfiles with source version 0.10.0;
+- strengthened the required CI `build` gate with locked Rust dependency validation, authoritative game-core tests, and Clippy warnings-as-errors while keeping the separate native Rust workflow focused on the Tauri shell integration check;
+- made Android release/store tooling use the committed local Tauri CLI without rewriting `package.json` at runtime and generate canonical icons before initializing the Android project;
+- reduced capture traversal allocation overhead by using typed directed-edge identities instead of formatted strings, without changing capture topology or ordering;
+- removed a redundant computer-work cancellation when starting a new game from the start menu.
+
+
 ## [0.10.0] - 2026-09-05
 
 ### Added
