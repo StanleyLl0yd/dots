@@ -23,6 +23,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
+      - run: npm run verify:dependencies
       - name: Verify Rust dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null

@@ -16,6 +16,7 @@
     "test": "npm run verify:source && npm run wasm:build && vitest run",
     "typecheck": "tsc --noEmit --pretty false",
     "prepare:icons": "node scripts/prepare-icon-assets.mjs",
+    "verify:dependencies": "node scripts/verify-dependency-policy.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

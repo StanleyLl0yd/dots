@@ -257,7 +257,7 @@ Android release policy lives in `scripts/tauri-android-build.gradle.kts`: `minSd
 
 ## Toolchain and dependency reproducibility
 
-`package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed JavaScript dependency graph. `package.json` requires Node.js 22 or newer.
+`package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed JavaScript dependency graph. Required CI also compares every `hasInstallScript` lockfile package with `package.json#allowScripts`, including optional packages for other operating systems; allowed scripts must be version-pinned and denied scripts remain explicit. `package.json` requires Node.js 22 or newer.
 
 `crates/game-core/Cargo.lock` and `src-tauri/Cargo.lock` are committed so authoritative-core and native-shell Cargo builds each use a reviewed resolved dependency graph. Required CI validates both with `--locked` and RustSec: the small authoritative core denies every advisory warning, while the cross-platform Tauri lock fails on vulnerabilities, yanked crates, and unsound advisories except the documented Linux-only GTK3 `glib` advisory that is not part of the Android/macOS release targets. A separate weekly workflow repeats the RustSec scan so newly published advisories are detected without a source change. Dependabot monitors npm, Cargo under `/crates/game-core` and `/src-tauri`, and GitHub Actions monthly.
 
