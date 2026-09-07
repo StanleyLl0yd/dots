@@ -80,8 +80,8 @@ jobs:
 
       - name: Verify native dependency locks
         run: |
-          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
-          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -432,8 +432,8 @@ jobs:
 
       - name: Verify native dependency locks
         run: |
-          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
-          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
