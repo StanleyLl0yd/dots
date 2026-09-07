@@ -133,8 +133,8 @@ jobs:
 
       - name: Initialize Android wrapper
         run: |
-          cargo tauri android init --ci
           npm run prepare:icons
+          cargo tauri android init --ci
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
