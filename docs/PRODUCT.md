@@ -323,7 +323,7 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 - signed Android App Bundle as the primary Android release artifact;
 - dedicated upload-key/app-signing handoff and PEPK support without storing private signing material in the repository;
 - reproducible Android emulator/CDP RuStore screenshots and publication assets;
-- committed Cargo lockfile and Cargo Dependabot coverage for the native dependency graph.
+- committed Cargo lockfiles and Cargo Dependabot coverage for both the authoritative game-core and native dependency graphs.
 
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
@@ -372,7 +372,7 @@ Use 0.10.0 as the current pre-1.0 baseline for empirical browser/PWA, Android, a
 - Essential state must remain perceivable with reduced motion and forced colors; focus must remain visible for keyboard interaction.
 - Production builds must fail if required PWA/offline install artifacts or the browser AI Worker bundle are missing.
 - `package-lock.json` must remain committed and synchronized with package metadata/dependencies; CI and Pages must use `npm ci`.
-- `src-tauri/Cargo.lock` must remain committed so native builds resolve one reviewed transitive Rust dependency graph.
+- `crates/game-core/Cargo.lock` and `src-tauri/Cargo.lock` must remain committed so authoritative-core and native-shell builds resolve reviewed transitive Rust dependency graphs.
 - The Tauri/native layer may package or expose platform capabilities but must not become a second authority for rules, AI decisions, score, or saved game state.
 - Native builds must not register the browser PWA/service-worker layer.
 - High or critical dependency advisories must fail CI through `npm audit --audit-level=high` unless an explicit approved risk exception exists.
