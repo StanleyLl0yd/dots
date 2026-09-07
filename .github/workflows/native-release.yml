@@ -99,8 +99,6 @@ jobs:
       - name: Run frontend tests against WASM core
         run: npm test
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Configure Android toolchain
         run: |
@@ -133,7 +131,7 @@ jobs:
       - name: Initialize Android wrapper
         run: |
           npm run prepare:icons
-          cargo tauri android init --ci
+          npm run tauri -- android init --ci
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
@@ -173,7 +171,7 @@ jobs:
 
       - name: Build signed AAB
         run: |
-          cargo tauri android build --aab --target aarch64 --target armv7
+          npm run tauri -- android build --aab --target aarch64 --target armv7
           mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -f "$AAB"
@@ -181,7 +179,7 @@ jobs:
 
       - name: Build signed verification APK
         run: |
-          cargo tauri android build --apk --target aarch64 --target armv7
+          npm run tauri -- android build --apk --target aarch64 --target armv7
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
           test -f "$APK"
           cp "$APK" "release/Dots-v${VERSION}-Android-verification.apk"
@@ -450,8 +448,6 @@ jobs:
       - name: Run frontend tests against WASM core
         run: npm test
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -462,7 +458,7 @@ jobs:
       - name: Build universal DMG
         env:
           APPLE_SIGNING_IDENTITY: '-'
-        run: cargo tauri build --bundles dmg --target universal-apple-darwin
+        run: npm run tauri -- build --bundles dmg --target universal-apple-darwin
 
       - name: Verify and stage DMG
         run: |
