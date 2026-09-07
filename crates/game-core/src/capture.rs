@@ -24,10 +24,6 @@ fn point_key(point: Point) -> String {
     format!("{}:{}", point.x, point.y)
 }
 
-fn edge_key(a: Point, b: Point) -> String {
-    format!("{}>{}", point_key(a), point_key(b))
-}
-
 fn math_angle(from: Point, to: Point) -> f64 {
     (-(to.y - from.y) as f64).atan2((to.x - from.x) as f64)
 }
@@ -236,13 +232,13 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
     }
 
     let directed_edge_count: usize = neighbors.values().map(Vec::len).sum();
-    let mut visited: HashSet<String> = HashSet::new();
+    let mut visited: HashSet<(Point, Point)> = HashSet::new();
     let mut faces: HashMap<String, Face> = HashMap::new();
 
     for start in &owner_stones {
         let start_point = start.point();
         for first in neighbors.get(&start_point).into_iter().flatten() {
-            let start_edge = edge_key(start_point, *first);
+            let start_edge = (start_point, *first);
             if visited.contains(&start_edge) {
                 continue;
             }
@@ -254,13 +250,13 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
             let mut closed = false;
 
             for _ in 0..=directed_edge_count + 1 {
-                let current_edge = edge_key(previous, current);
+                let current_edge = (previous, current);
                 if local_edges.contains(&current_edge) {
                     closed = current_edge == start_edge;
                     break;
                 }
 
-                local_edges.insert(current_edge.clone());
+                local_edges.insert(current_edge);
                 visited.insert(current_edge);
                 boundary.push(previous);
 
@@ -273,7 +269,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
 
                 previous = current;
                 current = following;
-                if edge_key(previous, current) == start_edge {
+                if (previous, current) == start_edge {
                     closed = true;
                     break;
                 }
