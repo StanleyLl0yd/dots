@@ -18,6 +18,14 @@ jobs:
           package-manager-cache: false
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Verify Rust dependency locks
+        run: |
+          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Test and lint authoritative Rust core
+        run: |
+          cargo test --manifest-path crates/game-core/Cargo.toml --locked
+          cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
       - name: Configure Rust WASM toolchain
         run: |
           rustup target add wasm32-unknown-unknown
