@@ -120,7 +120,7 @@ Rust-набор регрессий проводит короткие парны�
 - локально синтезируемые Web Audio-эффекты ходов красных/синих, захватов, недопустимых постановок и Undo без аудиофайлов и сетевой зависимости;
 - маркер последнего хода, счётчик ходов, feedback захвата/недопустимого хода, desktop snap-preview, Fit game и компактная mobile-панель;
 - общий защищённый JSON storage-слой без объединения независимых форматов партии, настроек и viewport;
-- зафиксированные `package-lock.json` и `src-tauri/Cargo.lock` для воспроизводимых web/native dependency graph;
+- зафиксированные `package-lock.json`, `crates/game-core/Cargo.lock` и `src-tauri/Cargo.lock` для воспроизводимых web/game-core/native dependency graph;
 - обязательный `npm audit --audit-level=high`, блокирующий high/critical уязвимости; сейчас audit сообщает ноль уязвимостей;
 - GitHub Actions `checkout/setup-node` и Pages-actions на Node-24-compatible runtime, плюс Dependabot для npm, Cargo и GitHub Actions;
 - версионированное сохранение режима, сложности и звука с явной миграцией старых форматов v1/v2;
