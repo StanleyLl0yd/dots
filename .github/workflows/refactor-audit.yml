@@ -27,6 +27,12 @@ jobs:
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Install RustSec audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit Rust dependencies
+        run: |
+          cargo audit --deny warnings --file crates/game-core/Cargo.lock
+          cargo audit --deny warnings --file src-tauri/Cargo.lock
       - name: Audit authoritative Rust core
         run: |
           cargo test --manifest-path crates/game-core/Cargo.toml --locked

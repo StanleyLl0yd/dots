@@ -57,7 +57,11 @@ jobs:
       - name: Configure Android toolchain
         run: |
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
-          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          NDK_VERSION="29.0.14206865"
+          NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [[ ! -d "$NDK_PATH" ]]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          fi
           test -d "$NDK_PATH"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add x86_64-linux-android
@@ -65,7 +69,7 @@ jobs:
       - name: Build emulator APK
         run: |
           npm run prepare:icons
-          npm run tauri -- android init --ci
+          npm run tauri android init -- --ci
           MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
           test -f "$MAIN_ACTIVITY"
           python3 - "$MAIN_ACTIVITY" <<'PY'
@@ -104,7 +108,7 @@ jobs:
           print(text)
           PY
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
-          npm run tauri -- android build --apk --debug --target x86_64
+          npm run tauri android build -- --apk --debug --target x86_64
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           test -f "$APK"
           echo "EMULATOR_APK=$APK" >> "$GITHUB_ENV"
