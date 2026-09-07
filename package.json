@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "test": "npm run verify:source && npm run wasm:build && vitest run",
     "typecheck": "tsc --noEmit --pretty false",
-    "prepare:icons": "node scripts/prepare-icon-assets.mjs"
+    "prepare:icons": "node scripts/prepare-icon-assets.mjs",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"
