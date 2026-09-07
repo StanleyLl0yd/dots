@@ -545,7 +545,6 @@ const closeStartMenu = (): void => {
 };
 
 const startNewGameFromMenu = async (mode: GameMode): Promise<void> => {
-  cancelComputerMove();
   gameMode = mode;
   modeSelect.value = gameMode;
   persistPreferences();
