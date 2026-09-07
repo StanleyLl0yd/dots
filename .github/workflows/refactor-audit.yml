@@ -43,14 +43,20 @@ jobs:
         shell: bash
         run: |
           echo '--- TODO/FIXME/HACK/XXX ---'
-          grep -RInE 'TODO|FIXME|HACK|XXX' --exclude=package-lock.json --exclude-dir=.git . || true
+          git grep -nE 'TODO|FIXME|HACK|XXX' -- ':!package-lock.json' || true
           echo '--- console calls ---'
-          grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
+          git grep -nE 'console\.(log|debug|warn|error)' -- src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
+      - name: Configure Rust WASM toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
       - run: npm test
       - run: npm run build
       - name: Diff hygiene
