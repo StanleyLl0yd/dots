@@ -102,10 +102,6 @@ export class CanvasBoard {
     this.draw();
   }
 
-  getViewport(): Viewport {
-    return copyViewport(this.viewport);
-  }
-
   fitPosition(): boolean {
     if (this.state.stones.size === 0) return false;
     this.viewport = fitViewportToPoints(this.state.stones.values(), this.size());
@@ -146,21 +142,6 @@ export class CanvasBoard {
     this.draw();
     this.commitViewport();
     if (this.keyboardCursor) this.options.onKeyboardCursorChange?.({ ...this.keyboardCursor });
-  }
-
-  destroy(): void {
-    this.canvas.removeEventListener("pointerdown", this.handlePointerDown);
-    this.canvas.removeEventListener("pointermove", this.handlePointerMove);
-    this.canvas.removeEventListener("pointerup", this.handlePointerUp);
-    this.canvas.removeEventListener("pointercancel", this.handlePointerCancel);
-    this.canvas.removeEventListener("pointerleave", this.handlePointerLeave);
-    this.canvas.removeEventListener("wheel", this.handleWheel);
-    this.canvas.removeEventListener("keydown", this.handleKeyDown);
-    this.canvas.removeEventListener("focus", this.handleFocus);
-    this.canvas.removeEventListener("blur", this.handleBlur);
-    window.removeEventListener("resize", this.resize);
-    if (this.invalidTimer !== undefined) window.clearTimeout(this.invalidTimer);
-    if (this.captureTimer !== undefined) window.clearTimeout(this.captureTimer);
   }
 
   private clearTransientFeedback(): void {
