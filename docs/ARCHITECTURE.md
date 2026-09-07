@@ -245,7 +245,7 @@ The Tauri configuration owns the native application identifier (`com.sl.dots`), 
 
 Android release policy lives in `scripts/tauri-android-build.gradle.kts`: `minSdk 24`, `targetSdk 36`, `compileSdk 36`, release minification, signing integration, and generated-wrapper dependencies. GitHub release automation builds a signed Android App Bundle and a universal Intel/Apple-Silicon macOS DMG. RuStore-specific workflows/scripts generate publication screenshots/assets and support the app-signing/upload-key handoff without moving the app-signing private key into the repository.
 
-Native direct dependencies are exact-pinned in `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock` freezes the resolved transitive graph for reproducible builds. Neither native metadata nor release tooling is authoritative game state.
+`crates/game-core/Cargo.lock` freezes the authoritative core dependency graph, while native direct dependencies are exact-pinned in `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` freezes the native shell graph. Neither package metadata nor release tooling is authoritative game state.
 
 ## Mobile and accessibility shell
 
@@ -259,7 +259,7 @@ Native direct dependencies are exact-pinned in `src-tauri/Cargo.toml`; `src-taur
 
 `package-lock.json` (lockfile v3) is committed and must stay synchronized with `package.json`. CI and GitHub Pages install with `npm ci`, so automated verification uses the exact committed JavaScript dependency graph. `package.json` requires Node.js 22 or newer.
 
-`src-tauri/Cargo.lock` is committed alongside exact direct Tauri dependency constraints so Cargo-based native builds use one resolved Rust dependency graph. Dependabot monitors npm, Cargo under `/crates/game-core` and `/src-tauri`, and GitHub Actions monthly.
+`crates/game-core/Cargo.lock` and `src-tauri/Cargo.lock` are committed so authoritative-core and native-shell Cargo builds each use a reviewed resolved dependency graph. Required CI validates both with `--locked`; Dependabot monitors npm, Cargo under `/crates/game-core` and `/src-tauri`, and GitHub Actions monthly.
 
 CI and GitHub Pages run `npm audit --audit-level=high` before tests and production build; high or critical dependency advisories fail verification and cannot reach a Pages deployment. GitHub Release publication independently performs `npm ci`, the same audit gate, the complete test suite, and the production/PWA build before creating a new tag/release. Native release jobs repeat the web dependency audit/tests before platform packaging. GitHub workflows use maintained Node-24-compatible checkout/setup and Pages actions. This tooling/security layer is operational only and cannot affect authoritative game state.
 
