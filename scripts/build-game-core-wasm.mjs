@@ -21,6 +21,7 @@ mkdirSync(outDir, { recursive: true });
 
 run("cargo", [
   "build",
+  "--locked",
   "--manifest-path",
   "crates/game-core/Cargo.toml",
   "--release",
