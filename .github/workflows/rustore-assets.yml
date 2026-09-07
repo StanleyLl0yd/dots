@@ -54,15 +54,6 @@ jobs:
           npm test
           python3 -m pip install --disable-pip-version-check pillow==11.3.0
 
-      - name: Configure Android Tauri npm bridge
-        run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.scripts.tauri = 'tauri';
-          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
-          NODE
-
       - name: Configure Android toolchain
         run: |
           cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
@@ -73,7 +64,7 @@ jobs:
 
       - name: Build emulator APK
         run: |
-          npx tauri android init --ci
+          npm run tauri -- android init --ci
           npm run prepare:icons
           MAIN_ACTIVITY="$(find src-tauri/gen/android/app/src/main/java -type f -name MainActivity.kt -print -quit)"
           test -f "$MAIN_ACTIVITY"
@@ -113,7 +104,7 @@ jobs:
           print(text)
           PY
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
-          npx tauri android build --apk --debug --target x86_64
+          npm run tauri -- android build --apk --debug --target x86_64
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           test -f "$APK"
           echo "EMULATOR_APK=$APK" >> "$GITHUB_ENV"
