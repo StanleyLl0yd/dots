@@ -20,8 +20,8 @@ jobs:
       - run: npm audit --audit-level=high
       - name: Verify Rust dependency locks
         run: |
-          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
-          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
       - name: Test and lint authoritative Rust core
         run: |
           cargo test --manifest-path crates/game-core/Cargo.toml --locked
