@@ -176,7 +176,7 @@ A compact localized **About** control sits beside the product title and opens ve
 
 ## Current implementation status
 
-Version **0.10.0** is the current pre-1.0 baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:
+Version **1.0.0** is the current stable baseline for the complete classic local game, strategically refined four-level computer opponent, fixed tactical regressions, generation-isolated browser AI turns, polished board feedback/navigation, PWA/accessibility, the shared Tauri native shell, RuStore delivery tooling, and the reproducible audited toolchain:
 
 - alternating placement and strict 8-direction neighboring-dot topology;
 - direct captures, houses, multiple captures, deterministic minimum faces, capture-of-capture, releases, active-state score, and placement blocking;
@@ -327,7 +327,7 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 
 ### Phase 7 — 1.0 validation and optional post-1.0 work
 
-Use 0.10.0 as the current pre-1.0 baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a prerequisite for the stable release.
+Use 1.0.0 as the current stable baseline for empirical browser/PWA, Android, and macOS testing plus concrete bug fixes. Further AI work must be driven by failing positions or measured regressions. Import/export remains optional post-1.0 work rather than a maintenance-release requirement.
 
 ## Visual direction
 
