@@ -161,6 +161,47 @@ jobs:
           NODE
           echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
 
+      - name: Verify source version consistency
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-version-consistency.mjs ]]; then
+            node scripts/verify-version-consistency.mjs
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const readJson = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+          const cargoVersion = (path) => {
+            const text = fs.readFileSync(path, "utf8");
+            const marker = "[package]";
+            const start = text.indexOf(marker);
+            if (start < 0) throw new Error(`Missing [package] section in ${path}`);
+            const remainder = text.slice(start + marker.length);
+            const nextSection = remainder.search(/^\[/m);
+            const section = nextSection < 0 ? remainder : remainder.slice(0, nextSection);
+            const version = section.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
+            if (!version) throw new Error(`Missing package version in ${path}`);
+            return version;
+          };
+
+          const packageJson = readJson("package.json");
+          const packageLock = readJson("package-lock.json");
+          const tauri = readJson("src-tauri/tauri.conf.json");
+          const expected = packageJson.version;
+          const versions = [
+            packageLock.version,
+            packageLock.packages?.[""]?.version,
+            cargoVersion("crates/game-core/Cargo.toml"),
+            cargoVersion("src-tauri/Cargo.toml"),
+            tauri.version,
+          ];
+          if (versions.some((version) => version !== expected)) {
+            throw new Error(`Legacy tag source version mismatch: expected ${expected}, got ${versions.join(", ")}`);
+          }
+          NODE
+
       - name: Install web dependencies
         env:
           NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
@@ -586,6 +627,47 @@ jobs:
           fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
           NODE
           echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
+
+      - name: Verify source version consistency
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-version-consistency.mjs ]]; then
+            node scripts/verify-version-consistency.mjs
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const readJson = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+          const cargoVersion = (path) => {
+            const text = fs.readFileSync(path, "utf8");
+            const marker = "[package]";
+            const start = text.indexOf(marker);
+            if (start < 0) throw new Error(`Missing [package] section in ${path}`);
+            const remainder = text.slice(start + marker.length);
+            const nextSection = remainder.search(/^\[/m);
+            const section = nextSection < 0 ? remainder : remainder.slice(0, nextSection);
+            const version = section.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
+            if (!version) throw new Error(`Missing package version in ${path}`);
+            return version;
+          };
+
+          const packageJson = readJson("package.json");
+          const packageLock = readJson("package-lock.json");
+          const tauri = readJson("src-tauri/tauri.conf.json");
+          const expected = packageJson.version;
+          const versions = [
+            packageLock.version,
+            packageLock.packages?.[""]?.version,
+            cargoVersion("crates/game-core/Cargo.toml"),
+            cargoVersion("src-tauri/Cargo.toml"),
+            tauri.version,
+          ];
+          if (versions.some((version) => version !== expected)) {
+            throw new Error(`Legacy tag source version mismatch: expected ${expected}, got ${versions.join(", ")}`);
+          }
+          NODE
 
       - name: Install web dependencies
         env:
