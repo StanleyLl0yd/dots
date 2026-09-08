@@ -95,6 +95,12 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Set up Android JDK
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17.0.20.1+1"
+
       - name: Resolve release version
         id: version
         env:
@@ -276,12 +282,20 @@ jobs:
       - name: Configure Android toolchain
         run: |
           NDK_VERSION="29.0.14206865"
+          BUILD_TOOLS_VERSION="36.0.0"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
-          if [[ ! -d "$NDK_PATH" ]]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
-          fi
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          PACKAGES=("platforms;android-36" "build-tools;$BUILD_TOOLS_VERSION" "ndk;$NDK_VERSION")
+          yes | "$SDKMANAGER" "${PACKAGES[@]}" >/dev/null
+
           test -d "$NDK_PATH"
+          test -x "$BUILD_TOOLS_PATH/apksigner"
+          test -x "$BUILD_TOOLS_PATH/aapt"
+          test -x "$BUILD_TOOLS_PATH/zipalign"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_BUILD_TOOLS=$BUILD_TOOLS_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Restore Android upload key
@@ -379,8 +393,8 @@ jobs:
           test -n "$ACTUAL_AAB_CERT"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_CERT"
 
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
+          AAPT="$ANDROID_BUILD_TOOLS/aapt"
           test -x "$APKSIGNER"
           test -x "$AAPT"
 
@@ -404,7 +418,7 @@ jobs:
       - name: Verify Android manifest hardening
         run: |
           APK="release/Dots-v${VERSION}-Android-verification.apk"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          AAPT="$ANDROID_BUILD_TOOLS/aapt"
           test -f "$APK"
           test -x "$AAPT"
 
@@ -432,7 +446,7 @@ jobs:
           test -f "$AAB"
           test -f "$APK"
 
-          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          ZIPALIGN="$ANDROID_BUILD_TOOLS/zipalign"
           test -x "$ZIPALIGN"
           "$ZIPALIGN" -c -P 16 -v 4 "$APK" >/dev/null
 
