@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit --pretty false",
     "prepare:icons": "node scripts/prepare-icon-assets.mjs",
     "verify:dependencies": "node scripts/verify-dependency-policy.mjs",
+    "verify:version": "node scripts/verify-version-consistency.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
