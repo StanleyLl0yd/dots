@@ -1,6 +1,6 @@
 # Application hardening
 
-Version 0.9.4 established the current hardening boundary: the browser UI and Canvas presentation stay in TypeScript while rules, capture/scoring, replay validation, and computer search live in one Rust crate, `crates/game-core`. Later releases, including the current 0.10.0 source, preserve that boundary; 0.9.4 was published as a distinct version rather than replacing 0.9.3 artifacts so native binaries remain traceable to their source revision.
+Version 0.9.4 established the current hardening boundary: the browser UI and Canvas presentation stay in TypeScript while rules, capture/scoring, replay validation, and computer search live in one Rust crate, `crates/game-core`. Later releases, including the current stable 1.0.0 source, preserve that boundary; release artifacts remain tied to immutable version tags so native binaries stay traceable to their source revision.
 
 ## Trust boundary
 
