@@ -116,17 +116,74 @@ jobs:
           fi
 
       - name: Verify dependency install policy
-        run: npm run verify:dependencies
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-dependency-policy.mjs ]]; then
+            npm run verify:dependencies
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const policy = {};
+
+          const packageName = (path) => {
+            const marker = "node_modules/";
+            const index = path.lastIndexOf(marker);
+            return index === -1 ? undefined : path.slice(index + marker.length);
+          };
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!metadata?.hasInstallScript) continue;
+            const name = packageName(path);
+            const version = metadata.version;
+            if (!name || typeof version !== "string") {
+              throw new Error(`Unable to identify install-script package at ${path}`);
+            }
+            if (name === "esbuild") {
+              policy[`${name}@${version}`] = true;
+            } else if (name === "fsevents" && metadata.optional === true) {
+              policy[name] = false;
+            } else {
+              throw new Error(`Legacy tag contains unreviewed install-script package ${name}@${version}`);
+            }
+          }
+
+          packageJson.allowScripts = policy;
+          fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
 
       - name: Install web dependencies
+        env:
+          NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
         run: npm ci
+
+      - name: Restore legacy source metadata
+        if: env.LEGACY_DEPENDENCY_POLICY == 'true'
+        run: git checkout -- package.json
 
       - name: Verify native dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
       - name: Verify Android Rust advisory scope
-        run: bash scripts/verify-rust-advisory-scope.sh aarch64-linux-android armv7-linux-androideabi
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-rust-advisory-scope.sh ]]; then
+            bash scripts/verify-rust-advisory-scope.sh aarch64-linux-android armv7-linux-androideabi
+            exit 0
+          fi
+          for target in aarch64-linux-android armv7-linux-androideabi; do
+            tree="$(cargo tree --manifest-path src-tauri/Cargo.toml --locked --target "$target" --edges normal,build --prefix none --format '{p}')"
+            if grep -Eq '^glib v0\.(15|16|17|18|19)\.' <<<"$tree"; then
+              echo "RUSTSEC-2024-0429 affected glib is reachable for release target $target" >&2
+              exit 1
+            fi
+          done
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -473,17 +530,74 @@ jobs:
           fi
 
       - name: Verify dependency install policy
-        run: npm run verify:dependencies
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-dependency-policy.mjs ]]; then
+            npm run verify:dependencies
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const policy = {};
+
+          const packageName = (path) => {
+            const marker = "node_modules/";
+            const index = path.lastIndexOf(marker);
+            return index === -1 ? undefined : path.slice(index + marker.length);
+          };
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!metadata?.hasInstallScript) continue;
+            const name = packageName(path);
+            const version = metadata.version;
+            if (!name || typeof version !== "string") {
+              throw new Error(`Unable to identify install-script package at ${path}`);
+            }
+            if (name === "esbuild") {
+              policy[`${name}@${version}`] = true;
+            } else if (name === "fsevents" && metadata.optional === true) {
+              policy[name] = false;
+            } else {
+              throw new Error(`Legacy tag contains unreviewed install-script package ${name}@${version}`);
+            }
+          }
+
+          packageJson.allowScripts = policy;
+          fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
 
       - name: Install web dependencies
+        env:
+          NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
         run: npm ci
+
+      - name: Restore legacy source metadata
+        if: env.LEGACY_DEPENDENCY_POLICY == 'true'
+        run: git checkout -- package.json
 
       - name: Verify native dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
       - name: Verify macOS Rust advisory scope
-        run: bash scripts/verify-rust-advisory-scope.sh aarch64-apple-darwin x86_64-apple-darwin
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-rust-advisory-scope.sh ]]; then
+            bash scripts/verify-rust-advisory-scope.sh aarch64-apple-darwin x86_64-apple-darwin
+            exit 0
+          fi
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            tree="$(cargo tree --manifest-path src-tauri/Cargo.toml --locked --target "$target" --edges normal,build --prefix none --format '{p}')"
+            if grep -Eq '^glib v0\.(15|16|17|18|19)\.' <<<"$tree"; then
+              echo "RUSTSEC-2024-0429 affected glib is reachable for release target $target" >&2
+              exit 1
+            fi
+          done
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
