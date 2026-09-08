@@ -8,11 +8,15 @@ const tauriConfig = readJson("src-tauri/tauri.conf.json");
 
 const cargoPackageVersion = (path) => {
   const text = fs.readFileSync(path, "utf8");
-  const packageSection = text.match(/^\[package\]\s*$([\s\S]*?)(?=^\[|\s*$)/m);
-  if (!packageSection) {
+  const marker = "[package]";
+  const start = text.indexOf(marker);
+  if (start < 0) {
     throw new Error(`Missing [package] section in ${path}`);
   }
-  const version = packageSection[1].match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
+  const remainder = text.slice(start + marker.length);
+  const nextSection = remainder.search(/^\[/m);
+  const packageSection = nextSection < 0 ? remainder : remainder.slice(0, nextSection);
+  const version = packageSection.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
   if (!version) {
     throw new Error(`Missing package version in ${path}`);
   }
