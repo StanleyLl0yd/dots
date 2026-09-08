@@ -25,6 +25,9 @@ for (const { name, version } of scripted) {
   if (!(exact in policy) && !(name in policy)) {
     throw new Error(`Install script for ${exact} has no explicit allowScripts decision`);
   }
+  if (exact in policy && name in policy) {
+    throw new Error(`Ambiguous allowScripts decisions for ${exact}`);
+  }
 }
 
 for (const [entry, allowed] of Object.entries(policy)) {
