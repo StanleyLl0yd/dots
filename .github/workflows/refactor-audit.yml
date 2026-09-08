@@ -36,11 +36,7 @@ jobs:
       - name: Install RustSec audit tool
         run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Audit Rust dependencies
-        run: |
-          cargo audit --deny warnings --file crates/game-core/Cargo.lock
-          cargo audit --deny unsound --deny yanked --ignore RUSTSEC-2024-0429 --file src-tauri/Cargo.lock
-      - name: Verify Rust advisory exception scope
-        run: bash scripts/verify-rust-advisory-scope.sh
+        run: bash scripts/audit-rust-dependencies.sh
       - name: Audit authoritative Rust core
         run: |
           cargo test --manifest-path crates/game-core/Cargo.toml --locked
