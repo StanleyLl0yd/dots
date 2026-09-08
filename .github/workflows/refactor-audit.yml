@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - run: npm ci
       - run: npm run verify:dependencies
+      - run: npm ci
       - name: Verify Rust dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
@@ -87,6 +87,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
       - run: npm ci
       - name: Declare non-standard entry points
         run: |
@@ -112,6 +113,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include dependencies
 
@@ -124,6 +126,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
 
@@ -136,5 +139,6 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include binaries
