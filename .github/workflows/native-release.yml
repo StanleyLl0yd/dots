@@ -108,12 +108,16 @@ jobs:
             if [ -z "$EXPECTED" ]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
+            test "$EXPECTED" = "$GITHUB_SHA"
             git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
             git checkout --detach FETCH_HEAD
             ACTUAL="$(git rev-parse HEAD)"
             test "$ACTUAL" = "$EXPECTED"
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
+
+      - name: Record release source commit
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Verify dependency install policy
         shell: bash
@@ -482,6 +486,14 @@ jobs:
             sleep 10
           done
           gh release view "$TAG" >/dev/null
+
+          EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+          if [[ -z "$EXPECTED" ]]; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          fi
+          test -n "$EXPECTED"
+          test "$EXPECTED" = "$SOURCE_SHA"
+
           gh release upload "$TAG" "release/Dots-v${VERSION}-Android.aab" --clobber
 
   macos:
@@ -522,12 +534,16 @@ jobs:
             if [ -z "$EXPECTED" ]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
+            test "$EXPECTED" = "$GITHUB_SHA"
             git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
             git checkout --detach FETCH_HEAD
             ACTUAL="$(git rev-parse HEAD)"
             test "$ACTUAL" = "$EXPECTED"
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
+
+      - name: Record release source commit
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Verify dependency install policy
         shell: bash
@@ -671,4 +687,12 @@ jobs:
             sleep 10
           done
           gh release view "$TAG" >/dev/null
+
+          EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+          if [[ -z "$EXPECTED" ]]; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          fi
+          test -n "$EXPECTED"
+          test "$EXPECTED" = "$SOURCE_SHA"
+
           gh release upload "$TAG" "release/Dots-v${VERSION}-macOS-universal.dmg" --clobber
