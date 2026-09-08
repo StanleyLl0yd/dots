@@ -7,11 +7,13 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - scripts/verify-rust-advisory-scope.sh
       - .github/workflows/rust-dependency-security.yml
   pull_request:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - scripts/verify-rust-advisory-scope.sh
       - .github/workflows/rust-dependency-security.yml
   schedule:
     - cron: "23 4 * * 1"
@@ -37,3 +39,5 @@ jobs:
         run: |
           cargo audit --deny warnings --file crates/game-core/Cargo.lock
           cargo audit --deny unsound --deny yanked --ignore RUSTSEC-2024-0429 --file src-tauri/Cargo.lock
+      - name: Verify Rust advisory exception scope
+        run: bash scripts/verify-rust-advisory-scope.sh
