@@ -15,7 +15,8 @@ All notable project changes are recorded here.
 - made release/store automation more reproducible and least-privileged by disabling persisted release checkout credentials, pinning the RuStore Android NDK, and using the canonical npm/Tauri argument form;
 - made the AI transposition cache include focus and extension context so equivalent board states reached through different search paths cannot reuse a value computed under different ranking inputs;
 - enforced the cross-platform npm install-script policy before dependency installation in CI, audit, Pages deploy, GitHub release, native release, and RuStore asset workflows;
-- made the Tauri `glib` RustSec exception self-checking by rejecting affected `glib` versions if they become reachable from any Android or macOS release target graph.
+- made the Tauri `glib` RustSec exception self-checking by rejecting affected `glib` versions if they become reachable from any Android or macOS release target graph;
+- guarded native and RuStore release provenance so an already tagged version cannot receive rebuilt artifacts or store assets from a different `main` commit.
 
 
 ## [0.10.0] - 2026-09-05
