@@ -66,6 +66,27 @@ for (const name of workflowFiles) {
     violations.push(`${file}: checkout credentials must never be persisted`);
   }
 
+  const jobsIndex = lines.findIndex((line) => line === "jobs:");
+  if (jobsIndex < 0) {
+    violations.push(`${file}: jobs section is required`);
+  } else {
+    const jobStarts = [];
+    for (let i = jobsIndex + 1; i < lines.length; i += 1) {
+      const match = lines[i].match(/^  ([A-Za-z0-9_-]+):\s*$/);
+      if (match) jobStarts.push([i, match[1]]);
+    }
+    for (const [position, [start, job]] of jobStarts.entries()) {
+      const end = jobStarts[position + 1]?.[0] ?? lines.length;
+      const block = lines.slice(start, end).join("\n");
+      const timeout = block.match(/^    timeout-minutes:\s*(\d+)\s*$/m)?.[1];
+      if (!timeout) {
+        violations.push(`${file}:${start + 1}: job ${job} must set a numeric timeout-minutes`);
+      } else if (Number(timeout) > 60) {
+        violations.push(`${file}:${start + 1}: job ${job} timeout must not exceed 60 minutes`);
+      }
+    }
+  }
+
   for (const [index, line] of lines.entries()) {
     const usesMatch = line.match(/^\s*-?\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/);
     if (usesMatch) {
