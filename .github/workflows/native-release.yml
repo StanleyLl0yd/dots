@@ -140,6 +140,25 @@ jobs:
           const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
           const policy = {};
 
+          const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+          for (const section of ["dependencies", "devDependencies"]) {
+            for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+              if (typeof version !== "string" || !exactVersion.test(version)) {
+                throw new Error(`Legacy tag direct dependency is not exact: ${name}@${String(version)}`);
+              }
+            }
+          }
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!path) continue;
+            if (typeof metadata?.resolved !== "string" || !metadata.resolved.startsWith("https://registry.npmjs.org/")) {
+              throw new Error(`Legacy tag contains non-registry dependency source: ${path}`);
+            }
+            if (typeof metadata.integrity !== "string" || !metadata.integrity.startsWith("sha512-")) {
+              throw new Error(`Legacy tag dependency lacks SHA-512 integrity: ${path}`);
+            }
+          }
+
           const packageName = (path) => {
             const marker = "node_modules/";
             const index = path.lastIndexOf(marker);
@@ -598,6 +617,25 @@ jobs:
           const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
           const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
           const policy = {};
+
+          const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+          for (const section of ["dependencies", "devDependencies"]) {
+            for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+              if (typeof version !== "string" || !exactVersion.test(version)) {
+                throw new Error(`Legacy tag direct dependency is not exact: ${name}@${String(version)}`);
+              }
+            }
+          }
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!path) continue;
+            if (typeof metadata?.resolved !== "string" || !metadata.resolved.startsWith("https://registry.npmjs.org/")) {
+              throw new Error(`Legacy tag contains non-registry dependency source: ${path}`);
+            }
+            if (typeof metadata.integrity !== "string" || !metadata.integrity.startsWith("sha512-")) {
+              throw new Error(`Legacy tag dependency lacks SHA-512 integrity: ${path}`);
+            }
+          }
 
           const packageName = (path) => {
             const marker = "node_modules/";
