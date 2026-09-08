@@ -12,7 +12,7 @@ The repository commits `package-lock.json`, `crates/game-core/Cargo.lock`, and `
 
 The Tauri shell is intentionally thin and does not own game rules, AI decisions, score, or saved game state. Native capabilities are kept minimal; the opener permission is restricted to the project URL.
 
-Android signing material is not committed to the repository. Release automation restores the upload key from GitHub Actions secrets only for the build, writes generated signing configuration outside tracked source, and removes temporary key/configuration files after verification. RuStore app-signing private material must remain outside the repository.
+Android signing material is not committed to the repository. Release automation restores the upload key from GitHub Actions secrets only for the build, writes generated signing configuration outside tracked source, and removes temporary key/configuration files after verification. Automatic native release jobs refuse to rebuild an already tagged version from a different `main` commit, and RuStore release attachment verifies that the version tag resolves to the current source commit before uploading assets. RuStore app-signing private material must remain outside the repository.
 
 ## Reporting a vulnerability
 
