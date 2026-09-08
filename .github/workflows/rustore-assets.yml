@@ -50,6 +50,7 @@ jobs:
       - name: Install and verify dependencies
         run: |
           npm run verify:dependencies
+          npm run verify:version
           npm ci
           npm audit --audit-level=high
           npm test
