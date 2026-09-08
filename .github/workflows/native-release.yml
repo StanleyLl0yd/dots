@@ -85,6 +85,8 @@ jobs:
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify Android Rust advisory scope
+        run: bash scripts/verify-rust-advisory-scope.sh aarch64-linux-android armv7-linux-androideabi
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -438,6 +440,8 @@ jobs:
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
           cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify macOS Rust advisory scope
+        run: bash scripts/verify-rust-advisory-scope.sh aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
