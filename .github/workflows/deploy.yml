@@ -26,6 +26,7 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
         with:
           enablement: true
+      - run: npm run verify:dependencies
       - run: npm ci
       - run: npm audit --audit-level=high
       - name: Configure Rust WASM toolchain
