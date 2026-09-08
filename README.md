@@ -7,6 +7,8 @@
 <img src="docs/assets/readme/dots-board.webp" alt="Dots game board" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/ci.yml?branch=main&label=CI&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/codeql.yml?branch=main&label=CodeQL&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/codeql.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/security.yml?branch=main&label=Security&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/security.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
@@ -128,8 +130,8 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - explicit offline/update PWA lifecycle with user-confirmed refresh, retryable activation failure, and lifecycle regression coverage;
 - build-time verification of generated PWA/offline artifacts;
 - committed npm and Cargo lockfiles for reproducible web and native dependency graphs;
-- CI security gate rejecting high/critical npm advisories, currently reporting zero vulnerabilities;
-- Node-24-compatible GitHub Actions runtimes for checkout/setup and Pages actions, plus Dependabot coverage for npm, Cargo, and GitHub Actions;
+- CI supply-chain gate enforcing exact direct npm versions, registry-only SHA-512 lockfile sources, reviewed install scripts, high/critical npm advisories, RustSec, source-version consistency, and workflow pinning;
+- Node-24-compatible SHA-pinned GitHub Actions, PR Dependency Review, CodeQL, Semgrep, full-history Gitleaks, and Dependabot coverage for npm, Cargo, and GitHub Actions;
 - regression/stress coverage for rules, persistence, all AI levels, long histories, large viewport transforms, and bounded 8K rendering ranges;
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
@@ -152,7 +154,7 @@ Version **0.9.4** hardens the 0.9.3 native/RuStore baseline by moving authoritat
 | Tests | Vitest 3.2.7 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty/sound preferences |
 | AI | deterministic bounded Rust minimax; native direct call, browser WASM in a Web Worker |
-| Dependencies | committed npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
+| Dependencies | exact direct versions, committed npm + Cargo lockfiles, registry/SHA-512 + install-script policy, npm/RustSec audits, Dependabot |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -183,7 +185,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), 
 
 ## 🛠 Development
 
-Requirements: Node.js 22+, npm, Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.127, and Binaryen (`wasm-opt`).
+Requirements: Node.js 22+, npm 11+, Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.127, and Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git

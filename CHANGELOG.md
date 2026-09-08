@@ -4,6 +4,26 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- aligned Rust game-core and Tauri package metadata/lockfiles with source version 0.10.0;
+- strengthened the required CI `build` gate with locked Rust dependency validation, authoritative game-core tests, and Clippy warnings-as-errors while keeping the separate native Rust workflow focused on the Tauri shell integration check;
+- made Android release/store tooling use the committed local Tauri CLI without rewriting `package.json` at runtime and generate canonical icons before initializing the Android project;
+- reduced capture traversal allocation overhead by using typed directed-edge identities instead of formatted strings, without changing capture topology or ordering;
+- removed a redundant computer-work cancellation when starting a new game from the start menu.
+- closed residual dependency-security gaps by explicitly denying the optional macOS `fsevents` install script, enforcing cross-platform lockfile/install-script policy in required CI, and adding required/scheduled RustSec audits for both committed Cargo lockfiles, including strict authoritative-core warnings and an explicit platform-scoped Tauri GTK3 advisory exception;
+- made release/store automation more reproducible and least-privileged by disabling persisted release checkout credentials, pinning the RuStore Android NDK, and using the canonical npm/Tauri argument form;
+- made the AI transposition cache include focus and extension context so equivalent board states reached through different search paths cannot reuse a value computed under different ranking inputs;
+- enforced the cross-platform npm install-script policy before dependency installation in CI, audit, Pages deploy, GitHub release, native release, and RuStore asset workflows;
+- made the Tauri `glib` RustSec exception self-checking by rejecting affected `glib` versions if they become reachable from any Android or macOS release target graph;
+- guarded native and RuStore release provenance so an already tagged version cannot receive rebuilt artifacts or store assets from a different `main` commit;
+- added synchronized npm/Rust/Tauri version verification and preserved hardened manual rebuild support for historical native tags;
+- hardened npm further with npm 11+ engine enforcement, exact direct versions, registry-only SHA-512 lockfile sources, ambiguity-free install-script policy, and pre-install validation;
+- added reusable PR repository audits, CodeQL, Semgrep, full-history Gitleaks, and high-severity Dependency Review while enforcing SHA-pinned Actions/containers and non-persisted checkout credentials through required CI;
+- bound native artifact uploads and GitHub Release creation to the exact source commit resolved by the matching version tag;
+- changed the Tauri RustSec policy from open-ended informational warnings to an explicit reviewed warning baseline, with Android/macOS target-graph enforcement for GTK3/proc-macro/`glib` exceptions and only the current upstream `unic-*` maintenance advisories accepted in shipped target graphs.
+
+
 ## [0.10.0] - 2026-09-05
 
 ### Added

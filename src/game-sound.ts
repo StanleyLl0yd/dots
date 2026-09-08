@@ -8,10 +8,6 @@ export class GameSoundController {
 
   constructor(private enabled: boolean) {}
 
-  get isEnabled(): boolean {
-    return this.enabled;
-  }
-
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (this.context && this.output) {

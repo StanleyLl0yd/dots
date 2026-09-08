@@ -1,6 +1,6 @@
 # Application hardening
 
-Dots 0.9.4 keeps the browser UI and Canvas presentation in TypeScript while moving the valuable rules, capture engine, scoring, replay validation, and computer search into one Rust crate: `crates/game-core`. The hardening uses a new release version rather than replacing 0.9.3 artifacts, so published native binaries remain traceable to the source revision that produced them.
+Version 0.9.4 established the current hardening boundary: the browser UI and Canvas presentation stay in TypeScript while rules, capture/scoring, replay validation, and computer search live in one Rust crate, `crates/game-core`. Later releases, including the current 0.10.0 source, preserve that boundary; 0.9.4 was published as a distinct version rather than replacing 0.9.3 artifacts so native binaries remain traceable to their source revision.
 
 ## Trust boundary
 
@@ -49,6 +49,8 @@ Android release builds explicitly disable Java/JNI debugging, enable R8 optimiza
 
 macOS release verification checks the signed application identifier, universal `arm64`/`x86_64` executable, absence of dSYM/debug sections, and absence of exported game-core implementation symbols.
 
+Automatic native builds are allowed only when the matching version tag is absent or resolves to the current push commit; an older tag for the same version causes the automatic rebuild to be skipped. Each native job records its actual checked-out source SHA and verifies the release tag again immediately before artifact upload, including manual rebuilds of historical tags. GitHub Release creation and RuStore asset attachment apply the same tag-to-commit provenance rule.
+
 ## CI and regression coverage
 
 The permanent CI layers are complementary:
@@ -57,8 +59,12 @@ The permanent CI layers are complementary:
 2. Clippy runs with warnings denied for the Rust core.
 3. Frontend session/persistence/stress tests execute against the compiled Rust WASM core rather than a JavaScript rules mock.
 4. The production PWA build is verified after minification and WASM optimization.
-5. Tauri compilation is checked with the platform prerequisites installed.
-6. Deploy and release workflows rebuild and retest the Rust/WASM core instead of trusting a pre-generated module.
+5. Both committed Cargo lockfiles are scanned against RustSec on dependency changes and weekly. The game core denies every warning. The Tauri lock denies every warning outside a fixed reviewed baseline: GTK3/proc-macro/`glib` entries are allowed only while target-graph checks prove they are absent from Android/macOS, and five `unic-*` unmaintained advisories remain temporarily accepted through upstream `tauri-utils` → `urlpattern` 0.3. Any new RustSec warning fails CI.
+6. Tauri compilation is checked with the platform prerequisites installed.
+7. Every CI, audit, deploy, store, and release path validates exact npm dependency sources/integrity, the install-script allow/deny policy, and synchronized source versions before installation.
+8. Required CI rejects unpinned external Actions/containers, persisted checkout credentials, `pull_request_target`, `write-all`, and the insecure Node runtime fallback; PR dependency changes also pass Dependency Review.
+9. CodeQL analyzes JavaScript/TypeScript, while scheduled/PR Semgrep and full-history Gitleaks add independent static/secrets coverage.
+10. Deploy and release workflows rebuild and retest the Rust/WASM core instead of trusting a pre-generated module.
 
 ## Deliberate non-goals
 
@@ -70,7 +76,7 @@ No signing keys, tokens, private keys, or secrets are embedded in the repository
 
 Web development and verification require:
 
-- Node.js 22+ and npm;
+- Node.js 22+ and npm 11+;
 - a current Rust toolchain;
 - target `wasm32-unknown-unknown`;
 - `wasm-bindgen-cli` 0.2.127, matching the locked crate version;

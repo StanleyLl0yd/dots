@@ -4,7 +4,8 @@
   "version": "0.10.0",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "npm": ">=11"
   },
   "scripts": {
     "dev": "npm run wasm:build && vite",
@@ -15,7 +16,11 @@
     "preview": "vite preview",
     "test": "npm run verify:source && npm run wasm:build && vitest run",
     "typecheck": "tsc --noEmit --pretty false",
-    "prepare:icons": "node scripts/prepare-icon-assets.mjs"
+    "prepare:icons": "node scripts/prepare-icon-assets.mjs",
+    "verify:dependencies": "node scripts/verify-dependency-policy.mjs",
+    "verify:version": "node scripts/verify-version-consistency.mjs",
+    "verify:workflows": "node scripts/verify-workflow-security.mjs",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"
@@ -26,5 +31,9 @@
     "vite-plugin-pwa": "1.0.3",
     "vitest": "3.2.7",
     "@tauri-apps/cli": "2.11.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents": false
   }
 }

@@ -1,4 +1,4 @@
-name: Rust core
+name: Native Rust shell
 
 on:
   push:
@@ -6,11 +6,13 @@ on:
     paths:
       - crates/game-core/**
       - src-tauri/**
+      - rust-toolchain.toml
       - .github/workflows/rust-core-check.yml
   pull_request:
     paths:
       - crates/game-core/**
       - src-tauri/**
+      - rust-toolchain.toml
       - .github/workflows/rust-core-check.yml
   workflow_dispatch:
 
@@ -18,10 +20,15 @@ permissions:
   contents: read
 
 jobs:
-  rust-core:
+  native-rust:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
       - name: Install Tauri Linux prerequisites
         run: |
           sudo apt-get update
@@ -35,6 +42,4 @@ jobs:
             libssl-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev
-      - run: cargo test --manifest-path crates/game-core/Cargo.toml
-      - run: cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets -- -D warnings
-      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --locked

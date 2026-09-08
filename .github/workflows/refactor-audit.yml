@@ -1,10 +1,15 @@
-name: Refactor audit
+name: Repository audit
 
 on:
   push:
     branches:
-      - refactor/full-audit-0.9.3
+      - refactor/full-audit-0.10.0
+  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -12,15 +17,33 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
-      - name: Verify native dependency lock
-        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
+      - name: Verify Rust dependency locks
+        run: |
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Install RustSec audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit Rust dependencies
+        run: bash scripts/audit-rust-dependencies.sh
+      - name: Audit authoritative Rust core
+        run: |
+          cargo test --manifest-path crates/game-core/Cargo.toml --locked
+          cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
       - name: Validate workflow YAML
         run: npx --yes prettier@3.6.2 .github/workflows/*.yml >/dev/null
       - name: Baseline repository statistics
@@ -37,14 +60,20 @@ jobs:
         shell: bash
         run: |
           echo '--- TODO/FIXME/HACK/XXX ---'
-          grep -RInE 'TODO|FIXME|HACK|XXX' --exclude=package-lock.json --exclude-dir=.git . || true
+          git grep -nE 'TODO|FIXME|HACK|XXX' -- ':!package-lock.json' || true
           echo '--- console calls ---'
-          grep -RInE 'console\.(log|debug|warn|error)' src scripts vite.config.ts || true
+          git grep -nE 'console\.(log|debug|warn|error)' -- src scripts vite.config.ts || true
           echo '--- package tree ---'
           npm ls --depth=0
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
+      - name: Configure Rust WASM toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
       - run: npm test
       - run: npm run build
       - name: Diff hygiene
@@ -58,12 +87,18 @@ jobs:
   knip-files:
     name: Knip / unused files
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - name: Declare non-standard entry points
         run: |
@@ -72,8 +107,9 @@ jobs:
             "entry": [
               "src/main.ts",
               "src/about.ts",
-              "scripts/capture-rustore-android.mjs",
-              "scripts/verify-build.mjs"
+              "src/game/core-native.ts",
+              "src/game/core-test.ts",
+              "scripts/capture-rustore-android.mjs"
             ]
           }
           JSON
@@ -82,35 +118,53 @@ jobs:
   knip-dependencies:
     name: Knip / unused dependencies
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include dependencies
 
   knip-dev-dependencies:
     name: Knip / unused devDependencies
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
 
   knip-binaries:
     name: Knip / unused binaries
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include binaries

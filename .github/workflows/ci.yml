@@ -4,20 +4,49 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
+      - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
+      - name: Verify Rust dependency locks
+        run: |
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Install RustSec audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit Rust dependencies
+        run: bash scripts/audit-rust-dependencies.sh
+      - name: Test and lint authoritative Rust core
+        run: |
+          cargo test --manifest-path crates/game-core/Cargo.toml --locked
+          cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
       - name: Configure Rust WASM toolchain
         run: |
           rustup target add wasm32-unknown-unknown

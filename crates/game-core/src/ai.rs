@@ -828,11 +828,14 @@ fn minimax_value(
         .map(usize::to_string)
         .collect::<Vec<_>>()
         .join(",");
+    let focus_key = focus.map(point_key).unwrap_or_else(|| "-".to_string());
     let cache_key = format!(
-        "{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}",
         difficulty_code(context.difficulty),
         player_code(perspective),
         ply,
+        extensions,
+        focus_key,
         remaining_limits,
         state_signature(state)
     );

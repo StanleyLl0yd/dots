@@ -387,7 +387,7 @@ const scheduleComputerMove = (): void => {
       void requestAiMove(session.state, options)
         .then((move) => applyComputerProposal(generation, move))
         .catch(() => {
-if (generation === computerGeneration && isComputerTurn()) fallBackToLocalMode();
+          if (generation === computerGeneration && isComputerTurn()) fallBackToLocalMode();
         });
       return;
     }
@@ -444,31 +444,31 @@ board = new CanvasBoard(canvas, session.state, {
   onViewportChange: persistViewport,
   onKeyboardCursorChange: (point) => announce(pointMessage(copy.cursor, point)),
   onPoint: async (point) => {
-  await soundController.unlock();
-  if (isComputerTurn()) {
-    announce(copy.waitComputer);
-    scheduleComputerMove();
-    return;
-  }
-  if (stateMutationInFlight) return;
-
-  stateMutationInFlight = true;
-  try {
-    const baseSession = session;
-    const next = await playMove(baseSession, point);
-    if (session !== baseSession) return;
-    if (next === baseSession) {
-      board.showInvalidPoint(point);
-      soundController.playInvalid();
-      announce(pointMessage(copy.unavailable, point));
+    await soundController.unlock();
+    if (isComputerTurn()) {
+      announce(copy.waitComputer);
+      scheduleComputerMove();
       return;
     }
-    applyMove(next, point, false);
-    scheduleComputerMove();
-  } finally {
-    stateMutationInFlight = false;
+    if (stateMutationInFlight) return;
+
+    stateMutationInFlight = true;
+    try {
+      const baseSession = session;
+      const next = await playMove(baseSession, point);
+      if (session !== baseSession) return;
+      if (next === baseSession) {
+        board.showInvalidPoint(point);
+        soundController.playInvalid();
+        announce(pointMessage(copy.unavailable, point));
+        return;
+      }
+      applyMove(next, point, false);
+      scheduleComputerMove();
+    } finally {
+      stateMutationInFlight = false;
+    }
   }
-}
 });
 board.setState(session.state, lastMove());
 
@@ -545,7 +545,6 @@ const closeStartMenu = (): void => {
 };
 
 const startNewGameFromMenu = async (mode: GameMode): Promise<void> => {
-  cancelComputerMove();
   gameMode = mode;
   modeSelect.value = gameMode;
   persistPreferences();

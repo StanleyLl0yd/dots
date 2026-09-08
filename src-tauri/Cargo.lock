@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "dots"
-version = "0.9.5"
+version = "0.10.0"
 dependencies = [
  "game-core",
  "tauri",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "game-core"
-version = "0.9.5"
+version = "0.10.0"
 dependencies = [
  "serde",
  "serde_json",

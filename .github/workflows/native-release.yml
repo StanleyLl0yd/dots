@@ -7,6 +7,7 @@ on:
     paths:
       - package.json
       - package-lock.json
+      - rust-toolchain.toml
       - vite.config.ts
       - src/**
       - crates/game-core/**
@@ -24,19 +25,62 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
 
 concurrency:
   group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Release source guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.guard.outputs.build }}
+    steps:
+      - name: Checkout current push source
+        if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Guard automatic release provenance
+        id: guard
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+          TAG="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+            if [[ -z "$EXPECTED" ]]; then
+              EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+            fi
+            if [[ "$EXPECTED" != "$GITHUB_SHA" ]]; then
+              echo "build=false" >> "$GITHUB_OUTPUT"
+              echo "Skipping automatic native rebuild: $TAG points to $EXPECTED, current push is $GITHUB_SHA"
+              exit 0
+            fi
+          fi
+
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
   android:
     name: Signed Android AAB
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,7 +95,14 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Set up Android JDK
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17.0.20.1+1"
+
       - name: Resolve release version
+        id: version
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
         run: |
@@ -60,6 +111,7 @@ jobs:
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pin existing release tag source
         if: github.event_name == 'push'
@@ -69,6 +121,7 @@ jobs:
             if [ -z "$EXPECTED" ]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
+            test "$EXPECTED" = "$GITHUB_SHA"
             git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
             git checkout --detach FETCH_HEAD
             ACTUAL="$(git rev-parse HEAD)"
@@ -76,22 +129,218 @@ jobs:
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
 
+      - name: Record release source commit
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Verify dependency install policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-dependency-policy.mjs ]]; then
+            npm run verify:dependencies
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const policy = {};
+
+          const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+          for (const section of ["dependencies", "devDependencies"]) {
+            for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+              if (typeof version !== "string" || !exactVersion.test(version)) {
+                throw new Error(`Legacy tag direct dependency is not exact: ${name}@${String(version)}`);
+              }
+            }
+          }
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!path) continue;
+            if (typeof metadata?.resolved !== "string" || !metadata.resolved.startsWith("https://registry.npmjs.org/")) {
+              throw new Error(`Legacy tag contains non-registry dependency source: ${path}`);
+            }
+            if (typeof metadata.integrity !== "string" || !metadata.integrity.startsWith("sha512-")) {
+              throw new Error(`Legacy tag dependency lacks SHA-512 integrity: ${path}`);
+            }
+          }
+
+          const packageName = (path) => {
+            const marker = "node_modules/";
+            const index = path.lastIndexOf(marker);
+            return index === -1 ? undefined : path.slice(index + marker.length);
+          };
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!metadata?.hasInstallScript) continue;
+            const name = packageName(path);
+            const version = metadata.version;
+            if (!name || typeof version !== "string") {
+              throw new Error(`Unable to identify install-script package at ${path}`);
+            }
+            if (name === "esbuild") {
+              policy[`${name}@${version}`] = true;
+            } else if (name === "fsevents" && metadata.optional === true) {
+              policy[name] = false;
+            } else {
+              throw new Error(`Legacy tag contains unreviewed install-script package ${name}@${version}`);
+            }
+          }
+
+          packageJson.allowScripts = policy;
+          fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
+
+      - name: Verify source version consistency
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-version-consistency.mjs ]]; then
+            node scripts/verify-version-consistency.mjs
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const readJson = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+          const cargoVersion = (path) => {
+            const text = fs.readFileSync(path, "utf8");
+            const marker = "[package]";
+            const start = text.indexOf(marker);
+            if (start < 0) throw new Error(`Missing [package] section in ${path}`);
+            const remainder = text.slice(start + marker.length);
+            const nextSection = remainder.search(/^\[/m);
+            const section = nextSection < 0 ? remainder : remainder.slice(0, nextSection);
+            const version = section.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
+            if (!version) throw new Error(`Missing package version in ${path}`);
+            return version;
+          };
+
+          const packageJson = readJson("package.json");
+          const packageLock = readJson("package-lock.json");
+          const tauri = readJson("src-tauri/tauri.conf.json");
+          const expected = packageJson.version;
+          const versions = {
+            lock: packageLock.version,
+            lockRoot: packageLock.packages?.[""]?.version,
+            gameCore: cargoVersion("crates/game-core/Cargo.toml"),
+            tauriCargo: cargoVersion("src-tauri/Cargo.toml"),
+            tauriConfig: tauri.version,
+          };
+
+          const synchronized = Object.values(versions).every((version) => version === expected);
+          const knownLegacy010 =
+            expected === "0.10.0" &&
+            versions.lock === "0.10.0" &&
+            versions.lockRoot === "0.10.0" &&
+            versions.gameCore === "0.9.5" &&
+            versions.tauriCargo === "0.9.5" &&
+            versions.tauriConfig === "0.10.0";
+
+          if (!synchronized && !knownLegacy010) {
+            throw new Error(
+              `Legacy tag source version mismatch: expected ${expected}, got ${Object.values(versions).join(", ")}`,
+            );
+          }
+          if (knownLegacy010) {
+            console.log("Accepted the immutable v0.10.0 legacy Rust package metadata tuple.");
+          }
+          NODE
+
       - name: Install web dependencies
+        env:
+          NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
         run: npm ci
 
-      - name: Configure Android Tauri npm bridge
+      - name: Restore legacy source metadata
+        if: env.LEGACY_DEPENDENCY_POLICY == 'true'
+        run: git checkout -- package.json
+
+      - name: Configure pinned Rust toolchain
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.scripts.tauri = 'tauri';
-          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
-          NODE
+          if [[ ! -f rust-toolchain.toml ]]; then
+            rustup toolchain install 1.98.1 --profile minimal
+            rustup override set 1.98.1
+          fi
+          rustc --version --verbose
+
+      - name: Verify Cargo dependency policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-cargo-dependency-policy.sh ]]; then
+            bash scripts/verify-cargo-dependency-policy.sh
+            exit 0
+          fi
+
+          python3 <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          manifests = [
+              Path("crates/game-core/Cargo.toml"),
+              Path("src-tauri/Cargo.toml"),
+          ]
+          locks = [
+              Path("crates/game-core/Cargo.lock"),
+              Path("src-tauri/Cargo.lock"),
+          ]
+          checksum = re.compile(r"^[0-9a-f]{64}$")
+          registry = "registry+https://github.com/rust-lang/crates.io-index"
+
+          def dependency_sections(data):
+              for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                  yield data.get(key, {})
+              for target in data.get("target", {}).values():
+                  for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                      yield target.get(key, {})
+
+          for manifest in manifests:
+              data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+              for section in dependency_sections(data):
+                  for name, value in section.items():
+                      if isinstance(value, dict) and ("git" in value or "registry" in value):
+                          raise SystemExit(f"{manifest}: legacy dependency {name} uses git or alternate registry")
+
+          for lock in locks:
+              data = tomllib.loads(lock.read_text(encoding="utf-8"))
+              for package in data.get("package", []):
+                  source = package.get("source")
+                  if source is None:
+                      continue
+                  if source != registry:
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} uses non-crates.io source {source}"
+                      )
+                  digest = package.get("checksum")
+                  if not isinstance(digest, str) or not checksum.fullmatch(digest):
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} lacks a crates.io checksum"
+                      )
+
+          print("Verified legacy Cargo manifests and immutable crates.io lock sources.")
+          PY
 
       - name: Verify native dependency locks
         run: |
-          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
-          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify Android Rust advisory scope
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-rust-advisory-scope.sh ]]; then
+            bash scripts/verify-rust-advisory-scope.sh aarch64-linux-android armv7-linux-androideabi
+            exit 0
+          fi
+          for target in aarch64-linux-android armv7-linux-androideabi; do
+            tree="$(cargo tree --manifest-path src-tauri/Cargo.toml --locked --target "$target" --edges normal,build --prefix none --format '{p}')"
+            if grep -Eq '^glib v0\.(15|16|17|18|19)\.' <<<"$tree"; then
+              echo "RUSTSEC-2024-0429 affected glib is reachable for release target $target" >&2
+              exit 1
+            fi
+          done
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -109,18 +358,24 @@ jobs:
       - name: Run frontend tests against WASM core
         run: npm test
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Configure Android toolchain
         run: |
           NDK_VERSION="29.0.14206865"
+          BUILD_TOOLS_VERSION="36.0.0"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
-          if [[ ! -d "$NDK_PATH" ]]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
-          fi
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          PACKAGES=("platforms;android-36" "build-tools;$BUILD_TOOLS_VERSION" "ndk;$NDK_VERSION")
+          yes | "$SDKMANAGER" "${PACKAGES[@]}" >/dev/null
+
           test -d "$NDK_PATH"
+          test -x "$BUILD_TOOLS_PATH/apksigner"
+          test -x "$BUILD_TOOLS_PATH/aapt"
+          test -x "$BUILD_TOOLS_PATH/zipalign"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_BUILD_TOOLS=$BUILD_TOOLS_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Restore Android upload key
@@ -142,8 +397,8 @@ jobs:
 
       - name: Initialize Android wrapper
         run: |
-          cargo tauri android init --ci
           npm run prepare:icons
+          ./node_modules/.bin/tauri android init --ci
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
@@ -183,7 +438,7 @@ jobs:
 
       - name: Build signed AAB
         run: |
-          cargo tauri android build --aab --target aarch64 --target armv7
+          ./node_modules/.bin/tauri android build --aab --target aarch64 --target armv7
           mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -f "$AAB"
@@ -191,7 +446,7 @@ jobs:
 
       - name: Build signed verification APK
         run: |
-          cargo tauri android build --apk --target aarch64 --target armv7
+          ./node_modules/.bin/tauri android build --apk --target aarch64 --target armv7
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
           test -f "$APK"
           cp "$APK" "release/Dots-v${VERSION}-Android-verification.apk"
@@ -218,8 +473,8 @@ jobs:
           test -n "$ACTUAL_AAB_CERT"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_CERT"
 
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
+          AAPT="$ANDROID_BUILD_TOOLS/aapt"
           test -x "$APKSIGNER"
           test -x "$AAPT"
 
@@ -243,7 +498,7 @@ jobs:
       - name: Verify Android manifest hardening
         run: |
           APK="release/Dots-v${VERSION}-Android-verification.apk"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          AAPT="$ANDROID_BUILD_TOOLS/aapt"
           test -f "$APK"
           test -x "$AAPT"
 
@@ -271,7 +526,7 @@ jobs:
           test -f "$AAB"
           test -f "$APK"
 
-          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          ZIPALIGN="$ANDROID_BUILD_TOOLS/zipalign"
           test -x "$ZIPALIGN"
           "$ZIPALIGN" -c -P 16 -v 4 "$APK" >/dev/null
 
@@ -367,6 +622,13 @@ jobs:
           java -jar "$BUNDLETOOL" dump config --bundle="$AAB" > "$BUNDLE_CONFIG"
           grep -F 'PAGE_ALIGNMENT_16K' "$BUNDLE_CONFIG" >/dev/null
 
+      - name: Upload signed AAB artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-Android-AAB
+          path: release/Dots-v${{ env.VERSION }}-Android.aab
+          if-no-files-found: error
+
       - name: Stage signed installable APK
         run: cp "release/Dots-v${VERSION}-Android-verification.apk" "release/Dots-v${VERSION}-Android.apk"
 
@@ -381,23 +643,16 @@ jobs:
         if: always()
         run: rm -f src-tauri/gen/android/keystore.properties "${KEYSTORE_PATH:-}" release/Dots-v${VERSION}-Android-verification.apk release/Dots-v${VERSION}-Android.apk
 
-      - name: Attach AAB to GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for attempt in {1..30}; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              break
-            fi
-            sleep 10
-          done
-          gh release view "$TAG" >/dev/null
-          gh release upload "$TAG" "release/Dots-v${VERSION}-Android.aab" --clobber
-
   macos:
     name: Universal macOS DMG
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -413,6 +668,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Resolve release version
+        id: version
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
         run: |
@@ -421,6 +677,7 @@ jobs:
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pin existing release tag source
         if: github.event_name == 'push'
@@ -430,6 +687,7 @@ jobs:
             if [ -z "$EXPECTED" ]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
+            test "$EXPECTED" = "$GITHUB_SHA"
             git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
             git checkout --detach FETCH_HEAD
             ACTUAL="$(git rev-parse HEAD)"
@@ -437,13 +695,218 @@ jobs:
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
 
+      - name: Record release source commit
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Verify dependency install policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-dependency-policy.mjs ]]; then
+            npm run verify:dependencies
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const policy = {};
+
+          const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+          for (const section of ["dependencies", "devDependencies"]) {
+            for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+              if (typeof version !== "string" || !exactVersion.test(version)) {
+                throw new Error(`Legacy tag direct dependency is not exact: ${name}@${String(version)}`);
+              }
+            }
+          }
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!path) continue;
+            if (typeof metadata?.resolved !== "string" || !metadata.resolved.startsWith("https://registry.npmjs.org/")) {
+              throw new Error(`Legacy tag contains non-registry dependency source: ${path}`);
+            }
+            if (typeof metadata.integrity !== "string" || !metadata.integrity.startsWith("sha512-")) {
+              throw new Error(`Legacy tag dependency lacks SHA-512 integrity: ${path}`);
+            }
+          }
+
+          const packageName = (path) => {
+            const marker = "node_modules/";
+            const index = path.lastIndexOf(marker);
+            return index === -1 ? undefined : path.slice(index + marker.length);
+          };
+
+          for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+            if (!metadata?.hasInstallScript) continue;
+            const name = packageName(path);
+            const version = metadata.version;
+            if (!name || typeof version !== "string") {
+              throw new Error(`Unable to identify install-script package at ${path}`);
+            }
+            if (name === "esbuild") {
+              policy[`${name}@${version}`] = true;
+            } else if (name === "fsevents" && metadata.optional === true) {
+              policy[name] = false;
+            } else {
+              throw new Error(`Legacy tag contains unreviewed install-script package ${name}@${version}`);
+            }
+          }
+
+          packageJson.allowScripts = policy;
+          fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          echo "LEGACY_DEPENDENCY_POLICY=true" >> "$GITHUB_ENV"
+
+      - name: Verify source version consistency
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-version-consistency.mjs ]]; then
+            node scripts/verify-version-consistency.mjs
+            exit 0
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const readJson = (path) => JSON.parse(fs.readFileSync(path, "utf8"));
+          const cargoVersion = (path) => {
+            const text = fs.readFileSync(path, "utf8");
+            const marker = "[package]";
+            const start = text.indexOf(marker);
+            if (start < 0) throw new Error(`Missing [package] section in ${path}`);
+            const remainder = text.slice(start + marker.length);
+            const nextSection = remainder.search(/^\[/m);
+            const section = nextSection < 0 ? remainder : remainder.slice(0, nextSection);
+            const version = section.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
+            if (!version) throw new Error(`Missing package version in ${path}`);
+            return version;
+          };
+
+          const packageJson = readJson("package.json");
+          const packageLock = readJson("package-lock.json");
+          const tauri = readJson("src-tauri/tauri.conf.json");
+          const expected = packageJson.version;
+          const versions = {
+            lock: packageLock.version,
+            lockRoot: packageLock.packages?.[""]?.version,
+            gameCore: cargoVersion("crates/game-core/Cargo.toml"),
+            tauriCargo: cargoVersion("src-tauri/Cargo.toml"),
+            tauriConfig: tauri.version,
+          };
+
+          const synchronized = Object.values(versions).every((version) => version === expected);
+          const knownLegacy010 =
+            expected === "0.10.0" &&
+            versions.lock === "0.10.0" &&
+            versions.lockRoot === "0.10.0" &&
+            versions.gameCore === "0.9.5" &&
+            versions.tauriCargo === "0.9.5" &&
+            versions.tauriConfig === "0.10.0";
+
+          if (!synchronized && !knownLegacy010) {
+            throw new Error(
+              `Legacy tag source version mismatch: expected ${expected}, got ${Object.values(versions).join(", ")}`,
+            );
+          }
+          if (knownLegacy010) {
+            console.log("Accepted the immutable v0.10.0 legacy Rust package metadata tuple.");
+          }
+          NODE
+
       - name: Install web dependencies
+        env:
+          NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
         run: npm ci
+
+      - name: Restore legacy source metadata
+        if: env.LEGACY_DEPENDENCY_POLICY == 'true'
+        run: git checkout -- package.json
+
+      - name: Configure pinned Rust toolchain
+        run: |
+          if [[ ! -f rust-toolchain.toml ]]; then
+            rustup toolchain install 1.98.1 --profile minimal
+            rustup override set 1.98.1
+          fi
+          rustc --version --verbose
+
+      - name: Verify Cargo dependency policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-cargo-dependency-policy.sh ]]; then
+            bash scripts/verify-cargo-dependency-policy.sh
+            exit 0
+          fi
+
+          python3 <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          manifests = [
+              Path("crates/game-core/Cargo.toml"),
+              Path("src-tauri/Cargo.toml"),
+          ]
+          locks = [
+              Path("crates/game-core/Cargo.lock"),
+              Path("src-tauri/Cargo.lock"),
+          ]
+          checksum = re.compile(r"^[0-9a-f]{64}$")
+          registry = "registry+https://github.com/rust-lang/crates.io-index"
+
+          def dependency_sections(data):
+              for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                  yield data.get(key, {})
+              for target in data.get("target", {}).values():
+                  for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                      yield target.get(key, {})
+
+          for manifest in manifests:
+              data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+              for section in dependency_sections(data):
+                  for name, value in section.items():
+                      if isinstance(value, dict) and ("git" in value or "registry" in value):
+                          raise SystemExit(f"{manifest}: legacy dependency {name} uses git or alternate registry")
+
+          for lock in locks:
+              data = tomllib.loads(lock.read_text(encoding="utf-8"))
+              for package in data.get("package", []):
+                  source = package.get("source")
+                  if source is None:
+                      continue
+                  if source != registry:
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} uses non-crates.io source {source}"
+                      )
+                  digest = package.get("checksum")
+                  if not isinstance(digest, str) or not checksum.fullmatch(digest):
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} lacks a crates.io checksum"
+                      )
+
+          print("Verified legacy Cargo manifests and immutable crates.io lock sources.")
+          PY
 
       - name: Verify native dependency locks
         run: |
-          cargo metadata --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
-          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
+      - name: Verify macOS Rust advisory scope
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-rust-advisory-scope.sh ]]; then
+            bash scripts/verify-rust-advisory-scope.sh aarch64-apple-darwin x86_64-apple-darwin
+            exit 0
+          fi
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            tree="$(cargo tree --manifest-path src-tauri/Cargo.toml --locked --target "$target" --edges normal,build --prefix none --format '{p}')"
+            if grep -Eq '^glib v0\.(15|16|17|18|19)\.' <<<"$tree"; then
+              echo "RUSTSEC-2024-0429 affected glib is reachable for release target $target" >&2
+              exit 1
+            fi
+          done
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -460,8 +923,6 @@ jobs:
       - name: Run frontend tests against WASM core
         run: npm test
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -472,7 +933,7 @@ jobs:
       - name: Build universal DMG
         env:
           APPLE_SIGNING_IDENTITY: '-'
-        run: cargo tauri build --bundles dmg --target universal-apple-darwin
+        run: ./node_modules/.bin/tauri build --bundles dmg --target universal-apple-darwin
 
       - name: Verify and stage DMG
         run: |
@@ -508,10 +969,81 @@ jobs:
           mkdir -p release
           cp "$DMG" "release/Dots-v${VERSION}-macOS-universal.dmg"
 
-      - name: Attach DMG to GitHub Release
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-macOS-DMG
+          path: release/Dots-v${{ env.VERSION }}-macOS-universal.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Publish native artifacts
+    needs: [android, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          persist-credentials: false
+
+      - name: Resolve release source
+        env:
+          ANDROID_VERSION: ${{ needs.android.outputs.version }}
+          MACOS_VERSION: ${{ needs.macos.outputs.version }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          test -n "$ANDROID_VERSION"
+          test "$ANDROID_VERSION" = "$MACOS_VERSION"
+          VERSION="$ANDROID_VERSION"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+
+      - name: Download Android AAB
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Dots-v${{ needs.android.outputs.version }}-Android-AAB
+          path: release
+
+      - name: Download macOS DMG
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Dots-v${{ needs.macos.outputs.version }}-macOS-DMG
+          path: release
+
+      - name: Create native checksums
+        run: |
+          cd release
+          sha256sum "Dots-v${VERSION}-Android.aab" "Dots-v${VERSION}-macOS-universal.dmg" > Dots-v${VERSION}-SHA256SUMS.txt
+
+      - name: Attest native artifacts
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            release/Dots-v${{ env.VERSION }}-Android.aab
+            release/Dots-v${{ env.VERSION }}-macOS-universal.dmg
+
+      - name: Attach native artifacts to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          AAB="release/Dots-v${VERSION}-Android.aab"
+          DMG="release/Dots-v${VERSION}-macOS-universal.dmg"
+          CHECKSUMS="release/Dots-v${VERSION}-SHA256SUMS.txt"
+          test -f "$AAB"
+          test -f "$DMG"
+          test -f "$CHECKSUMS"
+
           for attempt in {1..30}; do
             if gh release view "$TAG" >/dev/null 2>&1; then
               break
@@ -519,4 +1051,12 @@ jobs:
             sleep 10
           done
           gh release view "$TAG" >/dev/null
-          gh release upload "$TAG" "release/Dots-v${VERSION}-macOS-universal.dmg" --clobber
+
+          EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+          if [[ -z "$EXPECTED" ]]; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          fi
+          test -n "$EXPECTED"
+          test "$EXPECTED" = "$SOURCE_SHA"
+
+          gh release upload "$TAG" "$AAB" "$DMG" "$CHECKSUMS" --clobber
