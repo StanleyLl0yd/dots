@@ -4,6 +4,25 @@ const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import
 const packageLock = JSON.parse(fs.readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const policy = packageJson.allowScripts ?? {};
 
+const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+for (const section of ["dependencies", "devDependencies"]) {
+  for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+    if (typeof version !== "string" || !exactVersion.test(version)) {
+      throw new Error(`Direct dependency must use an exact version: ${name}@${String(version)}`);
+    }
+  }
+}
+
+for (const [path, metadata] of Object.entries(packageLock.packages ?? {})) {
+  if (!path) continue;
+  if (typeof metadata?.resolved !== "string" || !metadata.resolved.startsWith("https://registry.npmjs.org/")) {
+    throw new Error(`Non-registry dependency source in lockfile: ${path}`);
+  }
+  if (typeof metadata.integrity !== "string" || !metadata.integrity.startsWith("sha512-")) {
+    throw new Error(`Missing SHA-512 integrity for lockfile package: ${path}`);
+  }
+}
+
 const packageName = (path) => {
   const marker = "node_modules/";
   const index = path.lastIndexOf(marker);
@@ -43,4 +62,4 @@ for (const [entry, allowed] of Object.entries(policy)) {
   }
 }
 
-console.log(`Verified explicit install-script policy for ${scripted.length} package(s).`);
+console.log(`Verified registry/integrity policy and explicit install-script decisions for ${scripted.length} scripted package(s).`);
