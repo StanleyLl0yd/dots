@@ -59,7 +59,7 @@ The permanent CI layers are complementary:
 2. Clippy runs with warnings denied for the Rust core.
 3. Frontend session/persistence/stress tests execute against the compiled Rust WASM core rather than a JavaScript rules mock.
 4. The production PWA build is verified after minification and WASM optimization.
-5. Both committed Cargo lockfiles are scanned against RustSec on dependency changes and weekly, with advisory warnings denied; the one Linux-only Tauri `glib` exception is additionally checked against every Android/macOS release target graph.
+5. Both committed Cargo lockfiles are scanned against RustSec on dependency changes and weekly. The game core denies every warning. The Tauri lock denies every warning outside a fixed reviewed baseline: GTK3/proc-macro/`glib` entries are allowed only while target-graph checks prove they are absent from Android/macOS, and five `unic-*` unmaintained advisories remain temporarily accepted through upstream `tauri-utils` → `urlpattern` 0.3. Any new RustSec warning fails CI.
 6. Tauri compilation is checked with the platform prerequisites installed.
 7. Every CI, audit, deploy, store, and release path validates exact npm dependency sources/integrity, the install-script allow/deny policy, and synchronized source versions before installation.
 8. Required CI rejects unpinned external Actions/containers, persisted checkout credentials, `pull_request_target`, `write-all`, and the insecure Node runtime fallback; PR dependency changes also pass Dependency Review.
