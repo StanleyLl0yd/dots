@@ -57,7 +57,7 @@ The permanent CI layers are complementary:
 2. Clippy runs with warnings denied for the Rust core.
 3. Frontend session/persistence/stress tests execute against the compiled Rust WASM core rather than a JavaScript rules mock.
 4. The production PWA build is verified after minification and WASM optimization.
-5. Both committed Cargo lockfiles are scanned against RustSec on dependency changes and weekly, with advisory warnings denied.
+5. Both committed Cargo lockfiles are scanned against RustSec on dependency changes and weekly, with advisory warnings denied; the one Linux-only Tauri `glib` exception is additionally checked against every Android/macOS release target graph.
 6. Tauri compilation is checked with the platform prerequisites installed.
 7. Every CI, audit, deploy, store, and release path validates the npm install-script allow/deny policy before running `npm ci`.
 8. Deploy and release workflows rebuild and retest the Rust/WASM core instead of trusting a pre-generated module.
