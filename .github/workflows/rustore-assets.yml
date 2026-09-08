@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - package.json
+      - rust-toolchain.toml
       - branding/**
       - scripts/prepare-icon-assets.mjs
       - scripts/capture-rustore-android.mjs
