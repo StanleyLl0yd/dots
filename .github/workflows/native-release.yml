@@ -233,7 +233,7 @@ jobs:
       - name: Initialize Android wrapper
         run: |
           npm run prepare:icons
-          npm run tauri android init -- --ci
+          ./node_modules/.bin/tauri android init --ci
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
@@ -273,7 +273,7 @@ jobs:
 
       - name: Build signed AAB
         run: |
-          npm run tauri android build -- --aab --target aarch64 --target armv7
+          ./node_modules/.bin/tauri android build --aab --target aarch64 --target armv7
           mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -f "$AAB"
@@ -281,7 +281,7 @@ jobs:
 
       - name: Build signed verification APK
         run: |
-          npm run tauri android build -- --apk --target aarch64 --target armv7
+          ./node_modules/.bin/tauri android build --apk --target aarch64 --target armv7
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
           test -f "$APK"
           cp "$APK" "release/Dots-v${VERSION}-Android-verification.apk"
@@ -624,7 +624,7 @@ jobs:
       - name: Build universal DMG
         env:
           APPLE_SIGNING_IDENTITY: '-'
-        run: npm run tauri build -- --bundles dmg --target universal-apple-darwin
+        run: ./node_modules/.bin/tauri build --bundles dmg --target universal-apple-darwin
 
       - name: Verify and stage DMG
         run: |
