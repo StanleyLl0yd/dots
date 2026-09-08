@@ -281,4 +281,4 @@ Automated coverage includes:
 
 Version **0.8.2** hardened the JavaScript toolchain/security baseline with reproducible installs and dependency gates. Version **0.9.0** moved browser AI computation into a Worker, and 0.9.1 hardened input/replay and Worker/PWA failure handling without changing game rules or AI policy.
 
-Version **0.10.0** is the current pre-1.0 product baseline. The 0.9.4 hardened native/RuStore architecture remains unchanged; 0.10.0 adds the shared start menu and presentation-only local sound layer while preserving authoritative game rules, move-log saves, AI search policy/difficulty semantics, PWA behavior, accessibility, and native hardening.
+Version **1.0.0** is the current stable product baseline. It promotes the 0.10.0 product behavior without changing authoritative game rules, move-log saves, AI search policy/difficulty semantics, PWA behavior, accessibility, or the hardened native/RuStore architecture established in 0.9.4.

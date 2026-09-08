@@ -13,7 +13,7 @@
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
-[![Source version](https://img.shields.io/badge/source-0.10.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-1.0.0-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -27,7 +27,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **0.10.0** · RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **1.0.0** · stable RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
@@ -136,6 +136,8 @@ When a newer application version is waiting, Dots prompts before applying it ins
 - Russian UI when Russian is present in browser/system locales, English otherwise;
 - CI, automatic GitHub Pages deployment, automated GitHub releases, and proprietary All Rights Reserved license.
 
+Version **1.0.0** is the first stable release of the fully audited and hardened Dots codebase. It preserves the 0.10.0 gameplay rules, save format, scoring, and AI policy while completing release, native packaging, supply-chain, and provenance hardening.
+
 Version **0.10.0** adds the localized start menu and optional locally synthesized move/capture feedback. Sound is enabled by default, stored as a versioned preference, and can be changed from both the start menu and the in-game toolbar. Game rules, move-log saves, AI policy, and native hardening remain unchanged.
 
 Version **0.9.5** refreshes the application identity from one preserved raster master across Web/PWA, Tauri desktop, Android launcher, and RuStore store assets. Gameplay, rules, saves, AI, accessibility, and native hardening are unchanged.
@@ -206,10 +208,10 @@ npm run build
 
 ## 🗺 Roadmap
 
-1. Publish and validate the 0.10.0 Android AAB in RuStore using the dedicated app-signing/upload-key flow.
+1. Publish and validate the **1.0.0** Android AAB in RuStore using the dedicated app-signing/upload-key flow.
 2. Continue real-device Android/macOS and installed-PWA validation and fix concrete regressions only.
-3. Continue adversarial topology and tactical AI validation without speculative feature expansion before 1.0.
-4. Release **1.0.0** after clean real-device, persistence, offline/update, Worker-cancellation, accessibility, and long-game checks.
+3. Continue adversarial topology and tactical AI validation when driven by failing positions or measured regressions.
+4. Keep 1.0.x maintenance releases narrowly scoped; reserve larger product changes for a justified 1.1 milestone.
 
 ## 📄 License
 
