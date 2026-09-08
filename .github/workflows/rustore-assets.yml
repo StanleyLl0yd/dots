@@ -227,4 +227,15 @@ jobs:
             sleep 10
           done
           gh release view "$TAG" >/dev/null
+
+          EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+          if [[ -z "$EXPECTED" ]]; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          fi
+          test -n "$EXPECTED"
+          if [[ "$EXPECTED" != "$GITHUB_SHA" ]]; then
+            echo "Skipping release attachment: $TAG points to $EXPECTED, current push is $GITHUB_SHA"
+            exit 0
+          fi
+
           gh release upload "$TAG" "release/Dots-v${VERSION}-RuStore-assets.zip" --clobber
