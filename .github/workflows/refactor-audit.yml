@@ -23,6 +23,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm run verify:dependencies
+      - run: npm run verify:version
       - run: npm ci
       - name: Verify Rust dependency locks
         run: |
@@ -90,6 +91,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm run verify:dependencies
+      - run: npm run verify:version
       - run: npm ci
       - name: Declare non-standard entry points
         run: |
@@ -116,6 +118,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm run verify:dependencies
+      - run: npm run verify:version
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include dependencies
 
@@ -129,6 +132,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm run verify:dependencies
+      - run: npm run verify:version
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
 
@@ -142,5 +146,6 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm run verify:dependencies
+      - run: npm run verify:version
       - run: npm ci
       - run: npx --yes knip@5.82.1 --no-progress --include binaries
