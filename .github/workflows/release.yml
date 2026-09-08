@@ -18,13 +18,20 @@ on:
       - scripts/verify-source-boundary.mjs
       - .github/workflows/release.yml
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,8 +42,13 @@ jobs:
           package-manager-cache: false
       - run: npm run verify:dependencies
       - run: npm run verify:version
+      - run: npm run verify:workflows
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Install RustSec audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit Rust dependencies
+        run: bash scripts/audit-rust-dependencies.sh
       - name: Configure Rust WASM toolchain
         run: |
           rustup target add wasm32-unknown-unknown
@@ -46,16 +58,26 @@ jobs:
       - run: cargo test --manifest-path crates/game-core/Cargo.toml --locked
       - run: npm test
       - run: npm run build
-
       - id: version
         run: |
           version=$(node -p "require('./package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - id: status
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v${{ steps.version.outputs.version }}
+          TAG: v${{ needs.verify.outputs.version }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -66,8 +88,8 @@ jobs:
       - if: steps.status.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: v${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          TAG: v${{ needs.verify.outputs.version }}
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
