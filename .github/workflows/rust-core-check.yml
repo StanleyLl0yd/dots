@@ -6,11 +6,13 @@ on:
     paths:
       - crates/game-core/**
       - src-tauri/**
+      - rust-toolchain.toml
       - .github/workflows/rust-core-check.yml
   pull_request:
     paths:
       - crates/game-core/**
       - src-tauri/**
+      - rust-toolchain.toml
       - .github/workflows/rust-core-check.yml
   workflow_dispatch:
 
