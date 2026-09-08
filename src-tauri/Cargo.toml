@@ -15,7 +15,7 @@ tauri-build = "=2.6.3"
 [dependencies]
 game-core = { path = "../crates/game-core" }
 tauri = "=2.11.3"
-tauri-plugin-opener = "=2.5.4"
+tauri-plugin-opener = "=2.5.5"
 
 [profile.release]
 opt-level = 3
