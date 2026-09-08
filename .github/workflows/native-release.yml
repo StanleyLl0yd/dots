@@ -40,37 +40,89 @@ jobs:
       contents: read
     outputs:
       build: ${{ steps.guard.outputs.build }}
+      source_ref: ${{ steps.guard.outputs.source_ref }}
+      source_sha: ${{ steps.guard.outputs.source_sha }}
     steps:
-      - name: Checkout current push source
-        if: github.event_name == 'push'
+      - name: Checkout workflow source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Guard automatic release provenance
         id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
+          resolve_tag_sha() {
+            local tag="$1"
+            local sha
+            sha="$(git ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')"
+            if [[ -z "$sha" ]]; then
+              sha="$(git ls-remote --tags origin "refs/tags/$tag" | awk '{print $1}')"
+            fi
+            test -n "$sha"
+            printf '%s\n' "$sha"
+          }
+
           if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            test -n "$DISPATCH_TAG"
+            SOURCE_SHA="$(resolve_tag_sha "$DISPATCH_TAG")"
             echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           VERSION="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
           TAG="v$VERSION"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
-            if [[ -z "$EXPECTED" ]]; then
-              EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
-            fi
-            if [[ "$EXPECTED" != "$GITHUB_SHA" ]]; then
-              echo "build=false" >> "$GITHUB_OUTPUT"
-              echo "Skipping automatic native rebuild: $TAG points to $EXPECTED, current push is $GITHUB_SHA"
-              exit 0
-            fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          echo "build=true" >> "$GITHUB_OUTPUT"
+          EXPECTED="$(resolve_tag_sha "$TAG")"
+          if [[ "$EXPECTED" == "$GITHUB_SHA" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "Skipping automatic native rebuild: $TAG points to $EXPECTED and no matching release exists."
+            exit 0
+          fi
+
+          ASSETS="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          if grep -Fxq "Dots-v${VERSION}-Android.aab" <<<"$ASSETS" && \
+             grep -Fxq "Dots-v${VERSION}-macOS-universal.dmg" <<<"$ASSETS"; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "Skipping automatic native rebuild: $TAG already has both native release artifacts."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$EXPECTED"
+          mapfile -t CHANGED < <(git diff --name-only "$EXPECTED" "$GITHUB_SHA")
+          if [[ "${#CHANGED[@]}" -eq 1 && "${CHANGED[0]}" == ".github/workflows/native-release.yml" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$TAG" >> "$GITHUB_OUTPUT"
+            echo "source_sha=$EXPECTED" >> "$GITHUB_OUTPUT"
+            echo "Repairing incomplete $TAG native artifacts from tagged source $EXPECTED using the updated workflow."
+            exit 0
+          fi
+
+          echo "build=false" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "Skipping automatic native rebuild: $TAG points to $EXPECTED and current source changes are not workflow-only."
   android:
     name: Signed Android AAB
     needs: prepare
@@ -85,7 +137,7 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ needs.prepare.outputs.source_ref }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -132,20 +184,21 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Pin existing release tag source
+      - name: Verify existing release tag source
         if: github.event_name == 'push'
+        env:
+          EXPECTED_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
-            if [ -z "$EXPECTED" ]; then
+            if [[ -z "$EXPECTED" ]]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
-            test "$EXPECTED" = "$GITHUB_SHA"
-            git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
-            git checkout --detach FETCH_HEAD
+            test -n "$EXPECTED"
+            test "$EXPECTED" = "$EXPECTED_SOURCE_SHA"
             ACTUAL="$(git rev-parse HEAD)"
             test "$ACTUAL" = "$EXPECTED"
-            echo "Pinned existing release source $TAG at $ACTUAL"
+            echo "Verified release source $TAG at $ACTUAL"
           fi
 
       - name: Record release source commit
@@ -417,7 +470,7 @@ jobs:
       - name: Initialize Android wrapper
         run: |
           npm run prepare:icons
-          ./node_modules/.bin/tauri android init --ci
+          npm run tauri android init -- --ci
           cp scripts/tauri-android-build.gradle.kts src-tauri/gen/android/app/build.gradle.kts
           python - <<'PY'
           from pathlib import Path
@@ -457,7 +510,7 @@ jobs:
 
       - name: Build signed AAB
         run: |
-          ./node_modules/.bin/tauri android build --aab --target aarch64 --target armv7
+          npm run tauri android build -- --aab --target aarch64 --target armv7
           mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -f "$AAB"
@@ -465,7 +518,7 @@ jobs:
 
       - name: Build signed verification APK
         run: |
-          ./node_modules/.bin/tauri android build --apk --target aarch64 --target armv7
+          npm run tauri android build -- --apk --target aarch64 --target armv7
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
           test -f "$APK"
           cp "$APK" "release/Dots-v${VERSION}-Android-verification.apk"
@@ -676,7 +729,7 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ needs.prepare.outputs.source_ref }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -698,20 +751,21 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Pin existing release tag source
+      - name: Verify existing release tag source
         if: github.event_name == 'push'
+        env:
+          EXPECTED_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
-            if [ -z "$EXPECTED" ]; then
+            if [[ -z "$EXPECTED" ]]; then
               EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
             fi
-            test "$EXPECTED" = "$GITHUB_SHA"
-            git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
-            git checkout --detach FETCH_HEAD
+            test -n "$EXPECTED"
+            test "$EXPECTED" = "$EXPECTED_SOURCE_SHA"
             ACTUAL="$(git rev-parse HEAD)"
             test "$ACTUAL" = "$EXPECTED"
-            echo "Pinned existing release source $TAG at $ACTUAL"
+            echo "Verified release source $TAG at $ACTUAL"
           fi
 
       - name: Record release source commit
@@ -997,7 +1051,7 @@ jobs:
 
   publish:
     name: Publish native artifacts
-    needs: [android, macos]
+    needs: [prepare, android, macos]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -1008,7 +1062,7 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ needs.prepare.outputs.source_ref }}
           persist-credentials: false
 
       - name: Resolve release source
@@ -1016,6 +1070,7 @@ jobs:
           ANDROID_VERSION: ${{ needs.android.outputs.version }}
           MACOS_VERSION: ${{ needs.macos.outputs.version }}
           DISPATCH_TAG: ${{ inputs.tag }}
+          EXPECTED_SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
           test -n "$ANDROID_VERSION"
           test "$ANDROID_VERSION" = "$MACOS_VERSION"
@@ -1023,6 +1078,7 @@ jobs:
           TAG="${DISPATCH_TAG:-v$VERSION}"
           test "$TAG" = "v$VERSION"
           SOURCE_SHA="$(git rev-parse HEAD)"
+          test "$SOURCE_SHA" = "$EXPECTED_SOURCE_SHA"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
@@ -1045,7 +1101,7 @@ jobs:
           sha256sum "Dots-v${VERSION}-Android.aab" "Dots-v${VERSION}-macOS-universal.dmg" > Dots-v${VERSION}-SHA256SUMS.txt
 
       - name: Attest native artifacts
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && needs.prepare.outputs.source_sha == github.sha
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
