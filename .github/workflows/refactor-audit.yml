@@ -1,9 +1,10 @@
-name: Refactor audit
+name: Repository audit
 
 on:
   push:
     branches:
       - refactor/full-audit-0.10.0
+  pull_request:
   workflow_dispatch:
 
 concurrency:
