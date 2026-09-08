@@ -81,4 +81,17 @@ jobs:
           if (!notes) throw new Error(`Empty CHANGELOG section for ${version}`);
           writeFileSync("release-notes.md", `${notes}\n`);
           NODE
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+            if [[ -z "$EXPECTED" ]]; then
+              EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+            fi
+            test -n "$EXPECTED"
+            if [[ "$EXPECTED" != "$GITHUB_SHA" ]]; then
+              echo "Refusing release creation: $TAG points to $EXPECTED, current source is $GITHUB_SHA" >&2
+              exit 1
+            fi
+          fi
+
           gh release create "$TAG" --target "$GITHUB_SHA" --title "Dots $TAG" --notes-file release-notes.md
