@@ -4,6 +4,8 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-08
+
 ### Changed
 
 - aligned Rust game-core and Tauri package metadata/lockfiles with source version 0.10.0;
@@ -22,6 +24,7 @@ All notable project changes are recorded here.
 - added reusable PR repository audits, CodeQL, Semgrep, full-history Gitleaks, and high-severity Dependency Review while enforcing SHA-pinned Actions/containers and non-persisted checkout credentials through required CI;
 - bound native artifact uploads and GitHub Release creation to the exact source commit resolved by the matching version tag;
 - changed the Tauri RustSec policy from open-ended informational warnings to an explicit reviewed warning baseline, with Android/macOS target-graph enforcement for GTK3/proc-macro/`glib` exceptions and only the current upstream `unic-*` maintenance advisories accepted in shipped target graphs.
+- promoted the fully audited and hardened codebase to stable 1.0.0 release metadata with synchronized npm, Rust, Tauri, and lockfile versions, without changing gameplay rules, save format, scoring, or AI policy.
 
 
 ## [0.10.0] - 2026-09-05
