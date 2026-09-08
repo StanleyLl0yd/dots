@@ -16,7 +16,11 @@ All notable project changes are recorded here.
 - made the AI transposition cache include focus and extension context so equivalent board states reached through different search paths cannot reuse a value computed under different ranking inputs;
 - enforced the cross-platform npm install-script policy before dependency installation in CI, audit, Pages deploy, GitHub release, native release, and RuStore asset workflows;
 - made the Tauri `glib` RustSec exception self-checking by rejecting affected `glib` versions if they become reachable from any Android or macOS release target graph;
-- guarded native and RuStore release provenance so an already tagged version cannot receive rebuilt artifacts or store assets from a different `main` commit.
+- guarded native and RuStore release provenance so an already tagged version cannot receive rebuilt artifacts or store assets from a different `main` commit;
+- added synchronized npm/Rust/Tauri version verification and preserved hardened manual rebuild support for historical native tags;
+- hardened npm further with npm 11+ engine enforcement, exact direct versions, registry-only SHA-512 lockfile sources, ambiguity-free install-script policy, and pre-install validation;
+- added reusable PR repository audits, CodeQL, Semgrep, full-history Gitleaks, and high-severity Dependency Review while enforcing SHA-pinned Actions/containers and non-persisted checkout credentials through required CI;
+- bound native artifact uploads and GitHub Release creation to the exact source commit resolved by the matching version tag.
 
 
 ## [0.10.0] - 2026-09-05
