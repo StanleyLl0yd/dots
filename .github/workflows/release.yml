@@ -32,6 +32,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - run: npm run verify:dependencies
       - run: npm ci
       - run: npm audit --audit-level=high
       - name: Configure Rust WASM toolchain
