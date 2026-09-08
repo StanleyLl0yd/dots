@@ -32,6 +32,8 @@ jobs:
       - run: npm run verify:version
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
       - name: Configure Rust WASM toolchain
         run: |
           rustup target add wasm32-unknown-unknown
