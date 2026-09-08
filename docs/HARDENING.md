@@ -49,6 +49,8 @@ Android release builds explicitly disable Java/JNI debugging, enable R8 optimiza
 
 macOS release verification checks the signed application identifier, universal `arm64`/`x86_64` executable, absence of dSYM/debug sections, and absence of exported game-core implementation symbols.
 
+Automatic native builds are allowed only when the matching version tag is absent or resolves to the current push commit; an older tag for the same version causes the automatic rebuild to be skipped. RuStore assets likewise verify tag-to-commit provenance before attaching generated files to a GitHub Release.
+
 ## CI and regression coverage
 
 The permanent CI layers are complementary:
