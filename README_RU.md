@@ -7,6 +7,8 @@
 <img src="docs/assets/readme/dots-board.webp" alt="Игровое поле Точек" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/ci.yml?branch=main&label=CI&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/codeql.yml?branch=main&label=CodeQL&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/codeql.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/dots/security.yml?branch=main&label=Security&labelColor=2b2925&color=16A34A)](https://github.com/StanleyLl0yd/dots/actions/workflows/security.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=2b2925&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
@@ -121,8 +123,8 @@ Rust-набор регрессий проводит короткие парны�
 - маркер последнего хода, счётчик ходов, feedback захвата/недопустимого хода, desktop snap-preview, Fit game и компактная mobile-панель;
 - общий защищённый JSON storage-слой без объединения независимых форматов партии, настроек и viewport;
 - зафиксированные `package-lock.json`, `crates/game-core/Cargo.lock` и `src-tauri/Cargo.lock` для воспроизводимых web/game-core/native dependency graph;
-- обязательный `npm audit --audit-level=high`, блокирующий high/critical уязвимости; сейчас audit сообщает ноль уязвимостей;
-- GitHub Actions `checkout/setup-node` и Pages-actions на Node-24-compatible runtime, плюс Dependabot для npm, Cargo и GitHub Actions;
+- обязательная supply-chain policy: точные direct npm-версии, registry-only SHA-512 lockfile, явные решения для install scripts, npm/RustSec audit, единая версия source manifests и контроль workflow pinning;
+- SHA-pinned GitHub Actions на Node-24-compatible runtime, PR Dependency Review, CodeQL, Semgrep, full-history Gitleaks и Dependabot для npm, Cargo и GitHub Actions;
 - версионированное сохранение режима, сложности и звука с явной миграцией старых форматов v1/v2;
 - точный Undo, подтверждаемая новая игра, версионированный журнал ходов и детерминированное восстановление через replay;
 - практически неограниченный pan/zoom viewport для мыши, трекпада, touch/pinch и клавиатуры;
@@ -152,7 +154,7 @@ Rust-набор регрессий проводит короткие парны�
 | Тесты | Vitest 3.2.7 + проверка артефактов сборки |
 | Хранение | версионированный журнал ходов + viewport + настройки режима/сложности/звука в localStorage |
 | ИИ | детерминированный ограниченный стратегический minimax поверх game core, выполняемый в browser Web Worker |
-| Зависимости | зафиксированные npm + Cargo lockfiles, `npm ci`, high/critical npm audit gate, Dependabot |
+| Зависимости | точные direct-версии, npm + Cargo lockfiles, registry/SHA-512 + install-script policy, npm/RustSec audits, Dependabot |
 | Хостинг | GitHub Pages |
 | CI/CD | GitHub Actions |
 
@@ -183,7 +185,7 @@ scripts/                          WASM build + source/artifact verification
 
 ## 🛠 Разработка
 
-Требования: Node.js 22+, npm, Rust с target `wasm32-unknown-unknown`, `wasm-bindgen-cli` 0.2.127 и Binaryen (`wasm-opt`).
+Требования: Node.js 22+, npm 11+, Rust с target `wasm32-unknown-unknown`, `wasm-bindgen-cli` 0.2.127 и Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git
