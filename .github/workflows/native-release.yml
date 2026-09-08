@@ -24,8 +24,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
@@ -77,6 +76,10 @@ jobs:
     if: needs.prepare.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -92,6 +95,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Resolve release version
+        id: version
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
         run: |
@@ -100,6 +104,7 @@ jobs:
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pin existing release tag source
         if: github.event_name == 'push'
@@ -503,6 +508,13 @@ jobs:
           java -jar "$BUNDLETOOL" dump config --bundle="$AAB" > "$BUNDLE_CONFIG"
           grep -F 'PAGE_ALIGNMENT_16K' "$BUNDLE_CONFIG" >/dev/null
 
+      - name: Upload signed AAB artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-Android-AAB
+          path: release/Dots-v${{ env.VERSION }}-Android.aab
+          if-no-files-found: error
+
       - name: Stage signed installable APK
         run: cp "release/Dots-v${VERSION}-Android-verification.apk" "release/Dots-v${VERSION}-Android.apk"
 
@@ -517,33 +529,16 @@ jobs:
         if: always()
         run: rm -f src-tauri/gen/android/keystore.properties "${KEYSTORE_PATH:-}" release/Dots-v${VERSION}-Android-verification.apk release/Dots-v${VERSION}-Android.apk
 
-      - name: Attach AAB to GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for attempt in {1..30}; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              break
-            fi
-            sleep 10
-          done
-          gh release view "$TAG" >/dev/null
-
-          EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
-          if [[ -z "$EXPECTED" ]]; then
-            EXPECTED="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
-          fi
-          test -n "$EXPECTED"
-          test "$EXPECTED" = "$SOURCE_SHA"
-
-          gh release upload "$TAG" "release/Dots-v${VERSION}-Android.aab" --clobber
-
   macos:
     name: Universal macOS DMG
     needs: prepare
     if: needs.prepare.outputs.build == 'true'
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -559,6 +554,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Resolve release version
+        id: version
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
         run: |
@@ -567,6 +563,7 @@ jobs:
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pin existing release tag source
         if: github.event_name == 'push'
@@ -759,10 +756,64 @@ jobs:
           mkdir -p release
           cp "$DMG" "release/Dots-v${VERSION}-macOS-universal.dmg"
 
-      - name: Attach DMG to GitHub Release
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Dots-v${{ env.VERSION }}-macOS-DMG
+          path: release/Dots-v${{ env.VERSION }}-macOS-universal.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Publish native artifacts
+    needs: [android, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          persist-credentials: false
+
+      - name: Resolve release source
+        env:
+          ANDROID_VERSION: ${{ needs.android.outputs.version }}
+          MACOS_VERSION: ${{ needs.macos.outputs.version }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          test -n "$ANDROID_VERSION"
+          test "$ANDROID_VERSION" = "$MACOS_VERSION"
+          VERSION="$ANDROID_VERSION"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+
+      - name: Download Android AAB
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Dots-v${{ needs.android.outputs.version }}-Android-AAB
+          path: release
+
+      - name: Download macOS DMG
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Dots-v${{ needs.macos.outputs.version }}-macOS-DMG
+          path: release
+
+      - name: Attach native artifacts to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          AAB="release/Dots-v${VERSION}-Android.aab"
+          DMG="release/Dots-v${VERSION}-macOS-universal.dmg"
+          test -f "$AAB"
+          test -f "$DMG"
+
           for attempt in {1..30}; do
             if gh release view "$TAG" >/dev/null 2>&1; then
               break
@@ -778,4 +829,4 @@ jobs:
           test -n "$EXPECTED"
           test "$EXPECTED" = "$SOURCE_SHA"
 
-          gh release upload "$TAG" "release/Dots-v${VERSION}-macOS-universal.dmg" --clobber
+          gh release upload "$TAG" "$AAB" "$DMG" --clobber
