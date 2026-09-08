@@ -56,6 +56,8 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
       - name: Configure Rust WASM toolchain
         run: |
           rustup target add wasm32-unknown-unknown
