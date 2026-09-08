@@ -20,7 +20,8 @@ All notable project changes are recorded here.
 - added synchronized npm/Rust/Tauri version verification and preserved hardened manual rebuild support for historical native tags;
 - hardened npm further with npm 11+ engine enforcement, exact direct versions, registry-only SHA-512 lockfile sources, ambiguity-free install-script policy, and pre-install validation;
 - added reusable PR repository audits, CodeQL, Semgrep, full-history Gitleaks, and high-severity Dependency Review while enforcing SHA-pinned Actions/containers and non-persisted checkout credentials through required CI;
-- bound native artifact uploads and GitHub Release creation to the exact source commit resolved by the matching version tag.
+- bound native artifact uploads and GitHub Release creation to the exact source commit resolved by the matching version tag;
+- changed the Tauri RustSec policy from open-ended informational warnings to an explicit reviewed warning baseline, with Android/macOS target-graph enforcement for GTK3/proc-macro/`glib` exceptions and only the current upstream `unic-*` maintenance advisories accepted in shipped target graphs.
 
 
 ## [0.10.0] - 2026-09-05
