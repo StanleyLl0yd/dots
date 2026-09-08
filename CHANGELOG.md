@@ -14,7 +14,8 @@ All notable project changes are recorded here.
 - closed residual dependency-security gaps by explicitly denying the optional macOS `fsevents` install script, enforcing cross-platform lockfile/install-script policy in required CI, and adding required/scheduled RustSec audits for both committed Cargo lockfiles, including strict authoritative-core warnings and an explicit platform-scoped Tauri GTK3 advisory exception;
 - made release/store automation more reproducible and least-privileged by disabling persisted release checkout credentials, pinning the RuStore Android NDK, and using the canonical npm/Tauri argument form;
 - made the AI transposition cache include focus and extension context so equivalent board states reached through different search paths cannot reuse a value computed under different ranking inputs;
-- enforced the cross-platform npm install-script policy before dependency installation in CI, audit, Pages deploy, GitHub release, native release, and RuStore asset workflows.
+- enforced the cross-platform npm install-script policy before dependency installation in CI, audit, Pages deploy, GitHub release, native release, and RuStore asset workflows;
+- made the Tauri `glib` RustSec exception self-checking by rejecting affected `glib` versions if they become reachable from any Android or macOS release target graph.
 
 
 ## [0.10.0] - 2026-09-05
