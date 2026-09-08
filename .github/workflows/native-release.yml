@@ -75,6 +75,9 @@ jobs:
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
 
+      - name: Verify dependency install policy
+        run: npm run verify:dependencies
+
       - name: Install web dependencies
         run: npm ci
 
@@ -424,6 +427,9 @@ jobs:
             test "$ACTUAL" = "$EXPECTED"
             echo "Pinned existing release source $TAG at $ACTUAL"
           fi
+
+      - name: Verify dependency install policy
+        run: npm run verify:dependencies
 
       - name: Install web dependencies
         run: npm ci
