@@ -258,6 +258,14 @@ jobs:
         if: env.LEGACY_DEPENDENCY_POLICY == 'true'
         run: git checkout -- package.json
 
+      - name: Configure pinned Rust toolchain
+        run: |
+          if [[ ! -f rust-toolchain.toml ]]; then
+            rustup toolchain install 1.98.1 --profile minimal
+            rustup override set 1.98.1
+          fi
+          rustc --version --verbose
+
       - name: Verify Cargo dependency policy
         shell: bash
         run: |
@@ -815,6 +823,14 @@ jobs:
       - name: Restore legacy source metadata
         if: env.LEGACY_DEPENDENCY_POLICY == 'true'
         run: git checkout -- package.json
+
+      - name: Configure pinned Rust toolchain
+        run: |
+          if [[ ! -f rust-toolchain.toml ]]; then
+            rustup toolchain install 1.98.1 --profile minimal
+            rustup override set 1.98.1
+          fi
+          rustc --version --verbose
 
       - name: Verify Cargo dependency policy
         shell: bash
