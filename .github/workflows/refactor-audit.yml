@@ -30,6 +30,8 @@ jobs:
       - run: npm run verify:version
       - run: npm run verify:workflows
       - run: npm ci
+      - name: Verify Cargo dependency policy
+        run: bash scripts/verify-cargo-dependency-policy.sh
       - name: Verify Rust dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
