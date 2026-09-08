@@ -258,6 +258,63 @@ jobs:
         if: env.LEGACY_DEPENDENCY_POLICY == 'true'
         run: git checkout -- package.json
 
+      - name: Verify Cargo dependency policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-cargo-dependency-policy.sh ]]; then
+            bash scripts/verify-cargo-dependency-policy.sh
+            exit 0
+          fi
+
+          python3 <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          manifests = [
+              Path("crates/game-core/Cargo.toml"),
+              Path("src-tauri/Cargo.toml"),
+          ]
+          locks = [
+              Path("crates/game-core/Cargo.lock"),
+              Path("src-tauri/Cargo.lock"),
+          ]
+          checksum = re.compile(r"^[0-9a-f]{64}$")
+          registry = "registry+https://github.com/rust-lang/crates.io-index"
+
+          def dependency_sections(data):
+              for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                  yield data.get(key, {})
+              for target in data.get("target", {}).values():
+                  for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                      yield target.get(key, {})
+
+          for manifest in manifests:
+              data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+              for section in dependency_sections(data):
+                  for name, value in section.items():
+                      if isinstance(value, dict) and ("git" in value or "registry" in value):
+                          raise SystemExit(f"{manifest}: legacy dependency {name} uses git or alternate registry")
+
+          for lock in locks:
+              data = tomllib.loads(lock.read_text(encoding="utf-8"))
+              for package in data.get("package", []):
+                  source = package.get("source")
+                  if source is None:
+                      continue
+                  if source != registry:
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} uses non-crates.io source {source}"
+                      )
+                  digest = package.get("checksum")
+                  if not isinstance(digest, str) or not checksum.fullmatch(digest):
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} lacks a crates.io checksum"
+                      )
+
+          print("Verified legacy Cargo manifests and immutable crates.io lock sources.")
+          PY
+
       - name: Verify native dependency locks
         run: |
           cargo metadata --format-version 1 --manifest-path crates/game-core/Cargo.toml --locked --no-deps >/dev/null
@@ -758,6 +815,63 @@ jobs:
       - name: Restore legacy source metadata
         if: env.LEGACY_DEPENDENCY_POLICY == 'true'
         run: git checkout -- package.json
+
+      - name: Verify Cargo dependency policy
+        shell: bash
+        run: |
+          if [[ -f scripts/verify-cargo-dependency-policy.sh ]]; then
+            bash scripts/verify-cargo-dependency-policy.sh
+            exit 0
+          fi
+
+          python3 <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          manifests = [
+              Path("crates/game-core/Cargo.toml"),
+              Path("src-tauri/Cargo.toml"),
+          ]
+          locks = [
+              Path("crates/game-core/Cargo.lock"),
+              Path("src-tauri/Cargo.lock"),
+          ]
+          checksum = re.compile(r"^[0-9a-f]{64}$")
+          registry = "registry+https://github.com/rust-lang/crates.io-index"
+
+          def dependency_sections(data):
+              for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                  yield data.get(key, {})
+              for target in data.get("target", {}).values():
+                  for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                      yield target.get(key, {})
+
+          for manifest in manifests:
+              data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+              for section in dependency_sections(data):
+                  for name, value in section.items():
+                      if isinstance(value, dict) and ("git" in value or "registry" in value):
+                          raise SystemExit(f"{manifest}: legacy dependency {name} uses git or alternate registry")
+
+          for lock in locks:
+              data = tomllib.loads(lock.read_text(encoding="utf-8"))
+              for package in data.get("package", []):
+                  source = package.get("source")
+                  if source is None:
+                      continue
+                  if source != registry:
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} uses non-crates.io source {source}"
+                      )
+                  digest = package.get("checksum")
+                  if not isinstance(digest, str) or not checksum.fullmatch(digest):
+                      raise SystemExit(
+                          f"{lock}: {package['name']} {package['version']} lacks a crates.io checksum"
+                      )
+
+          print("Verified legacy Cargo manifests and immutable crates.io lock sources.")
+          PY
 
       - name: Verify native dependency locks
         run: |
