@@ -183,3 +183,4 @@ await sleep(200);
 await screenshot(cdp, "04-help.png");
 
 cdp.close();
+execFileSync("python3", ["store/rustore/prepare-aso-screenshots.py", outputDir], { stdio: "inherit" });
