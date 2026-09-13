@@ -147,16 +147,16 @@ If RuStore lists any permission automatically after the AAB is uploaded, verify 
 
 The `RuStore Assets` GitHub Actions workflow produces real Android-emulator captures from the current Dots UI, adds restrained Russian ASO captions around the real interface, verifies the output, and packages it for the store.
 
-Recommended RuStore order:
+Recommended RuStore order (the last two filenames are retained for workflow compatibility):
 
 1. `01-game-capture.png` — **Окружайте и захватывайте** · real scoring capture state.
 2. `02-vs-computer.png` — **Играйте против компьютера** · Expert mode visible in the real UI.
-3. `03-start-menu.png` — **Играйте вдвоём** · real start menu with local/computer choices.
-4. `04-help.png` — **Правила всегда под рукой** · real in-app Help dialog.
+3. `03-help.png` — **Играйте вдвоём** · real start menu with local/computer choices.
+4. `04-about.png` — **Правила всегда под рукой** · real in-app Help dialog.
 
 Other generated assets:
 
 - `icon-512.png` — 512×512 store icon;
-- `promo-banner-1080x607.png` — keyword-focused promo banner for classic «Точки», offline play and computer/local modes.
+- `promo-banner-1080x607.png` — branded promo banner for the classic «Точки» identity.
 
 The screenshots are generated from an Android emulator and use the real Dots UI and game engine. The ASO frame must not invent controls, game states or capabilities. The harness fails if Russian localization, the expected mode/menu/dialog, or the real capture state is missing.
