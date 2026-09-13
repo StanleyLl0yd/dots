@@ -247,8 +247,14 @@ jobs:
               if image.size != size:
                   raise SystemExit(f'{name}: expected {size}, got {image.size}')
           PY
-          mkdir -p release
-          (cd store/rustore/generated && zip -9 "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" ./*.png)
+          test -s store/rustore/metadata-ru.md
+          mkdir -p release/package
+          cp store/rustore/generated/*.png release/package/
+          cp store/rustore/metadata-ru.md release/package/
+          cp store/rustore/README.md release/package/
+          cp store/rustore/UPLOAD.md release/package/
+          cp store/rustore/SIGNING.md release/package/
+          (cd release/package && zip -9 "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" ./*)
 
       - name: Upload RuStore assets artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
