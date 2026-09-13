@@ -168,16 +168,18 @@ assert(await cdp.evaluate(`document.querySelector('[data-ai-difficulty]')?.value
 await screenshot(cdp, "02-vs-computer.png");
 
 await seed(cdp, captureMoves, { gameMode: "local", aiDifficulty: "normal" });
-await cdp.evaluate(`document.querySelector('.help')?.click()`);
+await cdp.evaluate(`document.querySelector('.menu')?.click()`);
+await waitFor(cdp, `${visible(".start-menu")} && document.querySelector(".start-menu")?.hidden === false`, "Start menu is not visibly rendered");
+assert(await cdp.evaluate(`document.querySelector('[data-start-computer]')?.textContent?.length > 0`), "Computer start action is missing");
+assert(await cdp.evaluate(`document.querySelector('[data-start-local]')?.textContent?.length > 0`), "Local two-player start action is missing");
+await cdp.evaluate(`document.activeElement?.blur()`);
+await sleep(200);
+await screenshot(cdp, "03-start-menu.png");
+
+await cdp.evaluate(`document.querySelector('[data-start-help]')?.click()`);
 await waitFor(cdp, `document.querySelector('[data-help-dialog]')?.open === true && ${visible("[data-help-dialog]")}`, "Help dialog is not visibly rendered");
 await cdp.evaluate(`document.activeElement?.blur()`);
 await sleep(200);
-await screenshot(cdp, "03-help.png");
-
-await cdp.evaluate(`document.querySelector('[data-help-dialog]')?.close(); document.querySelector('.about-button')?.click()`);
-await waitFor(cdp, `document.querySelector('.about-dialog')?.open === true && ${visible(".about-dialog")}`, "About dialog is not visibly rendered");
-await cdp.evaluate(`document.activeElement?.blur()`);
-await sleep(200);
-await screenshot(cdp, "04-about.png");
+await screenshot(cdp, "04-help.png");
 
 cdp.close();
