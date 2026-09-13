@@ -210,13 +210,12 @@ jobs:
           subtitle = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 30)
           small = ImageFont.truetype(str(font_root / 'DejaVuSans.ttf'), 24)
           draw.text((535, 145), 'DOTS', font=title, fill='#2b2925')
-          draw.text((539, 270), 'Окружай · Захватывай', font=subtitle, fill='#2b2925')
-          draw.text((539, 314), 'Контролируй', font=subtitle, fill='#2b2925')
-          draw.text((541, 372), 'Классическая игра «Точки»', font=small, fill='#625e57')
+          draw.text((539, 270), 'Классическая игра «Точки»', font=subtitle, fill='#2b2925')
+          draw.text((541, 322), 'Офлайн · вдвоём · против компьютера', font=small, fill='#625e57')
           banner.save(out / 'promo-banner-1080x607.png', optimize=True)
           PY
 
-      - name: Verify RuStore assets
+      - name: Verify RuStore assets and ASO copy
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -246,15 +245,33 @@ jobs:
                   image.save(path, optimize=True)
               if image.size != size:
                   raise SystemExit(f'{name}: expected {size}, got {image.size}')
+
+          copy = Path('store/rustore/console-copy')
+          name = (copy / '01-name.txt').read_text().strip()
+          subtitle = (copy / '02-subtitle.txt').read_text().strip()
+          short = (copy / '03-short-description.txt').read_text().strip()
+          full = (copy / '04-full-description.txt').read_text().strip()
+          whats_new = (copy / '05-whats-new-1.0.0.txt').read_text().strip()
+          if not name or len(name) > 30:
+              raise SystemExit(f'RuStore name length invalid: {len(name)}')
+          if not subtitle or len(subtitle) > 80:
+              raise SystemExit(f'RuStore subtitle length invalid: {len(subtitle)}')
+          if not short or len(short) > 80:
+              raise SystemExit(f'RuStore short description length invalid: {len(short)}')
+          if not 2000 <= len(full) <= 4000:
+              raise SystemExit(f'RuStore full description length invalid: {len(full)}')
+          if not whats_new:
+              raise SystemExit('RuStore What’s New is empty')
           PY
           test -s store/rustore/metadata-ru.md
-          mkdir -p release/package
+          mkdir -p release/package/console-copy
           cp store/rustore/generated/*.png release/package/
           cp store/rustore/metadata-ru.md release/package/
           cp store/rustore/README.md release/package/
           cp store/rustore/UPLOAD.md release/package/
           cp store/rustore/SIGNING.md release/package/
-          (cd release/package && zip -9 "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" ./*)
+          cp store/rustore/console-copy/*.txt release/package/console-copy/
+          (cd release/package && zip -9 -r "$GITHUB_WORKSPACE/release/Dots-v${VERSION}-RuStore-assets.zip" .)
 
       - name: Upload RuStore assets artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
