@@ -29,7 +29,10 @@ const parseIcns = (bytes, source) => {
   return entries.sort();
 };
 
-const committed = execFileSync("git", ["show", `HEAD:${icnsPath}`], { encoding: "buffer" });
+const committed = execFileSync("git", ["show", `HEAD:${icnsPath}`], {
+  encoding: "buffer",
+  maxBuffer: 8 * 1024 * 1024
+});
 const generated = readFileSync(icnsPath);
 const committedEntries = parseIcns(committed, `HEAD:${icnsPath}`);
 const generatedEntries = parseIcns(generated, icnsPath);
