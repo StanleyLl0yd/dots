@@ -11,9 +11,6 @@ on:
       - crates/game-core/**
       - scripts/build-game-core-wasm.mjs
       - scripts/wasm-toolchain.mjs
-      - scripts/verify-dependency-policy.mjs
-      - scripts/verify-version-consistency.mjs
-      - scripts/verify-workflow-security.mjs
       - .github/workflows/wasm-toolchain-macos.yml
   pull_request:
     paths:
@@ -23,10 +20,8 @@ on:
       - crates/game-core/**
       - scripts/build-game-core-wasm.mjs
       - scripts/wasm-toolchain.mjs
-      - scripts/verify-dependency-policy.mjs
-      - scripts/verify-version-consistency.mjs
-      - scripts/verify-workflow-security.mjs
       - .github/workflows/wasm-toolchain-macos.yml
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
