@@ -34,6 +34,10 @@ describe("storage helpers", () => {
 
   it("removes malformed data and tolerates storage read failures", () => {
     const storage = new MemoryStorage();
+    storage.values.set("key", "");
+    expect(readStoredJson(storage, "key")).toBeUndefined();
+    expect(storage.values.has("key")).toBe(false);
+
     storage.values.set("key", "not-json");
     expect(readStoredJson(storage, "key")).toBeUndefined();
     expect(storage.values.has("key")).toBe(false);
