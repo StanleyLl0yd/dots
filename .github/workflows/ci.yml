@@ -51,3 +51,7 @@ jobs:
           cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
       - run: npm test
       - run: npm run build
+      - name: Verify generated assets are committed
+        run: |
+          git diff --check
+          git diff --exit-code
