@@ -416,10 +416,17 @@ export class CanvasBoard {
 
     const highlighted = this.highlightedCaptureKeys.has(captureKey(capture));
     const color = capture.owner === "red" ? "220, 38, 38" : "37, 99, 235";
-    const minX = Math.min(...points.map((point) => point.x));
-    const maxX = Math.max(...points.map((point) => point.x));
-    const minY = Math.min(...points.map((point) => point.y));
-    const maxY = Math.max(...points.map((point) => point.y));
+    let minX = points[0].x;
+    let maxX = points[0].x;
+    let minY = points[0].y;
+    let maxY = points[0].y;
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index];
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    }
     const size = this.size();
     if (maxX < 0 || minX > size.width || maxY < 0 || minY > size.height) return;
     const visualScale = Math.sqrt(this.viewport.zoom);
