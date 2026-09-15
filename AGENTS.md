@@ -11,7 +11,7 @@
 - Resolve each move in rule order: direct captures completed by the mover first; only when none resolve may the new dot activate an opponent house.
 - When a new capture fully surrounds active opponent captures, deactivate those inner captures and release the dots they held before deriving the new score.
 - Render enclosure outlines, fills, hatching, and other capture visuals only from confirmed active game-state captures. Never infer or create captures in the UI layer.
-- AI may rank and propose only integer game-coordinate moves. Every computer move must still be validated and accepted through the authoritative `placeStone()` / `playMove()` path; never let AI create captures, score, releases, or legality as parallel state.
+- AI may rank and propose only integer game-coordinate moves. Every computer move must still be validated and accepted through the authoritative Rust `place_stone()` / frontend `playMove()` path; never let AI create captures, score, releases, or legality as parallel state.
 - Keep the authoritative rules, capture/scoring engine, replay validation, and AI search in `crates/game-core`. TypeScript may provide DTO/session/transport/Worker orchestration only and must not reintroduce a parallel rules or AI implementation. AI behavior must remain usable offline and independently testable from the browser shell.
 - Browser AI computation may run in a dedicated Web Worker, but Worker transport is orchestration only: it may carry structured-cloned rule state/options and a proposed coordinate, never parallel legality/capture/score state.
 - Treat Worker results as cancellable proposals. Ignore stale generations and validate every accepted computer coordinate through `playMove()` after it returns to the browser shell.

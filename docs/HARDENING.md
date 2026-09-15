@@ -79,7 +79,7 @@ Web development and verification require:
 - Node.js 22+ and npm 11+;
 - a current Rust toolchain;
 - target `wasm32-unknown-unknown`;
-- `wasm-bindgen-cli` 0.2.127, matching the locked crate version;
+- `wasm-bindgen-cli` 0.2.128, matching the locked crate version;
 - Binaryen (`wasm-opt`).
 
 `npm run dev`, `npm test`, and `npm run build` generate the ignored `src/wasm` output automatically. `npm run build:native` intentionally does not generate or bundle WASM.

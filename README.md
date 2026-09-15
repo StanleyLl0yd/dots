@@ -56,7 +56,7 @@ Choose **Vs computer** from the mode selector to play Red against the Blue compu
 
 The computer opponent is completely local and offline. It does not use a server, external API, machine-learning model, analytics, or randomness. Rules, scoring, replay validation, and AI search live in the shared Rust `crates/game-core`; the browser executes the WASM-backed search in a cancellable Web Worker, and every returned coordinate is still accepted through the authoritative Rust move path.
 
-Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `placeStone()`. Version 0.8.2 does not change gameplay or AI behavior.
+Version 0.8.1 keeps the strategic 0.8 search model and closes concrete tactical gaps exposed by fixed benchmark positions. Expert performs wider bounded authoritative root discovery, rejects an immediately self-capturing entry into an opponent house when a safe alternative exists, and gives safe immediate captures root priority. Hard and Expert still use cycle-closing pressure, local danger, and bounded authoritative threat/setup probes; actual legality and scoring still come only from `place_stone()`. Version 0.8.2 does not change gameplay or AI behavior.
 
 Search uses stronger tactical ordering and alpha-beta pruning. Near the normal search horizon, Hard/Expert may selectively continue only score-changing capture/release moves, reducing obvious horizon mistakes without making the whole tree deeper. Expensive setup analysis and extensions are automatically reduced on large positions.
 
@@ -150,10 +150,10 @@ Version **0.9.4** hardens the 0.9.3 native/RuStore baseline by moving authoritat
 | --- | --- |
 | Languages | Rust game core + TypeScript 5.9 UI/orchestration |
 | Rendering | HTML5 Canvas |
-| Build | Vite 7.3.6 |
+| Build | Vite 8.3.0 |
 | PWA | vite-plugin-pwa / Workbox |
 | Native shell | Tauri 2 |
-| Tests | Vitest 3.2.7 + build artifact verification |
+| Tests | Vitest 5.0.1 + build artifact verification |
 | Persistence | versioned localStorage move log + viewport + game-mode/difficulty/sound preferences |
 | AI | deterministic bounded Rust minimax; native direct call, browser WASM in a Web Worker |
 | Dependencies | exact direct versions, committed npm + Cargo lockfiles, registry/SHA-512 + install-script policy, npm/RustSec audits, Dependabot |
@@ -187,7 +187,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AI.md`](docs/AI.md), 
 
 ## 🛠 Development
 
-Requirements: Node.js 22+, npm 11+, Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.127, and Binaryen (`wasm-opt`).
+Requirements: Node.js 22+, npm 11+, Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.128, and Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/dots.git
