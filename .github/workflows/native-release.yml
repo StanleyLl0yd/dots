@@ -8,14 +8,19 @@ on:
       - package.json
       - package-lock.json
       - rust-toolchain.toml
+      - index.html
+      - tsconfig.json
       - vite.config.ts
       - src/**
+      - public/**
       - crates/game-core/**
       - src-tauri/**
       - branding/**
       - scripts/prepare-icon-assets.mjs
       - scripts/build-game-core-wasm.mjs
+      - scripts/wasm-toolchain.mjs
       - scripts/verify-build.mjs
+      - scripts/verify-source-boundary.mjs
       - scripts/tauri-android-build.gradle.kts
       - .github/workflows/native-release.yml
   workflow_dispatch:
@@ -417,7 +422,8 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Configure WASM test toolchain
+      - name: Configure legacy WASM test toolchain
+        if: ${{ hashFiles('scripts/wasm-toolchain.mjs') == '' }}
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install wasm-bindgen-cli --version 0.2.127 --locked
@@ -433,6 +439,7 @@ jobs:
 
       - name: Configure Android toolchain
         run: |
+          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
           NDK_VERSION="29.0.14206865"
           BUILD_TOOLS_VERSION="36.0.0"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
@@ -984,7 +991,8 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Configure WASM test toolchain
+      - name: Configure legacy WASM test toolchain
+        if: ${{ hashFiles('scripts/wasm-toolchain.mjs') == '' }}
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install wasm-bindgen-cli --version 0.2.127 --locked
