@@ -16,7 +16,7 @@ export const removeStoredValue = (storage: StorageLike, key: string): void => {
 export const readStoredJson = (storage: StorageLike, key: string): unknown | undefined => {
   try {
     const raw = storage.getItem(key);
-    if (!raw) return undefined;
+    if (raw === null) return undefined;
     return JSON.parse(raw) as unknown;
   } catch {
     removeStoredValue(storage, key);
