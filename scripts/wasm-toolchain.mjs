@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   createReadStream,
-  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -177,6 +176,6 @@ export const resolveWasmToolchain = async () => {
   if (useVerifiedCiAssets) return verifiedCiToolchain(wasmBindgenVersion);
 
   verifyWasmBindgenVersion("wasm-bindgen", wasmBindgenVersion);
-  commandOutput("wasm-opt", ["--version"]);
+  verifyBinaryenVersion("wasm-opt");
   return { wasmBindgen: "wasm-bindgen", wasmOpt: "wasm-opt" };
 };
