@@ -46,6 +46,7 @@ for (const name of workflowFiles) {
   const text = fs.readFileSync(file, "utf8");
   const lines = text.split(/\r?\n/);
   const pullRequest = /^\s*pull_request\s*:/m.test(text);
+  const codeqlRefs = new Set();
 
   if (!/^permissions\s*:/m.test(text)) {
     violations.push(`${file}: explicit top-level permissions are required`);
@@ -97,6 +98,9 @@ for (const name of workflowFiles) {
         if (!shaRef.test(ref)) {
           violations.push(`${file}:${index + 1}: external action must be pinned to a 40-character commit SHA`);
         }
+        if (action.startsWith("github/codeql-action/") && ref) {
+          codeqlRefs.add(ref);
+        }
       }
 
       if (action.startsWith("actions/checkout@")) {
@@ -129,6 +133,10 @@ for (const name of workflowFiles) {
         violations.push(`${file}:${index + 1}: downloaded content must not be piped directly to a shell`);
       }
     }
+  }
+
+  if (codeqlRefs.size > 1) {
+    violations.push(`${file}: all github/codeql-action steps must use the same commit SHA`);
   }
 }
 

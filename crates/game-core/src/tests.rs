@@ -122,7 +122,7 @@ fn surrounds_capture_and_releases_previously_captured_stone() {
 
 #[test]
 fn capture_logic_is_stable_at_large_coordinates() {
-    let origin = 100_000;
+    let origin = crate::types::MAX_SAFE_INTEGER - 2;
     let initial = state_with(
         vec![
             stone(origin, origin - 1, Player::Red),

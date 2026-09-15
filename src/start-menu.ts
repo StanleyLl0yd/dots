@@ -101,8 +101,25 @@ export const createStartMenu = ({
   const aboutButton = requiredElement<HTMLButtonElement>(menu, "[data-start-about]");
   const soundButton = requiredElement<HTMLButtonElement>(menu, "[data-start-sound]");
   const exitButton = requiredElement<HTMLButtonElement>(menu, "[data-start-exit]");
+  const buttons = [continueButton, computerButton, localButton, soundButton, helpButton, aboutButton, exitButton];
 
   exitButton.hidden = !showExit;
+
+  const visibleButtons = (): HTMLButtonElement[] => buttons.filter((button) => !button.hidden && !button.disabled);
+  menu.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = visibleButtons();
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
 
   const setCanContinue = (canContinue: boolean): void => {
     continueButton.hidden = !canContinue;
@@ -111,6 +128,7 @@ export const createStartMenu = ({
   };
 
   let soundEnabled = initialSoundEnabled;
+  let returnFocus: HTMLElement | undefined;
   const setSoundEnabled = (enabled: boolean): void => {
     soundEnabled = enabled;
     soundButton.textContent = enabled ? copy.soundOn : copy.soundOff;
@@ -135,6 +153,8 @@ export const createStartMenu = ({
 
   return {
     show: () => {
+      const active = document.activeElement;
+      returnFocus = active instanceof HTMLElement && !menu.contains(active) ? active : undefined;
       menu.hidden = false;
       window.requestAnimationFrame(() => {
         (continueButton.hidden ? computerButton : continueButton).focus();
@@ -142,6 +162,9 @@ export const createStartMenu = ({
     },
     hide: () => {
       menu.hidden = true;
+      const target = returnFocus;
+      returnFocus = undefined;
+      if (target?.isConnected) target.focus();
     },
     setCanContinue,
     setSoundEnabled

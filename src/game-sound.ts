@@ -92,6 +92,10 @@ export class GameSoundController {
 
     oscillator.connect(gain);
     gain.connect(this.output ?? context.destination);
+    oscillator.addEventListener("ended", () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    }, { once: true });
     oscillator.start(start);
     oscillator.stop(end + 0.01);
   }

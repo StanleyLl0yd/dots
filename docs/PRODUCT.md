@@ -74,7 +74,7 @@ Dots provides two browser-local modes:
 
 The selected mode is presentation/session preference rather than game-rule state. Switching modes does not rewrite the authoritative move log or reset the board. If computer mode is enabled while Blue is already to move, the computer takes over that Blue turn.
 
-The computer opponent is deterministic and offline. It may propose only a coordinate. Acceptance of that coordinate still occurs through the same `playMove()` / `placeStone()` path as every human move.
+The computer opponent is deterministic and offline. It may propose only a coordinate. Acceptance of that coordinate still occurs through the frontend `playMove()` path and authoritative Rust `place_stone()` engine used for every human move.
 
 ## Computer opponent
 
@@ -87,10 +87,10 @@ Version **0.8.1** keeps the four selectable strengths introduced in 0.7.0, the s
 
 All four levels share these invariants:
 
-- AI logic lives in `src/game/ai.ts` and imports no DOM, Canvas, storage, service-worker, or network APIs.
+- AI logic lives in `crates/game-core/src/ai.rs`; it has no DOM, Canvas, storage, service-worker, or network dependency.
 - Candidate moves are generated from empty intersections adjacent to active stones.
 - Active same-color connectivity components are used to identify frontier points that can close an already connected path into a cycle. This helps rank likely house/capture construction and likely opponent closing points without declaring a capture itself.
-- Hard/Expert use a wider bounded authoritative root pre-scan before expensive search so real score-changing moves are not lost solely to heuristic seed ordering; all retained candidates are still simulated through `placeStone()`. Houses, captures, capture-of-capture, releases, blocked territory, and score therefore remain authoritative game-core behavior.
+- Hard/Expert use a wider bounded authoritative root pre-scan before expensive search so real score-changing moves are not lost solely by heuristic seed order; all retained candidates are still simulated through Rust `place_stone()`. Houses, captures, capture-of-capture, releases, blocked territory, and score therefore remain authoritative game-core behavior.
 - Expert rejects a root move that immediately increases the opponent's score when at least one safe candidate exists, and safe immediate captures take root tactical priority before deeper comparison.
 - Capture-score changes dominate evaluation. Secondary evaluation includes connected structure, local stone danger, and near-cycle pressure.
 - Hard and Expert use bounded authoritative probes for immediate capture threats and short setup sequences that may create a capture opportunity on a later own move.
@@ -105,15 +105,15 @@ Difficulty and strategic heuristics affect search policy only. They cannot chang
 
 ### AI strength regression
 
-`src/game/ai-match.ts` runs deterministic AI-vs-AI games by feeding every proposed move back through the authoritative `placeStone()` path. The CI suite uses short paired Expert-vs-Normal and Expert-vs-Hard matches, swapping Red/Blue assignment. Expert must not lose either paired comparison and must maintain a positive aggregate score margin across the suite.
+`crates/game-core/src/regression_tests.rs` contains the deterministic AI-vs-AI harness and feeds every proposed move back through authoritative Rust `place_stone()`. The CI suite uses short paired Expert-vs-Normal and Expert-vs-Hard matches, swapping Red/Blue assignment. Expert must not lose either paired comparison and must maintain a positive aggregate score margin across the suite.
 
-`src/game/ai-tactical-benchmark.test.ts` complements those paired games with six fixed Expert positions: double capture, mandatory blocking, false-closure rejection, hostile-house safety, counter-capture under two independent threats, and capture-of-capture release. All six are required regressions in 0.8.1.
+The same Rust regression module contains six fixed Expert positions: double capture, mandatory blocking, false-closure rejection, hostile-house safety, counter-capture under two independent threats, and capture-of-capture release. All six remain required tactical regressions.
 
 These are deterministic tactical regression guards, not an Elo system or a wall-clock benchmark. Match length remains deliberately short so CI does not become hardware-sensitive.
 
 ### Browser AI orchestration in 0.9.0
 
-The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.
+The browser sends a structured-cloned `GameState` plus AI options to a dedicated Web Worker. The Worker delegates search to the shared Rust/WASM core. Worker results are proposals only: the UI validates the request generation and coordinate, then accepts it through the same authoritative `playMove()` path. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions may terminate pending browser Worker work; stale generations must never apply a move. AI search policy, rule evaluation, and saved-game format are unchanged.
 
 Version **0.9.1** further hardens generation ownership so callbacks from cancelled or stale timers/Workers cannot clear the thinking state owned by a newer computer request. Search depth, evaluation, difficulty semantics, and deterministic move selection are unchanged.
 
@@ -165,7 +165,7 @@ A compact localized **About** control sits beside the product title and opens ve
 - A waiting service-worker update is presented to the user and applied only after explicit activation from the running UI. The application must not silently reload an active local game merely because a new build exists. If explicit activation fails, the update action remains recoverable and the failure is reported as presentation status only.
 - Update checks may occur on reconnect, foreground return, and a bounded periodic cadence.
 - Offline/online/update status is presentation state only and must never alter game rules or persisted moves.
-- A pending computer turn should not continue consuming work while the page is hidden; if Blue is still to move, scheduling resumes when the app returns to the foreground.
+- A pending browser computer turn should not continue consuming Worker work while the page is hidden; if Blue is still to move, scheduling resumes when the app returns to the foreground.
 - The game board is keyboard focusable, includes assistive instructions, and reports keyboard cursor movement and placement results through live regions.
 - Computer-thinking, computer-move, mode, and difficulty feedback use accessible localized controls/status paths.
 - Primary controls maintain practical touch targets and visible focus states.
@@ -202,7 +202,7 @@ Version **1.0.0** is the current stable baseline for the complete classic local 
 - a thin Tauri 2 shell that packages the same frontend/core without introducing platform-specific game rules;
 - signed Android AAB and universal macOS DMG release paths plus RuStore screenshot/signing/export tooling.
 
-Remaining pre-1.0 work is empirical real-device/browser and installed-PWA validation, keyboard/accessibility/forced-colors/reduced-motion checks, long-game responsiveness, continued adversarial topology coverage, and AI refinement only when driven by concrete failing positions. No principal software layer is missing.
+Ongoing post-1.0 validation includes empirical real-device/browser and installed-PWA checks, keyboard/accessibility/forced-colors/reduced-motion checks, long-game responsiveness, continued adversarial topology coverage, and AI refinement only when driven by concrete failing positions. No principal software layer is missing.
 
 ## Delivery phases
 
@@ -313,7 +313,7 @@ Remaining pre-1.0 work is empirical real-device/browser and installed-PWA valida
 
 ### Phase 6.2 — shared native shell — complete in 0.9.2
 
-- Tauri 2 wrapper around the same compiled frontend and authoritative TypeScript game core;
+- Tauri 2 wrapper around the same compiled frontend and authoritative Rust game core;
 - Android and macOS bundle configuration without a second rules implementation;
 - localized About surface and native-safe external project link;
 - native builds use relative assets and disable the browser PWA/service-worker layer.
@@ -352,10 +352,10 @@ Use 1.0.0 as the current stable baseline for empirical browser/PWA, Android, and
 - Computer moves are ordinary core moves and require no parallel AI persistence format.
 - AI may rank/propose coordinates only; legality and resulting captures/score remain authoritative core responsibilities.
 - AI must not import or depend on Canvas, DOM, viewport, service worker, storage, or network state. Browser Worker transport may carry a structured-cloned `GameState` and options but must not become a rules authority.
-- Worker responses are proposals only. Stale/cancelled generations must be ignored, and every accepted computer coordinate must still enter through `playMove()`.
+- Worker responses are proposals only. Stale/cancelled generations must be ignored, and every accepted computer coordinate must still enter through `playMove()` and authoritative Rust `place_stone()`.
 - AI difficulty and strategic heuristics may change only bounded search/evaluation policy, never game rules or authoritative persistence.
 - AI threat/setup probes are speculative evaluation only. They may not mutate the supplied `GameState`, session history, or persisted move log.
-- Hard/Expert root tactical discovery must remain bounded and use authoritative `placeStone()` outcomes.
+- Hard/Expert root tactical discovery must remain bounded and use authoritative Rust `place_stone()` outcomes.
 - Expert root safety/priority may use only actual immediate score changes produced by the core; it may not infer a parallel house or capture result.
 - AI search must remain bounded independently from world-coordinate distance and must reduce expensive strategic work as positions grow.
 - AI caches must be ephemeral and keyed by rule-relevant position state; they are never trusted or persisted as `GameState`.

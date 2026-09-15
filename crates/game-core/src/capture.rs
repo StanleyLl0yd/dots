@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 
 #[derive(Clone)]
 struct Face {
-    area: f64,
+    doubled_area: i128,
     boundary: Vec<Point>,
     key: String,
 }
@@ -38,14 +38,14 @@ fn clockwise_delta(from: f64, to: f64) -> f64 {
     }
 }
 
-fn signed_math_area(polygon: &[Point]) -> f64 {
-    let mut doubled = 0.0;
+fn signed_doubled_math_area(polygon: &[Point]) -> i128 {
+    let mut doubled = 0_i128;
     for index in 0..polygon.len() {
         let current = polygon[index];
         let next = polygon[(index + 1) % polygon.len()];
-        doubled += current.x as f64 * -(next.y as f64) - next.x as f64 * -(current.y as f64);
+        doubled += next.x as i128 * current.y as i128 - current.x as i128 * next.y as i128;
     }
-    doubled / 2.0
+    doubled
 }
 
 fn cross(a: Point, b: Point, c: Point) -> i128 {
@@ -167,12 +167,14 @@ pub fn point_in_polygon(point: Point, polygon: &[Point]) -> bool {
     for current in 0..polygon.len() {
         let a = polygon[current];
         let b = polygon[previous];
-        let crosses = (a.y > point.y) != (b.y > point.y)
-            && (point.x as f64)
-                < (b.x - a.x) as f64 * (point.y - a.y) as f64 / (b.y - a.y) as f64
-                    + a.x as f64;
-        if crosses {
-            inside = !inside;
+        if (a.y > point.y) != (b.y > point.y) {
+            let dy = (b.y - a.y) as i128;
+            let left = (point.x - a.x) as i128 * dy;
+            let right = (b.x - a.x) as i128 * (point.y - a.y) as i128;
+            let crosses = if dy > 0 { left < right } else { left > right };
+            if crosses {
+                inside = !inside;
+            }
         }
         previous = current;
     }
@@ -214,7 +216,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
         .copied()
         .filter(|stone| stone.player == owner && !excluded.contains(&stone.point()))
         .collect();
-    let by_point: HashMap<Point, Stone> = owner_stones.iter().copied().map(|stone| (stone.point(), stone)).collect();
+    let owner_points: HashSet<Point> = owner_stones.iter().map(|stone| stone.point()).collect();
     let mut neighbors: HashMap<Point, Vec<Point>> = HashMap::new();
 
     for stone in &owner_stones {
@@ -224,7 +226,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
                 x: stone.x + dx,
                 y: stone.y + dy,
             };
-            if by_point.contains_key(&point) {
+            if owner_points.contains(&point) {
                 adjacent.push(point);
             }
         }
@@ -279,8 +281,8 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
                 continue;
             }
 
-            let area = signed_math_area(&boundary);
-            if area <= 0.0 {
+            let doubled_area = signed_doubled_math_area(&boundary);
+            if doubled_area <= 0 {
                 continue;
             }
 
@@ -288,7 +290,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
             faces.insert(
                 key.clone(),
                 Face {
-                    area,
+                    doubled_area,
                     boundary,
                     key,
                 },
@@ -298,9 +300,8 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
 
     let mut result: Vec<Face> = faces.into_values().collect();
     result.sort_by(|a, b| {
-        a.area
-            .partial_cmp(&b.area)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        a.doubled_area
+            .cmp(&b.doubled_area)
             .then_with(|| a.key.cmp(&b.key))
     });
     result

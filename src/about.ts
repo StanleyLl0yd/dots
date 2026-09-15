@@ -2,7 +2,9 @@ import { version } from "../package.json";
 import "./about.css";
 import { resolveLocale, t } from "./i18n";
 
-const copy = t(resolveLocale());
+const locale = resolveLocale();
+document.documentElement.lang = locale;
+const copy = t(locale);
 const app = document.querySelector<HTMLDivElement>("#app");
 const brand = document.querySelector<HTMLElement>(".brand");
 if (!app || !brand) throw new Error("About UI initialization failed");

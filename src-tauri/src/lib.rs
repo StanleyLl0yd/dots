@@ -13,7 +13,7 @@ fn core_replay(moves_json: String) -> Result<String, String> {
     game_core::replay_moves_json(&moves_json)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn core_ai(state_json: String, options_json: String) -> Result<String, String> {
     game_core::choose_ai_move_json(&state_json, &options_json)
 }
