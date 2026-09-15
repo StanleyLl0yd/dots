@@ -54,4 +54,5 @@ jobs:
       - name: Verify generated assets are committed
         run: |
           git diff --check
-          git diff --exit-code
+          git diff --exit-code -- . ':(exclude)src-tauri/icons/icon.icns'
+          node scripts/verify-generated-icon-assets.mjs
