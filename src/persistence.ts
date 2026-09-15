@@ -43,7 +43,7 @@ export const loadSession = async (storage: StorageLike): Promise<GameSession | u
 export const saveSession = (storage: StorageLike, session: GameSession): void => {
   const payload: StoredGame = {
     version: SAVE_VERSION,
-    moves: session.history.map(({ placed }) => ({ ...placed }))
+    moves: session.history.map(({ placed }) => placed)
   };
   writeStoredJson(storage, SAVE_KEY, payload);
 };
