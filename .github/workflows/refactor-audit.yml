@@ -3,7 +3,7 @@ name: Repository audit
 on:
   push:
     branches:
-      - refactor/full-audit-0.10.0
+      - "refactor/full-audit-*"
   pull_request:
   workflow_dispatch:
 
