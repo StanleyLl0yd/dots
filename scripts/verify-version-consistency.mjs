@@ -42,4 +42,48 @@ for (const [source, version] of versions) {
   }
 }
 
-console.log(`Verified source version ${expected} across npm, Rust, and Tauri manifests.`);
+const readText = (path) => fs.readFileSync(path, "utf8");
+const requiredText = new Map([
+  ["README.md", [`source-${expected}-`, `Current source version: **${expected}**`]],
+  ["README_RU.md", [`source-${expected}-`, `Текущая версия исходников: **${expected}**`]],
+]);
+
+for (const [path, markers] of requiredText) {
+  const text = readText(path);
+  for (const marker of markers) {
+    if (!text.includes(marker)) {
+      throw new Error(`${path}: missing current-version marker ${JSON.stringify(marker)}`);
+    }
+  }
+}
+
+const changelog = readText("CHANGELOG.md");
+const changelogLines = changelog.split(/\r?\n/);
+const changelogStart = changelogLines.findIndex((line) => line.startsWith(`## [${expected}]`));
+if (changelogStart < 0) {
+  throw new Error(`CHANGELOG.md: missing section for ${expected}`);
+}
+let changelogEnd = changelogLines.findIndex(
+  (line, index) => index > changelogStart && line.startsWith("## [")
+);
+if (changelogEnd < 0) changelogEnd = changelogLines.length;
+if (!changelogLines.slice(changelogStart + 1, changelogEnd).join("\n").trim()) {
+  throw new Error(`CHANGELOG.md: empty section for ${expected}`);
+}
+
+const rustoreMetadataPath = "store/rustore/metadata-ru.md";
+const rustoreMetadata = readText(rustoreMetadataPath);
+const rustoreVersion = rustoreMetadata.match(/^- Version name: `([^`]+)`\s*$/m)?.[1];
+if (rustoreVersion !== expected) {
+  throw new Error(`Version mismatch: ${rustoreMetadataPath} has ${String(rustoreVersion)}, expected ${expected}`);
+}
+if (!rustoreMetadata.includes(`## What's new — ${expected}\n`)) {
+  throw new Error(`${rustoreMetadataPath}: missing What's new heading for ${expected}`);
+}
+
+const rustoreWhatsNewPath = `store/rustore/console-copy/05-whats-new-${expected}.txt`;
+if (!fs.existsSync(rustoreWhatsNewPath) || !readText(rustoreWhatsNewPath).trim()) {
+  throw new Error(`${rustoreWhatsNewPath}: missing or empty RuStore What's New copy`);
+}
+
+console.log(`Verified source/store version ${expected} across manifests, release docs, and RuStore metadata.`);
