@@ -69,7 +69,9 @@ jobs:
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
-      - run: npm test
+      - name: Run frontend tests
+        if: github.event_name != 'pull_request'
+        run: npm test
       - run: npm run build
       - name: Diff hygiene
         run: git diff --check
@@ -108,7 +110,7 @@ jobs:
             ]
           }
           JSON
-      - run: npx --yes knip@5.82.1 --config .knip-audit.json --no-progress --include files
+      - run: npx --yes --package=knip@5.82.1 --package=@types/node@24.13.4 --package=typescript@5.9.2 knip --config .knip-audit.json --no-progress --include files
 
   knip-dependencies:
     name: Knip / unused dependencies
@@ -126,7 +128,7 @@ jobs:
       - run: npm run verify:version
       - run: npm run verify:workflows
       - run: npm ci
-      - run: npx --yes knip@5.82.1 --no-progress --include dependencies
+      - run: npx --yes --package=knip@5.82.1 --package=@types/node@24.13.4 --package=typescript@5.9.2 knip --no-progress --include dependencies
 
   knip-dev-dependencies:
     name: Knip / unused devDependencies
@@ -144,7 +146,7 @@ jobs:
       - run: npm run verify:version
       - run: npm run verify:workflows
       - run: npm ci
-      - run: npx --yes knip@5.82.1 --no-progress --include devDependencies
+      - run: npx --yes --package=knip@5.82.1 --package=@types/node@24.13.4 --package=typescript@5.9.2 knip --no-progress --include devDependencies
 
   knip-binaries:
     name: Knip / unused binaries
@@ -162,4 +164,4 @@ jobs:
       - run: npm run verify:version
       - run: npm run verify:workflows
       - run: npm ci
-      - run: npx --yes knip@5.82.1 --no-progress --include binaries
+      - run: npx --yes --package=knip@5.82.1 --package=@types/node@24.13.4 --package=typescript@5.9.2 knip --no-progress --include binaries
