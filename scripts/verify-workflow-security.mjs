@@ -9,7 +9,7 @@ const workflowFiles = fs
 
 const shaRef = /^[0-9a-f]{40}$/;
 const violations = [];
-const legacyWasmBootstrapWorkflows = new Set(["native-release.yml", "rustore-assets.yml"]);
+const legacyWasmBootstrapWorkflows = new Set(["native-release.yml"]);
 
 const indentation = (line) => line.match(/^\s*/)?.[0].length ?? 0;
 
