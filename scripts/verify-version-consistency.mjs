@@ -81,9 +81,20 @@ if (!rustoreMetadata.includes(`## What's new — ${expected}\n`)) {
   throw new Error(`${rustoreMetadataPath}: missing What's new heading for ${expected}`);
 }
 
-const rustoreWhatsNewPath = `store/rustore/console-copy/05-whats-new-${expected}.txt`;
-if (!fs.existsSync(rustoreWhatsNewPath) || !readText(rustoreWhatsNewPath).trim()) {
-  throw new Error(`${rustoreWhatsNewPath}: missing or empty RuStore What's New copy`);
+const rustoreConsoleCopyDir = "store/rustore/console-copy";
+const rustoreWhatsNewName = `05-whats-new-${expected}.txt`;
+const rustoreWhatsNewFiles = fs
+  .readdirSync(rustoreConsoleCopyDir)
+  .filter((name) => /^05-whats-new-.+\.txt$/.test(name))
+  .sort();
+if (rustoreWhatsNewFiles.length !== 1 || rustoreWhatsNewFiles[0] !== rustoreWhatsNewName) {
+  throw new Error(
+    `${rustoreConsoleCopyDir}: expected exactly ${rustoreWhatsNewName}, found ${rustoreWhatsNewFiles.join(", ") || "none"}`,
+  );
+}
+const rustoreWhatsNewPath = `${rustoreConsoleCopyDir}/${rustoreWhatsNewName}`;
+if (!readText(rustoreWhatsNewPath).trim()) {
+  throw new Error(`${rustoreWhatsNewPath}: empty RuStore What's New copy`);
 }
 
 console.log(`Verified source/store version ${expected} across manifests, release docs, and RuStore metadata.`);
