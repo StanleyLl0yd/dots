@@ -69,13 +69,6 @@ try {
     Assert-NativeSuccess "Setting ANDROID_UPLOAD_KEY_PASSWORD"
 
     Write-Host ""
-    Write-Host "RuStore signing setup complete."
-    Write-Host "App signing keystore kept unchanged: $AppKeystore"
-    Write-Host "Upload keystore: $UploadKeystore"
-    Write-Host "Upload certificate: $UploadCert"
-    Write-Host ""
-    Write-Host "Keep the existing app signing keystore and its password backed up. It remains the app-signing identity for Dots."
-    Write-Host ""
     keytool -list -v -keystore $UploadKeystore -alias $UploadAlias -storepass:env $UploadPasswordEnv | Select-String "SHA256:"
     Assert-NativeSuccess "Reading upload keystore"
 }
@@ -90,3 +83,11 @@ finally {
 Write-Host ""
 gh secret list --repo $Repo
 Assert-NativeSuccess "Listing repository secrets"
+
+Write-Host ""
+Write-Host "RuStore signing setup complete."
+Write-Host "App signing keystore kept unchanged: $AppKeystore"
+Write-Host "Upload keystore: $UploadKeystore"
+Write-Host "Upload certificate: $UploadCert"
+Write-Host ""
+Write-Host "Keep the existing app signing keystore and its password backed up. It remains the app-signing identity for Dots."
