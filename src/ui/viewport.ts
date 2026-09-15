@@ -23,14 +23,14 @@ interface GridBounds {
   maxY: number;
 }
 
-export const BASE_CELL_SIZE = 32;
+const BASE_CELL_SIZE = 32;
 export const MIN_ZOOM = 0.4;
 export const MAX_ZOOM = 3.5;
 export const MAX_FIT_ZOOM = 1.25;
 export const MAX_VIEWPORT_CENTER = 1_000_000_000;
 export const DEFAULT_VIEWPORT: Viewport = { centerX: 0, centerY: 0, zoom: 1 };
 
-export const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 const clampCenter = (value: number): number => Math.min(MAX_VIEWPORT_CENTER, Math.max(-MAX_VIEWPORT_CENTER, value));
 
 export const gameToScreen = (
