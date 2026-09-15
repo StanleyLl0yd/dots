@@ -42,8 +42,24 @@ for (const [source, version] of versions) {
   }
 }
 
+const readText = (path) => fs.readFileSync(path, "utf8");
+const requiredText = new Map([
+  ["README.md", [`source-${expected}-`, `Current source version: **${expected}**`]],
+  ["README_RU.md", [`source-${expected}-`, `Текущая версия исходников: **${expected}**`]],
+  ["CHANGELOG.md", [`## [${expected}]`]],
+]);
+
+for (const [path, markers] of requiredText) {
+  const text = readText(path);
+  for (const marker of markers) {
+    if (!text.includes(marker)) {
+      throw new Error(`${path}: missing current-version marker ${JSON.stringify(marker)}`);
+    }
+  }
+}
+
 const rustoreMetadataPath = "store/rustore/metadata-ru.md";
-const rustoreMetadata = fs.readFileSync(rustoreMetadataPath, "utf8");
+const rustoreMetadata = readText(rustoreMetadataPath);
 const rustoreVersion = rustoreMetadata.match(/^- Version name: `([^`]+)`\s*$/m)?.[1];
 if (rustoreVersion !== expected) {
   throw new Error(`Version mismatch: ${rustoreMetadataPath} has ${String(rustoreVersion)}, expected ${expected}`);
@@ -53,8 +69,8 @@ if (!rustoreMetadata.includes(`## What's new — ${expected}\n`)) {
 }
 
 const rustoreWhatsNewPath = `store/rustore/console-copy/05-whats-new-${expected}.txt`;
-if (!fs.existsSync(rustoreWhatsNewPath) || !fs.readFileSync(rustoreWhatsNewPath, "utf8").trim()) {
+if (!fs.existsSync(rustoreWhatsNewPath) || !readText(rustoreWhatsNewPath).trim()) {
   throw new Error(`${rustoreWhatsNewPath}: missing or empty RuStore What's New copy`);
 }
 
-console.log(`Verified source/store version ${expected} across npm, Rust, Tauri, and RuStore metadata.`);
+console.log(`Verified source/store version ${expected} across manifests, release docs, and RuStore metadata.`);
