@@ -1,7 +1,7 @@
 import "./start-menu.css";
 import type { GameMode } from "./preferences";
 
-export interface StartMenuCopy {
+interface StartMenuCopy {
   title: string;
   subtitle: string;
   continueGame: string;
@@ -35,7 +35,7 @@ interface StartMenuOptions {
   handlers: StartMenuHandlers;
 }
 
-export interface StartMenuController {
+interface StartMenuController {
   show: () => void;
   hide: () => void;
   setCanContinue: (value: boolean) => void;
