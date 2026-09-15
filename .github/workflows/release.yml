@@ -28,13 +28,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  status:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      exists: ${{ steps.release.outputs.exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm run verify:version
+      - id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    needs: status
+    if: needs.status.outputs.exists != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,13 +89,12 @@ jobs:
       - run: cargo test --manifest-path crates/game-core/Cargo.toml --locked
       - run: npm test
       - run: npm run build
-      - id: version
-        run: |
-          version=$(node -p "require('./package.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   publish:
-    needs: verify
+    needs:
+      - status
+      - verify
+    if: needs.status.outputs.exists != 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -73,22 +104,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - id: status
-        env:
+      - env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v${{ needs.verify.outputs.version }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - if: steps.status.outputs.exists != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.verify.outputs.version }}
-          TAG: v${{ needs.verify.outputs.version }}
+          VERSION: ${{ needs.status.outputs.version }}
+          TAG: v${{ needs.status.outputs.version }}
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
