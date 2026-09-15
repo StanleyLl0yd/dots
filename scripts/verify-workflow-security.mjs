@@ -67,7 +67,7 @@ for (const name of workflowFiles) {
   if (/^\s*persist-credentials:\s*true\s*$/m.test(text)) {
     violations.push(`${file}: checkout credentials must never be persisted`);
   }
-  if (/cargo\s+install\s+cargo-audit\b/.test(text)) {
+  if (/\bcargo\s+(?:install|binstall)\b[^\n]*\bcargo-audit\b/.test(text) || /\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bcargo-audit\b/.test(text)) {
     violations.push(`${file}: cargo-audit must be installed by scripts/install-cargo-audit.mjs`);
   }
   if (!legacyWasmBootstrapWorkflows.has(name)) {
