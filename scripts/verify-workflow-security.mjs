@@ -57,7 +57,6 @@ for (const name of workflowFiles) {
   const lines = text.split(/\r?\n/);
   const pullRequest = /^\s*pull_request\s*:/m.test(text);
   const codeqlRefs = new Set();
-  let usesNodeCommand = false;
 
   if (!/^permissions\s*:/m.test(text)) {
     violations.push(`${file}: explicit top-level permissions are required`);
@@ -104,6 +103,18 @@ for (const name of workflowFiles) {
       } else if (Number(timeout) > 60) {
         violations.push(`${file}:${start + 1}: job ${job} timeout must not exceed 60 minutes`);
       }
+
+      let jobUsesNodeCommand = false;
+      for (let i = start; i < end; i += 1) {
+        if (!/^\s*(?:-\s*)?run:/.test(lines[i])) continue;
+        if (/(?:^|\s)(?:node|npm|npx)(?:\s|$)/m.test(runBlock(lines, i))) {
+          jobUsesNodeCommand = true;
+          break;
+        }
+      }
+      if (jobUsesNodeCommand && !/uses:\s*actions\/setup-node@[0-9a-f]{40}/.test(block)) {
+        violations.push(`${file}:${start + 1}: job ${job} runs node/npm/npx without a SHA-pinned actions/setup-node step`);
+      }
     }
   }
 
@@ -145,7 +156,6 @@ for (const name of workflowFiles) {
 
     if (/^\s*(?:-\s*)?run:/.test(line)) {
       const script = runBlock(lines, index);
-      if (/(?:^|\s)(?:node|npm|npx)(?:\s|$)/m.test(script)) usesNodeCommand = true;
       if (/\$\{\{\s*github\.event\.pull_request\./.test(script) || /\$\{\{\s*github\.head_ref\s*\}\}/.test(script)) {
         violations.push(`${file}:${index + 1}: untrusted pull-request data must not be interpolated directly into shell`);
       }
@@ -173,9 +183,6 @@ for (const name of workflowFiles) {
     }
   }
 
-  if (usesNodeCommand && !/uses:\s*actions\/setup-node@[0-9a-f]{40}/.test(text)) {
-    violations.push(`${file}: direct node/npm/npx commands require a SHA-pinned actions/setup-node step`);
-  }
   if (codeqlRefs.size > 1) {
     violations.push(`${file}: all github/codeql-action steps must use the same commit SHA`);
   }
