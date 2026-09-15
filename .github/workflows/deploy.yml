@@ -3,6 +3,22 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - .npmrc
+      - package.json
+      - package-lock.json
+      - rust-toolchain.toml
+      - tsconfig.json
+      - index.html
+      - vite.config.ts
+      - src/**
+      - public/**
+      - crates/game-core/**
+      - branding/**
+      - scripts/prepare-icon-assets.mjs
+      - scripts/build-game-core-wasm.mjs
+      - scripts/wasm-toolchain.mjs
+      - .github/workflows/deploy.yml
   workflow_dispatch:
 
 permissions: {}
