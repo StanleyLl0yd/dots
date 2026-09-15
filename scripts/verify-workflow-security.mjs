@@ -71,10 +71,10 @@ for (const name of workflowFiles) {
     violations.push(`${file}: cargo-audit must be installed by scripts/install-cargo-audit.mjs`);
   }
   if (!legacyWasmBootstrapWorkflows.has(name)) {
-    if (/cargo\s+install\s+wasm-bindgen-cli\b/.test(text)) {
+    if (/\bcargo\s+(?:install|binstall)\b[^\n]*\bwasm-bindgen-cli\b/.test(text) || /\bbrew\s+install\b[^\n]*\bwasm-bindgen(?:-cli)?\b/.test(text)) {
       violations.push(`${file}: wasm-bindgen CLI must be resolved by scripts/wasm-toolchain.mjs`);
     }
-    if (/apt-get\s+install[^\n]*\bbinaryen\b/.test(text)) {
+    if (/\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bbinaryen\b/.test(text)) {
       violations.push(`${file}: Binaryen must be resolved by scripts/wasm-toolchain.mjs`);
     }
   }
