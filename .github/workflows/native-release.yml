@@ -439,7 +439,6 @@ jobs:
 
       - name: Configure Android toolchain
         run: |
-          cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml --locked --no-deps >/dev/null
           NDK_VERSION="29.0.14206865"
           BUILD_TOOLS_VERSION="36.0.0"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
