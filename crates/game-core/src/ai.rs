@@ -206,27 +206,22 @@ fn build_components(
     components
 }
 
-fn components_for(
+fn components_for<'a>(
     state: &GameState,
-    player: Player,
-    context: &mut SearchContext,
-) -> HashMap<Point, usize> {
+    inactive: &HashSet<Point>,
+    context: &'a mut SearchContext,
+) -> &'a Components {
     let signature = state_signature(state);
     if !context.component_cache.contains_key(&signature) {
-        let inactive = inactive_stone_keys(state, context);
         context.component_cache.insert(
             signature.clone(),
             Components {
-                red: build_components(state, Player::Red, &inactive),
-                blue: build_components(state, Player::Blue, &inactive),
+                red: build_components(state, Player::Red, inactive),
+                blue: build_components(state, Player::Blue, inactive),
             },
         );
     }
-    let cached = context.component_cache.get(&signature).expect("component cache");
-    match player {
-        Player::Red => cached.red.clone(),
-        Player::Blue => cached.blue.clone(),
-    }
+    context.component_cache.get(&signature).expect("component cache")
 }
 
 fn neighbor_counts(
@@ -257,15 +252,14 @@ fn neighbor_counts(
 
 fn cycle_pair_count(
     state: &GameState,
+    inactive: &HashSet<Point>,
+    components: &HashMap<Point, usize>,
     point: Point,
     player: Player,
-    context: &mut SearchContext,
 ) -> usize {
     if state.has_stone(point) {
         return 0;
     }
-    let inactive = inactive_stone_keys(state, context);
-    let components = components_for(state, player, context);
     let mut adjacent_components = Vec::new();
 
     for (dx, dy) in OFFSETS {
@@ -273,7 +267,7 @@ fn cycle_pair_count(
             x: point.x + dx,
             y: point.y + dy,
         };
-        let Some(neighbor) = active_stone_at(state, &inactive, target) else {
+        let Some(neighbor) = active_stone_at(state, inactive, target) else {
             continue;
         };
         if neighbor.player != player {
@@ -304,14 +298,21 @@ fn focus_distance(point: Point, focus: Option<Point>) -> i64 {
 fn seed_score(
     state: &GameState,
     inactive: &HashSet<Point>,
+    own_components: &HashMap<Point, usize>,
+    opponent_components: &HashMap<Point, usize>,
     point: Point,
     player: Player,
     focus: Option<Point>,
-    context: &mut SearchContext,
 ) -> CandidateSeed {
     let (own, opponent, _) = neighbor_counts(state, inactive, point, player);
-    let own_cycle_pairs = cycle_pair_count(state, point, player, context);
-    let blocked_cycle_pairs = cycle_pair_count(state, point, player.other(), context);
+    let own_cycle_pairs = cycle_pair_count(state, inactive, own_components, point, player);
+    let blocked_cycle_pairs = cycle_pair_count(
+        state,
+        inactive,
+        opponent_components,
+        point,
+        player.other(),
+    );
     let distance_penalty = focus_distance(point, focus).min(16) as f64 * 0.55;
     let score = own as f64 * 18.0
         + opponent as f64 * 13.0
@@ -337,6 +338,11 @@ fn generate_seeds(
     context: &mut SearchContext,
 ) -> Vec<CandidateSeed> {
     let inactive = inactive_stone_keys(state, context);
+    let components = components_for(state, &inactive, context);
+    let (own_components, opponent_components) = match player {
+        Player::Red => (&components.red, &components.blue),
+        Player::Blue => (&components.blue, &components.red),
+    };
     let mut points = HashSet::new();
 
     for stone in &state.stones {
@@ -360,7 +366,17 @@ fn generate_seeds(
 
     let mut seeds = points
         .into_iter()
-        .map(|point| seed_score(state, &inactive, point, player, focus, context))
+        .map(|point| {
+            seed_score(
+                state,
+                &inactive,
+                own_components,
+                opponent_components,
+                point,
+                player,
+                focus,
+            )
+        })
         .collect::<Vec<_>>();
     seeds.sort_by(|a, b| {
         b.score
