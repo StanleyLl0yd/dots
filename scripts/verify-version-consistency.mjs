@@ -46,7 +46,6 @@ const readText = (path) => fs.readFileSync(path, "utf8");
 const requiredText = new Map([
   ["README.md", [`source-${expected}-`, `Current source version: **${expected}**`]],
   ["README_RU.md", [`source-${expected}-`, `Текущая версия исходников: **${expected}**`]],
-  ["CHANGELOG.md", [`## [${expected}]`]],
 ]);
 
 for (const [path, markers] of requiredText) {
@@ -56,6 +55,20 @@ for (const [path, markers] of requiredText) {
       throw new Error(`${path}: missing current-version marker ${JSON.stringify(marker)}`);
     }
   }
+}
+
+const changelog = readText("CHANGELOG.md");
+const changelogLines = changelog.split(/\r?\n/);
+const changelogStart = changelogLines.findIndex((line) => line.startsWith(`## [${expected}]`));
+if (changelogStart < 0) {
+  throw new Error(`CHANGELOG.md: missing section for ${expected}`);
+}
+let changelogEnd = changelogLines.findIndex(
+  (line, index) => index > changelogStart && line.startsWith("## [")
+);
+if (changelogEnd < 0) changelogEnd = changelogLines.length;
+if (!changelogLines.slice(changelogStart + 1, changelogEnd).join("\n").trim()) {
+  throw new Error(`CHANGELOG.md: empty section for ${expected}`);
 }
 
 const rustoreMetadataPath = "store/rustore/metadata-ru.md";
