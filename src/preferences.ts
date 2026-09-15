@@ -3,7 +3,7 @@ import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type Stor
 
 export type GameMode = "local" | "computer";
 
-export interface GamePreferences {
+interface GamePreferences {
   gameMode: GameMode;
   aiDifficulty: AiDifficulty;
   soundEnabled: boolean;

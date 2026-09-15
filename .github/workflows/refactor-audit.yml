@@ -98,7 +98,7 @@ jobs:
           echo '--- package tree ---'
           npm ls --depth=0
       - name: TypeScript unused exports
-        run: npx --yes ts-prune@0.10.3
+        run: npx --yes --package=knip@5.82.1 --package=@types/node@24.13.4 --package=typescript@5.9.2 knip --no-progress --include exports,types,nsExports,nsTypes
       - run: npm audit --audit-level=high
       - name: Run frontend tests
         if: github.event_name != 'pull_request'

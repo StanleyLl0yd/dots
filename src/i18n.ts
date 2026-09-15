@@ -1,4 +1,4 @@
-export type Locale = "ru" | "en";
+type Locale = "ru" | "en";
 
 const messages = {
   ru: {

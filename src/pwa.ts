@@ -6,7 +6,7 @@ interface PwaLifecycleOptions {
   onError: () => void;
 }
 
-export interface PwaLifecycle {
+interface PwaLifecycle {
   applyUpdate: () => Promise<void>;
   destroy: () => void;
 }

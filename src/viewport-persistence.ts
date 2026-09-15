@@ -1,7 +1,7 @@
 import { isRecord, readStoredJson, removeStoredValue, writeStoredJson, type StorageLike } from "./storage";
 import { MAX_VIEWPORT_CENTER, MAX_ZOOM, MIN_ZOOM, type Viewport } from "./ui/viewport";
 
-export const VIEWPORT_SAVE_VERSION = 1;
+const VIEWPORT_SAVE_VERSION = 1;
 export const VIEWPORT_SAVE_KEY = "dots.viewport";
 
 interface StoredViewport {
