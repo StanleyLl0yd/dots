@@ -128,6 +128,7 @@ export const createStartMenu = ({
   };
 
   let soundEnabled = initialSoundEnabled;
+  let returnFocus: HTMLElement | undefined;
   const setSoundEnabled = (enabled: boolean): void => {
     soundEnabled = enabled;
     soundButton.textContent = enabled ? copy.soundOn : copy.soundOff;
@@ -152,6 +153,8 @@ export const createStartMenu = ({
 
   return {
     show: () => {
+      const active = document.activeElement;
+      returnFocus = active instanceof HTMLElement && !menu.contains(active) ? active : undefined;
       menu.hidden = false;
       window.requestAnimationFrame(() => {
         (continueButton.hidden ? computerButton : continueButton).focus();
@@ -159,6 +162,9 @@ export const createStartMenu = ({
     },
     hide: () => {
       menu.hidden = true;
+      const target = returnFocus;
+      returnFocus = undefined;
+      if (target?.isConnected) target.focus();
     },
     setCanContinue,
     setSoundEnabled
