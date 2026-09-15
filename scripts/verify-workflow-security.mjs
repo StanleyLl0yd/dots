@@ -9,6 +9,7 @@ const workflowFiles = fs
 
 const shaRef = /^[0-9a-f]{40}$/;
 const violations = [];
+const legacyWasmBootstrapWorkflows = new Set(["native-release.yml", "rustore-assets.yml"]);
 
 const indentation = (line) => line.match(/^\s*/)?.[0].length ?? 0;
 
@@ -65,6 +66,14 @@ for (const name of workflowFiles) {
   }
   if (/^\s*persist-credentials:\s*true\s*$/m.test(text)) {
     violations.push(`${file}: checkout credentials must never be persisted`);
+  }
+  if (!legacyWasmBootstrapWorkflows.has(name)) {
+    if (/cargo\s+install\s+wasm-bindgen-cli\b/.test(text)) {
+      violations.push(`${file}: wasm-bindgen CLI must be resolved by scripts/wasm-toolchain.mjs`);
+    }
+    if (/apt-get\s+install[^\n]*\bbinaryen\b/.test(text)) {
+      violations.push(`${file}: Binaryen must be resolved by scripts/wasm-toolchain.mjs`);
+    }
   }
 
   const jobsIndex = lines.findIndex((line) => line === "jobs:");
