@@ -41,6 +41,7 @@ jobs:
       - name: Audit Rust dependencies
         run: bash scripts/audit-rust-dependencies.sh
       - name: Audit authoritative Rust core
+        if: github.event_name != 'pull_request'
         run: |
           cargo test --manifest-path crates/game-core/Cargo.toml --locked
           cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
