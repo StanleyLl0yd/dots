@@ -18,15 +18,35 @@ const toolsRoot = resolve(root, "target/verified-wasm-tools");
 
 const wasmBindgenReleases = {
   "0.2.128": {
-    url: "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-unknown-linux-musl.tar.gz",
-    sha256: "b51f0208fdff83515a787bd8ab9ac5865ed84dabb66d0c709957bb59793c645f"
+    "linux-x64": {
+      url: "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-unknown-linux-musl.tar.gz",
+      sha256: "b51f0208fdff83515a787bd8ab9ac5865ed84dabb66d0c709957bb59793c645f"
+    },
+    "darwin-arm64": {
+      url: "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-aarch64-apple-darwin.tar.gz",
+      sha256: "67ba17f260977725c0b541b516dbb5153538140f079a900329fb6077661b47ab"
+    },
+    "darwin-x64": {
+      url: "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-apple-darwin.tar.gz",
+      sha256: "59d9af11d0a61b8019898d555de31153c3a50e7f1797e9849fb38589d16add43"
+    }
   }
 };
 
-const binaryenRelease = {
-  version: "132",
-  url: "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz",
-  sha256: "195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+const binaryenVersion = "132";
+const binaryenReleases = {
+  "linux-x64": {
+    url: "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz",
+    sha256: "195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+  },
+  "darwin-arm64": {
+    url: "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-arm64-macos.tar.gz",
+    sha256: "98aad827847af7ef990ed7098d885725c8e5b5aae75073403635617ae4e259aa"
+  },
+  "darwin-x64": {
+    url: "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-macos.tar.gz",
+    sha256: "40c3de90bb3766bd0282a895e139a6f50253dba49b4f5bb89e66faca162d832e"
+  }
 };
 
 const run = (command, args, options = {}) => {
@@ -111,8 +131,8 @@ const verifyWasmBindgenVersion = (command, expected) => {
 
 const verifyBinaryenVersion = (command) => {
   const output = commandOutput(command, ["--version"]);
-  if (!new RegExp(`\\bversion\\s+${binaryenRelease.version}\\b`).test(output)) {
-    throw new Error(`Unexpected wasm-opt version: expected Binaryen ${binaryenRelease.version}, got ${output}`);
+  if (!new RegExp(`\\bversion\\s+${binaryenVersion}\\b`).test(output)) {
+    throw new Error(`Unexpected wasm-opt version: expected Binaryen ${binaryenVersion}, got ${output}`);
   }
 };
 
@@ -123,20 +143,26 @@ const ensureWasmTarget = () => {
   if (!installed) run("rustup", ["target", "add", "wasm32-unknown-unknown"]);
 };
 
-const verifiedCiToolchain = async (wasmBindgenVersion) => {
-  const release = wasmBindgenReleases[wasmBindgenVersion];
+const verifiedCiToolchain = async (wasmBindgenVersion, platformKey) => {
+  const release = wasmBindgenReleases[wasmBindgenVersion]?.[platformKey];
+  const binaryenRelease = binaryenReleases[platformKey];
   if (!release) {
     throw new Error(
-      `No reviewed CI asset is pinned for wasm-bindgen ${wasmBindgenVersion}; add its official release URL and SHA-256 before updating Cargo.lock`
+      `No reviewed CI asset is pinned for wasm-bindgen ${wasmBindgenVersion} on ${platformKey}; add its official release URL and SHA-256 before updating Cargo.lock or CI runners`
+    );
+  }
+  if (!binaryenRelease) {
+    throw new Error(
+      `No reviewed Binaryen ${binaryenVersion} CI asset is pinned for ${platformKey}; add its official release URL and SHA-256 before changing CI runners`
     );
   }
 
   const directory = resolve(
     toolsRoot,
-    `wasm-bindgen-${wasmBindgenVersion}-binaryen-${binaryenRelease.version}`
+    `${platformKey}-wasm-bindgen-${wasmBindgenVersion}-binaryen-${binaryenVersion}`
   );
   const wasmBindgenArchive = resolve(directory, `wasm-bindgen-${wasmBindgenVersion}.tar.gz`);
-  const binaryenArchive = resolve(directory, `binaryen-${binaryenRelease.version}.tar.gz`);
+  const binaryenArchive = resolve(directory, `binaryen-${binaryenVersion}.tar.gz`);
   mkdirSync(directory, { recursive: true });
 
   let wasmBindgen = findExecutable(directory, "wasm-bindgen");
@@ -170,10 +196,11 @@ const verifiedCiToolchain = async (wasmBindgenVersion) => {
 export const resolveWasmToolchain = async () => {
   ensureWasmTarget();
   const wasmBindgenVersion = gameCoreWasmBindgenVersion();
-  const useVerifiedCiAssets =
-    process.env.GITHUB_ACTIONS === "true" && process.platform === "linux" && process.arch === "x64";
 
-  if (useVerifiedCiAssets) return verifiedCiToolchain(wasmBindgenVersion);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    const platformKey = `${process.platform}-${process.arch}`;
+    return verifiedCiToolchain(wasmBindgenVersion, platformKey);
+  }
 
   verifyWasmBindgenVersion("wasm-bindgen", wasmBindgenVersion);
   verifyBinaryenVersion("wasm-opt");
