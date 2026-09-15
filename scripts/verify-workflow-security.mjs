@@ -9,13 +9,16 @@ const workflowFiles = fs
 
 const shaRef = /^[0-9a-f]{40}$/;
 const violations = [];
-const nativeReleaseInputs = [
-  "index.html",
-  "tsconfig.json",
-  "public/**",
-  "scripts/wasm-toolchain.mjs",
-  "scripts/verify-source-boundary.mjs"
-];
+const requiredWorkflowInputs = {
+  "native-release.yml": [
+    "index.html",
+    "tsconfig.json",
+    "public/**",
+    "scripts/wasm-toolchain.mjs",
+    "scripts/verify-source-boundary.mjs"
+  ],
+  "rustore-assets.yml": ["tsconfig.json", "scripts/verify-source-boundary.mjs"]
+};
 
 const indentation = (line) => line.match(/^\s*/)?.[0].length ?? 0;
 
@@ -76,11 +79,9 @@ for (const name of workflowFiles) {
   if (/\bcargo\s+(?:install|binstall)\b[^\n]*\bcargo-audit\b/.test(text) || /\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bcargo-audit\b/.test(text)) {
     violations.push(`${file}: cargo-audit must be installed by scripts/install-cargo-audit.mjs`);
   }
-  if (name === "native-release.yml") {
-    for (const input of nativeReleaseInputs) {
-      if (!text.includes(`      - ${input}\n`)) {
-        violations.push(`${file}: native release trigger must include ${input}`);
-      }
+  for (const input of requiredWorkflowInputs[name] ?? []) {
+    if (!text.includes(`      - ${input}\n`)) {
+      violations.push(`${file}: workflow trigger must include ${input}`);
     }
   }
 
