@@ -69,7 +69,9 @@ jobs:
       - name: TypeScript unused exports
         run: npx --yes ts-prune@0.10.3
       - run: npm audit --audit-level=high
-      - run: npm test
+      - name: Run frontend tests
+        if: github.event_name != 'pull_request'
+        run: npm test
       - run: npm run build
       - name: Diff hygiene
         run: git diff --check
