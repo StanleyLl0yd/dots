@@ -47,6 +47,37 @@ jobs:
           cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets --locked -- -D warnings
       - name: Validate workflow YAML
         run: npx --yes prettier@3.6.2 .github/workflows/*.yml >/dev/null
+      - name: Validate maintenance script syntax
+        shell: bash
+        run: |
+          for file in scripts/*.mjs; do
+            [ -e "$file" ] || continue
+            node --check "$file"
+          done
+          for file in scripts/*.sh; do
+            [ -e "$file" ] || continue
+            bash -n "$file"
+          done
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          for path in Path("scripts").glob("*.py"):
+              ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+          PY
+          pwsh -NoLogo -NoProfile -Command '
+          $failed = $false
+          Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
+              $tokens = $null
+              $parseErrors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+              foreach ($parseError in $parseErrors) {
+                  Write-Host "$($_.FullName): $parseError"
+                  $failed = $true
+              }
+          }
+          if ($failed) { exit 1 }
+          '
       - name: Baseline repository statistics
         shell: bash
         run: |
