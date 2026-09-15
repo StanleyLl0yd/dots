@@ -214,7 +214,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
         .copied()
         .filter(|stone| stone.player == owner && !excluded.contains(&stone.point()))
         .collect();
-    let by_point: HashMap<Point, Stone> = owner_stones.iter().copied().map(|stone| (stone.point(), stone)).collect();
+    let owner_points: HashSet<Point> = owner_stones.iter().map(|stone| stone.point()).collect();
     let mut neighbors: HashMap<Point, Vec<Point>> = HashMap::new();
 
     for stone in &owner_stones {
@@ -224,7 +224,7 @@ fn extract_faces(state: &GameState, owner: Player, excluded: &HashSet<Point>) ->
                 x: stone.x + dx,
                 y: stone.y + dy,
             };
-            if by_point.contains_key(&point) {
+            if owner_points.contains(&point) {
                 adjacent.push(point);
             }
         }
