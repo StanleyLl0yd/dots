@@ -23,7 +23,6 @@ export default defineConfig(({ command }) => ({
     }
   },
   build: {
-    minify: "esbuild",
     sourcemap: false,
     target: "es2022"
   },
