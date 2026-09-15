@@ -54,6 +54,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.11"
+
       - name: Download pinned Android JDK
         shell: bash
         run: |
@@ -96,7 +101,16 @@ jobs:
           npm ci
           npm audit --audit-level=high
           npm test
-          python3 -m pip install --disable-pip-version-check pillow==11.3.0
+
+          PILLOW_WHEEL="$RUNNER_TEMP/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output "$PILLOW_WHEEL" \
+            "https://files.pythonhosted.org/packages/84/21/a35af28dcc61f37ed850a2d64c65c701321dfbf25085e469d5559360cbbf/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+          printf '%s  %s\n' \
+            '78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91' \
+            "$PILLOW_WHEEL" | sha256sum --check --status
+          python -m pip install --disable-pip-version-check --no-deps "$PILLOW_WHEEL"
+          python -c 'import PIL; assert PIL.__version__ == "12.3.0", PIL.__version__'
 
       - name: Configure Android toolchain
         run: |

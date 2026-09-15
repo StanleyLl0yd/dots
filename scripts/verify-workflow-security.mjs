@@ -51,6 +51,8 @@ const runBlock = (lines, index) => {
   return block.join("\n");
 };
 
+const pipInstallPattern = /\b(?:python3?\s+-m\s+pip|pip3?)\s+install\b/;
+
 for (const name of workflowFiles) {
   const file = path.join(workflowDir, name);
   const text = fs.readFileSync(file, "utf8");
@@ -105,15 +107,22 @@ for (const name of workflowFiles) {
       }
 
       let jobUsesNodeCommand = false;
+      let jobUsesPipInstall = false;
       for (let i = start; i < end; i += 1) {
         if (!/^\s*(?:-\s*)?run:/.test(lines[i])) continue;
-        if (/(?:^|\s)(?:node|npm|npx)(?:\s|$)/m.test(runBlock(lines, i))) {
+        const script = runBlock(lines, i);
+        if (/(?:^|\s)(?:node|npm|npx)(?:\s|$)/m.test(script)) {
           jobUsesNodeCommand = true;
-          break;
+        }
+        if (pipInstallPattern.test(script)) {
+          jobUsesPipInstall = true;
         }
       }
       if (jobUsesNodeCommand && !/uses:\s*actions\/setup-node@[0-9a-f]{40}/.test(block)) {
         violations.push(`${file}:${start + 1}: job ${job} runs node/npm/npx without a SHA-pinned actions/setup-node step`);
+      }
+      if (jobUsesPipInstall && !/uses:\s*actions\/setup-python@[0-9a-f]{40}/.test(block)) {
+        violations.push(`${file}:${start + 1}: job ${job} installs Python packages without a SHA-pinned actions/setup-python step`);
       }
     }
   }
@@ -161,6 +170,19 @@ for (const name of workflowFiles) {
       }
       if (/\b(?:curl|wget)\b[^\n|]*\|\s*(?:ba)?sh\b/.test(script)) {
         violations.push(`${file}:${index + 1}: downloaded content must not be piped directly to a shell`);
+      }
+
+      if (pipInstallPattern.test(script)) {
+        const pipLine = script.split(/\r?\n/).find((item) => pipInstallPattern.test(item)) ?? "";
+        if (/https?:\/\/|==/.test(pipLine)) {
+          violations.push(`${file}:${index + 1}: Python packages must be installed from a locally verified artifact, not directly from an index or URL`);
+        }
+        if (!/\s--no-deps(?:\s|$)/.test(pipLine)) {
+          violations.push(`${file}:${index + 1}: verified Python package installs must use --no-deps`);
+        }
+        if (!/sha256sum\s+--check/.test(script)) {
+          violations.push(`${file}:${index + 1}: Python package artifacts must be SHA-256 verified before installation`);
+        }
       }
 
       const installsWasmBindgen = /\bcargo\s+(?:install|binstall)\b[^\n]*\bwasm-bindgen-cli\b/.test(script) || /\bbrew\s+install\b[^\n]*\bwasm-bindgen(?:-cli)?\b/.test(script);
