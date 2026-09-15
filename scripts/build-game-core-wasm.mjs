@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, rmSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveWasmToolchain } from "./wasm-toolchain.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(root, "src/wasm");
@@ -15,6 +16,8 @@ const run = (command, args) => {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} failed with exit code ${result.status}`);
 };
+
+const { wasmBindgen, wasmOpt } = await resolveWasmToolchain();
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
@@ -35,7 +38,7 @@ run("cargo", [
 
 if (!existsSync(sourceWasm)) throw new Error(`Missing compiled WASM: ${sourceWasm}`);
 
-run("wasm-bindgen", [
+run(wasmBindgen, [
   sourceWasm,
   "--target",
   "web",
@@ -46,7 +49,7 @@ run("wasm-bindgen", [
   "game_core"
 ]);
 
-run("wasm-opt", [
+run(wasmOpt, [
   outputWasm,
   "-Oz",
   "--enable-bulk-memory",
