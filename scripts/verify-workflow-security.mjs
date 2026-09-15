@@ -67,6 +67,9 @@ for (const name of workflowFiles) {
   if (/^\s*persist-credentials:\s*true\s*$/m.test(text)) {
     violations.push(`${file}: checkout credentials must never be persisted`);
   }
+  if (/cargo\s+install\s+cargo-audit\b/.test(text)) {
+    violations.push(`${file}: cargo-audit must be installed by scripts/install-cargo-audit.mjs`);
+  }
   if (!legacyWasmBootstrapWorkflows.has(name)) {
     if (/cargo\s+install\s+wasm-bindgen-cli\b/.test(text)) {
       violations.push(`${file}: wasm-bindgen CLI must be resolved by scripts/wasm-toolchain.mjs`);
