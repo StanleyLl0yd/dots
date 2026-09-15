@@ -42,4 +42,19 @@ for (const [source, version] of versions) {
   }
 }
 
-console.log(`Verified source version ${expected} across npm, Rust, and Tauri manifests.`);
+const rustoreMetadataPath = "store/rustore/metadata-ru.md";
+const rustoreMetadata = fs.readFileSync(rustoreMetadataPath, "utf8");
+const rustoreVersion = rustoreMetadata.match(/^- Version name: `([^`]+)`\s*$/m)?.[1];
+if (rustoreVersion !== expected) {
+  throw new Error(`Version mismatch: ${rustoreMetadataPath} has ${String(rustoreVersion)}, expected ${expected}`);
+}
+if (!rustoreMetadata.includes(`## What's new — ${expected}\n`)) {
+  throw new Error(`${rustoreMetadataPath}: missing What's new heading for ${expected}`);
+}
+
+const rustoreWhatsNewPath = `store/rustore/console-copy/05-whats-new-${expected}.txt`;
+if (!fs.existsSync(rustoreWhatsNewPath) || !fs.readFileSync(rustoreWhatsNewPath, "utf8").trim()) {
+  throw new Error(`${rustoreWhatsNewPath}: missing or empty RuStore What's New copy`);
+}
+
+console.log(`Verified source/store version ${expected} across npm, Rust, Tauri, and RuStore metadata.`);
