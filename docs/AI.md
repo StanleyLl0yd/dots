@@ -68,7 +68,9 @@ Hard and Expert also use a small quiescence-style extension at the nominal horiz
 
 ## Search caches
 
-Every `choose_ai_move()` call creates fresh in-memory caches for evaluation, search results, canonical state signatures, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes.
+Every `choose_ai_move()` call creates fresh in-memory caches for evaluation, search results, inactive captured-stone sets, connected components, closure pressure, capture-threat probes, and setup probes. State signatures are computed as cache keys; they are not persistent state and are not maintained in a separate signature cache.
+
+Seed generation resolves the inactive-stone set and both color connectivity maps once for the current immutable position, then reuses those maps while ranking frontier candidates. This is a derived-state optimization only; candidate scores and search policy are unchanged.
 
 The transposition signature includes player-to-move, score, all stones, and active capture owner/boundary/captured geometry. Cache entries exist only for the current AI move and are discarded afterward, so they cannot become persistent or authoritative state.
 
@@ -84,7 +86,7 @@ The CI suite includes short paired Expert-vs-Normal and Expert-vs-Hard positions
 
 `crates/game-core/src/regression_tests.rs` contains six deterministic fixed Expert tactical positions. They cover a two-target immediate capture, a mandatory one-point threat block, rejecting a tempting empty false closure, avoiding a hostile empty house, choosing counter-capture when two independent threats cannot both be blocked, and surrounding an active capture to release a held stone.
 
-All six are required tests in 0.8.1. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
+All six are required regression tests in 1.0.0. A position discovered as a real AI weakness may be introduced as an explicit known gap during investigation, but a released fix must promote it to an ordinary required regression rather than weakening the expected result.
 
 ## Browser Worker isolation
 
@@ -92,7 +94,7 @@ Browser orchestration runs `src/game/ai-worker.ts` as a dedicated Web Worker. Th
 
 The Worker returns only the request generation and a proposed coordinate (or an error). The browser rejects stale generations and still calls `playMove()` before a move can enter session history or persistence. Undo, New game, mode/difficulty changes, page hide, and hidden-document transitions can terminate active Worker work. If Blue remains to move after a legitimate cancellation, foreground scheduling starts a fresh calculation.
 
-Version **0.9.1** hardens generation ownership so stale or cancelled timer/Worker callbacks cannot clear the thinking state of a newer computer request. Search depth, evaluation, deterministic tie-breaking, difficulty behavior, and tactical benchmark expectations remain unchanged.
+Dots 1.0.0 includes the generation-ownership hardening introduced in 0.9.1, so stale or cancelled timer/Worker callbacks cannot clear the thinking state of a newer computer request. Search depth, evaluation, deterministic tie-breaking, difficulty behavior, and tactical benchmark expectations remain unchanged.
 
 This keeps long Hard/Expert calculations off the UI thread without changing search depth, evaluation, deterministic tie-breaking, tactical benchmarks, or game rules. Production verification requires the generated `ai-worker-*.js` asset.
 
@@ -118,6 +120,6 @@ AI difficulty is stored in preference format version 3 together with game mode a
 
 ## Current strength
 
-Version **0.9.4** retains the bounded deterministic AI policy established in 0.8.1: the fixed tactical suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moves browser computation into an isolated Worker and optimizes ephemeral derived-state caches without changing search depth, weights, deterministic tie-breaking, or benchmark expectations.
+Version **1.0.0** retains the bounded deterministic AI policy established by the earlier tactical work: the fixed suite covers missed multi-target immediate capture, self-capturing entry into an opponent house, defensive blocking, counter-capture, false closures, and capture-of-capture release. Later 0.9.x work moved browser computation into an isolated Worker; 1.0.0 keeps the same search policy while reusing ephemeral per-position component maps to reduce repeated derived-state work during seed ranking.
 
 The engine remains a bounded tactical opponent rather than a solved-game system. Future strength work should be justified by concrete failing positions or match regressions and must preserve deterministic legality and browser/PWA responsiveness.
