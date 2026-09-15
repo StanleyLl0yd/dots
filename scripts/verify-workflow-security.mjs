@@ -9,7 +9,13 @@ const workflowFiles = fs
 
 const shaRef = /^[0-9a-f]{40}$/;
 const violations = [];
-const legacyWasmBootstrapWorkflows = new Set(["native-release.yml"]);
+const nativeReleaseInputs = [
+  "index.html",
+  "tsconfig.json",
+  "public/**",
+  "scripts/wasm-toolchain.mjs",
+  "scripts/verify-source-boundary.mjs"
+];
 
 const indentation = (line) => line.match(/^\s*/)?.[0].length ?? 0;
 
@@ -70,12 +76,11 @@ for (const name of workflowFiles) {
   if (/\bcargo\s+(?:install|binstall)\b[^\n]*\bcargo-audit\b/.test(text) || /\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bcargo-audit\b/.test(text)) {
     violations.push(`${file}: cargo-audit must be installed by scripts/install-cargo-audit.mjs`);
   }
-  if (!legacyWasmBootstrapWorkflows.has(name)) {
-    if (/\bcargo\s+(?:install|binstall)\b[^\n]*\bwasm-bindgen-cli\b/.test(text) || /\bbrew\s+install\b[^\n]*\bwasm-bindgen(?:-cli)?\b/.test(text)) {
-      violations.push(`${file}: wasm-bindgen CLI must be resolved by scripts/wasm-toolchain.mjs`);
-    }
-    if (/\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bbinaryen\b/.test(text)) {
-      violations.push(`${file}: Binaryen must be resolved by scripts/wasm-toolchain.mjs`);
+  if (name === "native-release.yml") {
+    for (const input of nativeReleaseInputs) {
+      if (!text.includes(`      - ${input}\n`)) {
+        violations.push(`${file}: native release trigger must include ${input}`);
+      }
     }
   }
 
@@ -143,6 +148,24 @@ for (const name of workflowFiles) {
       }
       if (/\b(?:curl|wget)\b[^\n|]*\|\s*(?:ba)?sh\b/.test(script)) {
         violations.push(`${file}:${index + 1}: downloaded content must not be piped directly to a shell`);
+      }
+
+      const installsWasmBindgen = /\bcargo\s+(?:install|binstall)\b[^\n]*\bwasm-bindgen-cli\b/.test(script) || /\bbrew\s+install\b[^\n]*\bwasm-bindgen(?:-cli)?\b/.test(script);
+      const installsBinaryen = /\b(?:apt(?:-get)?\s+install|brew\s+install)\b[^\n]*\bbinaryen\b/.test(script);
+      if (installsWasmBindgen || installsBinaryen) {
+        const [start, end] = stepBounds(lines, index);
+        const step = lines.slice(start, end).join("\n");
+        const legacyFallback =
+          name === "native-release.yml" &&
+          step.includes("if: ${{ hashFiles('scripts/wasm-toolchain.mjs') == '' }}");
+        if (!legacyFallback) {
+          violations.push(`${file}:${index + 1}: WASM tools must be resolved by scripts/wasm-toolchain.mjs outside the guarded native legacy fallback`);
+        } else if (
+          installsWasmBindgen &&
+          !/\bcargo\s+install\s+wasm-bindgen-cli\s+--version\s+0\.2\.127\s+--locked\b/.test(script)
+        ) {
+          violations.push(`${file}:${index + 1}: native legacy wasm-bindgen fallback must stay pinned to 0.2.127 --locked`);
+        }
       }
     }
   }
