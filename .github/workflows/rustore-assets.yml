@@ -223,6 +223,7 @@ jobs:
       - name: Verify RuStore assets and ASO copy
         run: |
           python3 - <<'PY'
+          import os
           from pathlib import Path
           from PIL import Image
 
@@ -256,7 +257,8 @@ jobs:
           subtitle = (copy / '02-subtitle.txt').read_text().strip()
           short = (copy / '03-short-description.txt').read_text().strip()
           full = (copy / '04-full-description.txt').read_text().strip()
-          whats_new = (copy / '05-whats-new-1.0.0.txt').read_text().strip()
+          version = os.environ['VERSION']
+          whats_new = (copy / f'05-whats-new-{version}.txt').read_text().strip()
           if not name or len(name) > 30:
               raise SystemExit(f'RuStore name length invalid: {len(name)}')
           if not subtitle or len(subtitle) > 80:
