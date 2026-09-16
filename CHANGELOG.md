@@ -4,6 +4,21 @@ All notable project changes are recorded here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-16
+
+### Fixed
+
+- made capture polygon orientation and point-in-polygon tests use exact integer arithmetic at JavaScript-safe coordinate extremes, removing precision-loss edge cases without changing capture rules or scoring;
+- treat an empty persisted JSON value as malformed data and remove it through the existing fail-closed cleanup path while preserving save schema version 1.
+
+### Changed
+
+- reduced AI seed-scoring overhead by reusing immutable component maps and reduced capture/Canvas/autosave allocations without changing AI policy, move ordering, evaluation weights, gameplay rules, scoring, or persistence format;
+- moved native Tauri AI computation off the main thread, tightened start-menu focus handling, document language/accessibility behavior, local Web Audio cleanup, and viewport/capture rendering internals;
+- upgraded the verified application/tooling baseline including Tauri 2.11.5, tauri-plugin-opener 2.5.5, Vitest 5.0.1, Vite 8.3.0, and vite-plugin-pwa 1.3.0 after full regression validation;
+- hardened release, WASM, RustSec, generated-asset, CodeQL, RuStore, Node, Python/Pillow, Android JDK, and provenance checks, including version-bound RuStore metadata and reproducible store assets;
+- refreshed and ASO-optimized RuStore publisher copy and screenshots while keeping the storefront product name, offline/privacy model, and supported feature claims aligned with the shipped application.
+
 ## [1.0.0] - 2026-09-08
 
 ### Changed

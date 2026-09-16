@@ -1,6 +1,6 @@
 [package]
 name = "dots"
-version = "1.0.0"
+version = "1.0.1"
 description = "Dots cross-platform shell"
 authors = ["StanleyLl0yd"]
 edition = "2021"
