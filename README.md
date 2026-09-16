@@ -13,7 +13,7 @@
 [![PWA](https://img.shields.io/badge/PWA-ready-E11D48?labelColor=2b2925&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/dots/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=2b2925&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-game--core-B7410E?labelColor=2b2925&logo=rust&logoColor=ffffff)](https://www.rust-lang.org/)
-[![Source version](https://img.shields.io/badge/source-1.0.0-16A34A?labelColor=2b2925)](package.json)
+[![Source version](https://img.shields.io/badge/source-1.0.1-16A34A?labelColor=2b2925)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=2b2925)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=2b2925)](README.md)
@@ -27,7 +27,7 @@ A minimalist digital version of the classic **Dots / Tochki** surround-and-captu
 
 **Dots** turns squared paper and two colored pens into a clean browser game. Players place dots on grid intersections and build neighboring-dot boundaries around the opponent. Completed captures are outlined and lightly hatched.
 
-Current source version: **1.0.0** · stable RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
+Current source version: **1.0.1** · stable RuStore-ready AAB release + native Tauri shell + classic advanced rules + four-level local computer play + hardened Worker/PWA lifecycle + audited reproducible toolchain
 
 ## 🎯 Rules
 
