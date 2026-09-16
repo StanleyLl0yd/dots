@@ -1,0 +1,175 @@
+name: Prepare Dots 1.0.1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/prepare-release-1.0.1.yml
+
+permissions: {}
+
+concurrency:
+  group: prepare-release-1.0.1
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Guard release source
+        env:
+          EXPECTED_V100_SHA: cd3fe0abd53beb6b57712e8ae5f938fc1819c9d0
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./package.json').version")" = "1.0.0"
+          if git ls-remote --exit-code --tags origin refs/tags/v1.0.1 >/dev/null 2>&1; then
+            echo "v1.0.1 already exists" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin refs/heads/release/1.0.1 >/dev/null 2>&1; then
+            echo "release/1.0.1 already exists" >&2
+            exit 1
+          fi
+          V100_SHA="$(git ls-remote --tags origin 'refs/tags/v1.0.0^{}' | awk '{print $1}')"
+          if [[ -z "$V100_SHA" ]]; then
+            V100_SHA="$(git ls-remote --tags origin refs/tags/v1.0.0 | awk '{print $1}')"
+          fi
+          test "$V100_SHA" = "$EXPECTED_V100_SHA"
+
+      - name: Prepare release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git switch -c release/1.0.1
+
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          OLD = "1.0.0"
+          NEW = "1.0.1"
+
+          def replace_count(path: str, old: str, new: str, expected: int = 1) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              actual = text.count(old)
+              if actual < expected:
+                  raise SystemExit(f"{path}: expected at least {expected} occurrence(s) of {old!r}, found {actual}")
+              target.write_text(text.replace(old, new, expected), encoding="utf-8")
+
+          replace_count("package.json", '"version": "1.0.0"', '"version": "1.0.1"')
+          replace_count("package-lock.json", '"version": "1.0.0"', '"version": "1.0.1"', 2)
+          replace_count("crates/game-core/Cargo.toml", 'version = "1.0.0"', 'version = "1.0.1"')
+          replace_count("src-tauri/Cargo.toml", 'version = "1.0.0"', 'version = "1.0.1"')
+          replace_count("src-tauri/tauri.conf.json", '"version": "1.0.0"', '"version": "1.0.1"')
+
+          def bump_lock_package(path: str, package: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              pattern = re.compile(
+                  rf'(\[\[package\]\]\nname = "{re.escape(package)}"\nversion = "){re.escape(OLD)}(")'
+              )
+              updated, count = pattern.subn(rf'\g<1>{NEW}\2', text, count=1)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one {package} {OLD} package entry, found {count}")
+              target.write_text(updated, encoding="utf-8")
+
+          bump_lock_package("crates/game-core/Cargo.lock", "game-core")
+          bump_lock_package("src-tauri/Cargo.lock", "dots")
+          bump_lock_package("src-tauri/Cargo.lock", "game-core")
+
+          replace_count("README.md", "source-1.0.0-", "source-1.0.1-")
+          replace_count("README.md", "Current source version: **1.0.0**", "Current source version: **1.0.1**")
+          replace_count("README_RU.md", "source-1.0.0-", "source-1.0.1-")
+          replace_count("README_RU.md", "Текущая версия исходников: **1.0.0**", "Текущая версия исходников: **1.0.1**")
+
+          changelog_path = Path("CHANGELOG.md")
+          changelog = changelog_path.read_text(encoding="utf-8")
+          marker = "## [Unreleased]\n\n"
+          if changelog.count(marker) != 1:
+              raise SystemExit("CHANGELOG.md: unexpected Unreleased marker count")
+          release_section = """## [1.0.1] - 2026-09-16
+
+### Fixed
+
+- made capture polygon orientation and point-in-polygon tests use exact integer arithmetic at JavaScript-safe coordinate extremes, removing precision-loss edge cases without changing capture rules or scoring;
+- treat an empty persisted JSON value as malformed data and remove it through the existing fail-closed cleanup path while preserving save schema version 1.
+
+### Changed
+
+- reduced AI seed-scoring overhead by reusing immutable component maps and reduced capture/Canvas/autosave allocations without changing AI policy, move ordering, evaluation weights, gameplay rules, scoring, or persistence format;
+- moved native Tauri AI computation off the main thread, tightened start-menu focus handling, document language/accessibility behavior, local Web Audio cleanup, and viewport/capture rendering internals;
+- upgraded the verified application/tooling baseline including Tauri 2.11.5, tauri-plugin-opener 2.5.5, Vitest 5.0.1, Vite 8.3.0, and vite-plugin-pwa 1.3.0 after full regression validation;
+- hardened release, WASM, RustSec, generated-asset, CodeQL, RuStore, Node, Python/Pillow, Android JDK, and provenance checks, including version-bound RuStore metadata and reproducible store assets;
+- refreshed and ASO-optimized RuStore publisher copy and screenshots while keeping the storefront product name, offline/privacy model, and supported feature claims aligned with the shipped application.
+
+"""
+          changelog_path.write_text(changelog.replace(marker, marker + release_section, 1), encoding="utf-8")
+
+          whats_new = """Dots 1.0.1 — быстрее и стабильнее классическая игра «Точки» офлайн.
+
+Что улучшено:
+
+- ускорена работа компьютерного соперника на сложных позициях;
+- повышена надёжность расчёта окружений и захватов;
+- улучшена отзывчивость игрового поля и доступность стартового меню;
+- исправлена очистка повреждённого локального сохранения;
+- обновлены внутренние компоненты и стабильность Android-сборки.
+
+Правила игры, 4 уровня сложности, режим вдвоём на одном устройстве и игра против компьютера сохранены. Dots по-прежнему работает без рекламы, регистрации, покупок и аналитики — интернет для игры не нужен.
+"""
+
+          old_whats_new = Path("store/rustore/console-copy/05-whats-new-1.0.0.txt")
+          new_whats_new = Path("store/rustore/console-copy/05-whats-new-1.0.1.txt")
+          if not old_whats_new.exists() or new_whats_new.exists():
+              raise SystemExit("Unexpected RuStore What's New file state")
+          new_whats_new.write_text(whats_new, encoding="utf-8")
+          old_whats_new.unlink()
+
+          metadata_path = Path("store/rustore/metadata-ru.md")
+          metadata = metadata_path.read_text(encoding="utf-8")
+          metadata = metadata.replace("- Version name: `1.0.0`", "- Version name: `1.0.1`", 1)
+          pattern = re.compile(
+              r"## What's new — 1\.0\.0\n\n.*?\nThis store-facing text intentionally summarizes the user-visible result accumulated since 0\.9\.3\. Internal implementation history belongs in repository/release notes, not in the RuStore customer-facing changelog\.",
+              re.S,
+          )
+          replacement = (
+              "## What's new — 1.0.1\n\n"
+              + whats_new.strip()
+              + "\n\nThis store-facing text intentionally summarizes user-visible changes since 1.0.0. Internal implementation history belongs in repository/release notes, not in the RuStore customer-facing changelog."
+          )
+          metadata, count = pattern.subn(replacement, metadata, count=1)
+          if count != 1:
+              raise SystemExit("store/rustore/metadata-ru.md: failed to replace 1.0.0 What's New section")
+          metadata_path.write_text(metadata, encoding="utf-8")
+
+          helper = Path(".github/workflows/prepare-release-1.0.1.yml")
+          if not helper.exists():
+              raise SystemExit("release preparer workflow unexpectedly missing")
+          helper.unlink()
+          PY
+
+          npm run verify:version
+          git diff --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Prepare Dots 1.0.1"
+
+          gh auth setup-git
+          git push --set-upstream origin release/1.0.1
